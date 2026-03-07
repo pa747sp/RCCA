@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- RCCA v2.1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -4243,8 +4244,7 @@ function BulkImportSection({ members, setMembers, cars, setCars, dues, setDues }
     var vCols="make,model,year,colour,reg,chassis,status,notes,ownerEmail,registered";
     var mEx='"Jane Smith","jane@example.com","0412345678","City Membership","active","VIC","2024-01-15","005","changeme123"';
     var vEx='"Rover","P6 3500S","1972","Zircon Blue","ABC-123","35D2BH321C","active","Notes","jane@example.com","2024-03-01"';
-    var csv=(type==="members"?mCols:vCols)+"
-"+(type==="members"?mEx:vEx);
+    var csv=(type==="members"?mCols:vCols)+"\n"+(type==="members"?mEx:vEx);
     var a=document.createElement("a");
     a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
     a.download="rcca_"+type+"_template.csv";
