@@ -2609,20 +2609,25 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
   );
 }
 
-// ── Cross-script globals ──────────────────────────────────────────────────────
-window._rcca = { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
-  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
-  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
-  dbGet, dbSet, getCats, DEFAULT_CATEGORIES };
+
+const DEFAULT_CATEGORIES = {
+  memberType:   ["City","Country","Associate","Life","Honorary"],
+  eventType:    ["show","drive","social","charity","competition"],
+  meetingType:  ["general","committee","extraordinary","social"],
+  taskPriority: ["high","medium","low"],
+  listingType:  ["sell","wanted","swap"],
+  listingCat:   ["car","parts","memorabilia","manuals","tools","other"],
+  shopCat:      ["apparel","badges","publications","merchandise","tools","other"],
+  expenseCat:   ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
+  dietary:      ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
+  vehicleStatus:["active","sold","destroyed","restoration"],
+  taskTag:      ["admin","legal","events","nationals","design","maintenance","finance"],
+};
+
+function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...categories} : DEFAULT_CATEGORIES; }
 </script>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback } = React;
-// ── Import cross-script globals ───────────────────────────────────────────────
-const { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
-  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
-  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
-  dbGet, dbSet, getCats, DEFAULT_CATEGORIES } = window._rcca;
+<script type="text/babel" data-presets="react">// ── Import cross-script globals ───────────────────────────────────────────────
 
 function PublicNav({ page, setPage, onLoginClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -4482,15 +4487,8 @@ function App() {
 
 // render call moved to script 2
   
-</script>
 
-<script type="text/babel" data-presets="react">
-const { useState, useEffect, useCallback } = React;
 // ── Import cross-script globals ───────────────────────────────────────────────
-const { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
-  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
-  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
-  dbGet, dbSet, getCats } = window._rcca;
 
 
 function PhotoManager({ car, cars, setCars }) {
@@ -4685,22 +4683,6 @@ function BulkImportSection({ members, setMembers, cars, setCars, dues, setDues }
 // ══════════════════════════════════════════════════════════════════════════════
 // CATEGORIES
 // ══════════════════════════════════════════════════════════════════════════════
-const DEFAULT_CATEGORIES = {
-  memberType:   ["City","Country","Associate","Life","Honorary"],
-  eventType:    ["show","drive","social","charity","competition"],
-  meetingType:  ["general","committee","extraordinary","social"],
-  taskPriority: ["high","medium","low"],
-  listingType:  ["sell","wanted","swap"],
-  listingCat:   ["car","parts","memorabilia","manuals","tools","other"],
-  shopCat:      ["apparel","badges","publications","merchandise","tools","other"],
-  expenseCat:   ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
-  dietary:      ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
-  vehicleStatus:["active","sold","destroyed","restoration"],
-  taskTag:      ["admin","legal","events","nationals","design","maintenance","finance"],
-};
-
-function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...categories} : DEFAULT_CATEGORIES; }
-
 const CAT_META = {
   memberType:   {label:"Membership Types",       desc:"Types shown when adding members & in the application form"},
   eventType:    {label:"Event Types",             desc:"Types available when creating events"},
