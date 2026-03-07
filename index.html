@@ -2608,9 +2608,22 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
     </div>
   );
 }
+
+// ── Cross-script globals ──────────────────────────────────────────────────────
+window._rcca = { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
+  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
+  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
+  dbGet, dbSet, getCats, DEFAULT_CATEGORIES };
 </script>
 
 <script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+// ── Import cross-script globals ───────────────────────────────────────────────
+const { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
+  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
+  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
+  dbGet, dbSet, getCats, DEFAULT_CATEGORIES } = window._rcca;
+
 function PublicNav({ page, setPage, onLoginClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const links = [
@@ -4472,6 +4485,13 @@ function App() {
 </script>
 
 <script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback } = React;
+// ── Import cross-script globals ───────────────────────────────────────────────
+const { ST, SK, DEFAULT_SITE_CONTENT, CLUB_LOGO, RccaLogo, uid, yr, today,
+  SEED_MEMBERS, SEED_CARS, SEED_DUES, SEED_MEETINGS, SEED_EVENTS, SEED_TASKS,
+  SEED_RSVPS, SEED_LISTINGS, SEED_SHOP, SEED_NEWS, NAV,
+  dbGet, dbSet, getCats } = window._rcca;
+
 
 function PhotoManager({ car, cars, setCars }) {
   const MAX=20, photos=car.photos||[];
