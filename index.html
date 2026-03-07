@@ -90,6 +90,8 @@ const SK = {
   dues:"rcca:dues", rsvps:"rcca:rsvps", listings:"rcca:listings",
   shopItems:"rcca:shopItems", orders:"rcca:orders", cart:"rcca:cart",
   news:"rcca:news", siteContent:"rcca:siteContent", applications:"rcca:applications",
+  expenses:"rcca:expenses", finSettings:"rcca:finSettings",
+  permits:"rcca:permits", tripLogs:"rcca:tripLogs",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -137,7 +139,7 @@ async function dbGet(k) { try { const r=await window.storage.get(k); return r?JS
 async function dbSet(k,v) { try { await window.storage.set(k,JSON.stringify(v)); } catch(e){console.error(e);} }
 
 // ── Club Logo ────────────────────────────────────────────────────────────────
-const CLUB_LOGO = "data:image/jpeg;base64,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";
+const CLUB_LOGO = "data:image/webp;base64,UklGRrY6AABXRUJQVlA4IKo6AACQsACdASosASwBPlEijkUjoiEVqmWUOAUEpu40XvxbGD8AEOZifoneK62WbfQv9L+/+j5yX4ZfVPHnta6vewfMc58/5P3c/Nz/d+rr+p/7j2Bf6/0PP3c9Rn7a/s77vP/O/dD3qf2//f+wN/UP7H/6uyJ/d/2LP3H9Ob93viJ/sP/T9ML//6yF5S/p/47+7rvg/Df2z8evTf8h+f/vv9t/b7+7e2tjb87/ofM3+Ofar8z/cf3I/uv7xfer+K/XHxf+P/976gv43/Nf8d/c/3C/wXqt7GK4XoBe4X1P/W/3v94/8/6Yn+b6J/Zr/me4D/Qv69/w/Xv/peFP+I/5nsC/0v+2/9v/J/mH9NH9N/6/85/q/3L9uP6N/mf/X/m/gL/nX9p/5P+P/Kf5xf//7m/3M///u3/td///+0gRvDV4SjO0zT//5DVx//+OC5rVET6QI5b/DzfzSKD5XRI4SWOXh90efr0KwdIZOPYvnHaSIfHVDtXeqOfOu+0j+M8KojKk1z+qiYbQYTIFmM/QAv1N2P53aq8zkIPI7uxbNINshmsQt+VW9dJ3LuG6MxHKo2sS4cNMzjk4YuyOjTQrJ0KdtBXD1m0HuMxIh3dH7w5p1to1+XQeSGYQJ9btlsgWf+2mhVaxrgSfnt0sLIU5OvhSYHdTEexT09KNbSqDOrs57LDSQcNDQeY+7Z2H1br8XIh0K3oAVGu8S7iG2ESRE1PA5DBJ1k87dQ0tp1FZYjuS4nwKB2K2EhMn+aQz3u5UOfSh4tW3GP1TqB3nx2xdhfeRBeq9rxsnvsBfoj1UUL883Lq2i4f6hfh3KaxugQjFWs5OVQrRc8aDYxSrL7nLixFZWY5um2j+gE0LhPIDiohmYzDrR5hmjY2QBqpx96qZR7/LSyWAeeI8QoTxZF+VBqJvNTgglJEZv9KvByGT/KljUgh7oso/2jd/w47Q3o741J0dtXIiPwr4xaq1+YLMcc7/8Yxn1Q0hQvXbGnXClmhSf/38QSabyiBkVVsPpZBtB3WJ6ymRlcKh2u+wSLOL9KzjX+KX827hhPRVZamsBTru6rFthKtLaAzg5wVeUvlcRWCDUtpxrq4Qbw/HDhTL+a66pSN2EO4DYusD2cEkVIqXmoxwPKU6vXhMSATRTvmrLUNzs10RdpR8lNCTIWunipZlR0Pi1NUaHuj5kyA3y4fb/S9rN2+NApitGB/PKmYvHy/0oukWRydDpqu/0PIyzhYePDnsM3bPEdbRDCAFGY4qjQV42BZSHtZ9Ju/N03jo9VWYaI4+SrT//ZuL85H/V4itJvl48MIgDaqO5D9s3ImCqUkDGBhvrb21sDO5VfPOJh6yfIVEUo01Wy+N6EWU6uIq0zwD61B7IG1UfpQCCryy8Vxgv92+jBtQ0ihxT4a/cvg6qGXHcRkrI+IPw5IIutYUS3fJfqyQ/3WfLVzlNNE6s9BgJkT2M8FiL/5tgXsUz5cEeGX70Hyv3IbbJxqGqIyMw6US9NDPxXSObXAHl4qrQCTRTtuDjpwM+yPBlbxDfLo/+z/HVhmXQY8+WuvSRIyK1y4tmZkoH3jb4HyfWlXVzbDNJ82QVnqJp1aWMQQQV+GwpmHLfp/mxBjfgVoT6qBnnWPbFMcU3JIujL5retBpM/nj/kyEkSutnANV8UMn0KKVyJ3zKytuVsbiHTPdkUFWsHXJywdDruOFZj0JM5EITK38gL26LSyRjVAl0KdP6lsVHZOflZ0q8E7uW4ZV9yPsrjT73Hy6+p/dgjGJfx7wAjVsBSm5lq34QEWt0A6Wy8txkL5uqVX2NoP7d7xR9SrtuD4If/2b+v8Df3owl9Co3iiSzEeJ4blR/vnMzExShLqA3T32eEZI/9i8RsmBOPYvoVG8PpKVspNV49CnYAD++ELDHf6dTQe62nBKzZmO/CmK9bGyHjLS80dbLlcmeu/FF8fJDo11O/YoIvTcODUnhEKI4wEgpzivC69KbWCb5Dq/tGnxA01cUhidksuvohUizITV0Jo5sjkuvplO0gotdoYVHpW2ARbXzLQ+FVr5sWSgpW0kw6YmquvqLRjKor+OQ1wjuxc8VfzJMCjr7l5g+ziimE43Xdt8qB2CLpXjohQ1EfnQOl5sPLpc/5n+uWmW1zOvG1ZFkiNywZzyu4qbrnfv9F3qQE34N64VIeZWEoibbOC5l1v/hr+C1AdRTQXsluJhxjRGOe8HdwJg7wKo39WkkGxJW7BRpcxZauAzYtH/Q05IY+eJswnily0k6wnfgvxUedmz1iDSp7q1O8clGpXtD+e6uAqXdZrodr7A+0c3t8dIlBQmW0HHcIu93pYO6xmwFRWmlafP2p3nTNY0jmIfeMGFXuiFvEZqEafXRB+zrQI6yh35fsg2HyvdqUR3aJiFI81JDMbvz/xf5JFfupHMdOOPTrpyu5+yXS88oa38i9M5iUvnc3L1JLT/7DBYpJ1nJWjYsEv37Y01Dvbm0BgEKyOhbUiFrJAjr8iRO6RL+62isp8VUqM2WLlSnXhmHR/gpNqXmllaqPQCGNBJtM1TXLTcuk+HPvYyuK7fy4/AkaN+oDYi1VgWKpWU4so80LPisAkKATOL3gIqesGi8JX9a+BO0uvQFBEHo3ZNjOf/5Y+U7O01Aku8qrygCz33g8U3bWIdUyS5r10xH97CI1mLHK5YIxy/fvRfpNnlMaRYITi1AyB1a67rpC1ddzWuRlL+iLGm0NrSviohnRitVMd6jWY4ob8jcJul0cjV2RdhhXijupyMFxKrAHwhQxM1fdlFGXKRe20UkXPw5bqOsk1rXZTxbB5oKZHY8PShnS5KgES/9nM5d+lJ7GnbeDW0MZO+SRwoxXQsptschI4PbiPV2huCjRGu0eMUbM/tRmvIWvaG0jVVYuI/tb4F3xL89yBO344v+qFWOTwFzm1ixzFiVD53oUS+BHlf18IKncyarGuqgy3g2qylN+zHWIyuymOaemNTidskEcTNTD1tF1k0IygY0IloMGSe5mwythg1XWM2F9yLvWswBNNlY/2epzgTdLiXKnsRf2WdIuVAO3eWy1RGchWUIw5Lsp0tBrjcTF0/+DTarlRYk8H2dgXwunjo5g3/jstrTFtM8hqXOLDakC77TdKJDnhYgs0JH2aPCPvAP2k5Oi1UZ8dLzu3g/fTGj8jjIzCgTiAjNAbbtS0VzoSi5+zVgZZjwhIq6yLvUZwjDYmpUPZ9zZX5ypiQ+avZe0ZSQLx0lgSPwKq5Y9GNqWo/p9n5dvZn/zTzvweOE/8wZwnVCsxRtAr2sBsUq0UuFDqo1Ci/3+cZTpEb/8OEXEKXC6T+PK2crxoGZv4k1sbzZAtbHX9tVXufvMwJhDkjfImCuL42qVriv1fwGxd4O/nzY789ViTQCXNFZiaClib/KMX0NRRi9T+GAAMEEP5GE59mYKudTs3ZSEdykQbPDHT3Y9iSjBvaBP9olofuK2IyRlIb/6D2pzrXXJf4DiXNRQvaJ+/uj8yibPI6clcWZLo9qcyeWRNmZ/JTIOrZLFhLpGa7VveGIKPdzL4qosbg7yLYZHtpvpU5ekALHotB5bUZW3cBsRn9En21b3lpyQugXFelA/ISpc3E7XW1WWNpqVSEggGuXjfrJxVXc+NnD36AGRKK39rTd9nZa8ICO0HA+nvwCfAdGNiD+vmAB3JP/8xRAz7n41oW2vC08W56mOp8/0IUF8Dho2yTJAds94ZzhZEDrrh7XRTSFEnttLQTGHD6BEvoKwJOQ/1Ix9MknuLWCSwjkiINvcSh/75Ba2pvGV6yT8zKqqA7K98GsHnYSI+Px1pJ1QO2maOW479HG91D4N7Zt9yGLUSeKsn0jmCot942fLJPObDhyK/fV2aTWu5LsUUMP9jVhXQDabrMpyhldd9bv9HRWYPLRuad38Az5pLUkYEW3KLcpwT4Ms/qPDEpNqA6txYc063Ez0YDJc5+QeBkN5j7iUZdLDYK+LkgY+CxITAbrIhSSXGQwfWIB/ADDNBcbti71K3rGQEIiqaWTxaJyQKrjH0+Hi10QiS4qGxi286NW0H5vDbdXmzPGlbTYYj1GpGWIfI9F8umtLKIhUsJ6VEohmhAgMTdd+9MFJDL9Qmcvr4uyDaAjnT6w4YTziiK1pGkBlB/ByJbOTLDhzYER1vgXC8kTXkdvHOrh/+E6Bcr0sn7O24IKSZj1C3tWTdG0NldNxQBMRTTTFfUYAzadjHEz/fgfARVqN6HyXASE/xc+FXpBb6FroMFCCNeLF6A7bCjzBEnyKakgxXnJOtuecEoyVasDHMX6cgoBoKFXidFuIPdJqA7ZRLg5y6QWmvvONM2cmAxZdxIRCUjXij8YSqVJ+Zv9BJLFgBcNsZ+5jK5mnxX7t+nMcegYj9EOWwrCWhGedb3fwAaGIRgb0DQIjzX5f12McQ+ceUScZ6JGRxn3NJYaRZWU6Y8ZS6Z0jXT63Bk+3ta1pAuBFwWv772MBcn91wMTMGSl6wp1msFEcm6TAYSVAxFa/NkNCz2hbUzVjjMl919XR0tXXzn4Kiq2/jUgvvxdLQ/+IhzY9odnkdKODY4JtG6QBss7DA05XO2vhK3X937WLa1Pcu+IzskNtkx5wMuMmrSZV9ku00AtVW5PyUmrgcbT8Tf3kti8mjPxNDH2fwFyMhyef4NNqdNwsxmLAb+/fWzxzNAqy0kEzqmhC809AlBpg0fHUWluPieMUFZgWKGQwlVeN3V1YF4SpIRU632sW0QeQx2jEQGxH1RzOGYcCjyFoOsTMY6oy93alA0xSGVyWc5UTg5TyLA7a0Mj8B4xA+GFx6b0utsf3KW2mfKHD4GH0ub2dPYkkKBkAZ2R1JnV6FBbzsW3kEsii0spf+NwUJMVhflvZO/GCxY/moGeK5RbCd8gN7nkueTLqme5YS7Ntke5FQTh6ehy7CZvO8m+z7XB5nYQ+E+kuRPatVEbyk32Er5ZFtyPHFN0J61Ghx32mvNAT3SRz9wWOzyAaI4hpHJ781CM9fnd8wsEylLT22tm9r+In2ZLKNq0AAAAU2qMUfWbG+GpPkPy2ypTVI3sDDVH2fShunxCzlEiKmj05FnrN1fuVMM8+rYYa+f566yn4doaoCYGtgHvNOU4j5LsNrF906hG53gZtnDHr34JEpfUQ7VHYhJlgQJHf/J3+AZgiMSlUJgsAN9WKFSyDwHmXtZj/uPkBLE/MvHetyxOZDfpyY3ktpxCcnsqoDitn540gvvwxD7UBQKPWexSkSL2joNs5kYwqm4+T1vleRhyCUo3HzkDe7SsiTV4PXiDmRr1qSH/ha4wzyC7465U5AjDtHGC2vETcuGqb6ngO2EdzqPmJbP2cGFHb4SUjlkDFD9e/3QU8FvumU7DEferKnucOVx9OhfSwwZTHr1XbxPeRdQMjFHSY3EuJLR5R5K69Nq7ULl+6Xvop8ij3RxZQjcJVe2orL+dDI3l1fMF8PEt9KuiiXWtUA5rrxUche0kYhZNDH8/q8RT85cHHfBi76V07rWZZJ6jCCImoHaMGvxeYGMMMKAv9tePxVbO8fO2NKr2ES7J3XH7qGELXElWyFCrf1rG7bXCmrF8dmHOK79zln0nvD9lzuM2v9tvMxDQU2DhaLbK7dAkS//8G2YvCBh9kEkYevlu5X0K7FmzRcfF8BNc9yddOgtiCftGiFbJOWLSiHGqSzme+LYS+im3zp1jcVLH1nC+XvBTRsNT9nrXwj6NzXSSeZI1JjSpNjfy8bc37rQtizs6MNvziJFlKtc5L87SgCJc6x3ZyllQB1+MTAJfceeDB4WeIVih6AJDfAR39MYbT6GZolD0j4NbevEBNq09+Bl5sewuLeTgRWoI3ThTpc8vc2k9LBSsu2pwKsQfqAdD2z2mSnnBaLHodpId/MbakyXhLnEpdK/mqKF6s+CVF73aEePXD0QiTIyGNvsB3JtDHzlA08sBlnpAZoO5vYCO6ignd7NZnXwJ7VhZHiopyOsooAl8vmigra5MSLjNom9/aXg5faCKiO1EqEyGO+D+wFuv7t4lH7+c3U/tci4zCZlUtNBDjJXCfEEMteD4ft7lR51hVIJz5YgYz9aRzlkGh3YA4RwmvZ+U+NSDQYQVanS8RcR4XJzF2V5YYpEfeCgDz78q9Wk6P6OWm/BNOxfaqfYuXuzJH6Saesc/Sbp3YuoKO8y956SLCFhomOYQAYkhXw03U2fjT20HwdpNSZwCmeH7wiGVMOP5E+3m+t1LmVLOhSUcFHu3PBiR8rp7l99JzF40uTS2DtJ2WFXwuLDmCQMxV46S094svjFlsyLzYluYrg7xZ/DetSy0CB7ECD8ArRBDFOxme9ZwMt8B+s2pdl/CdTDgPJYWC6w5rr4vzASUv1QEBb99tQpMIlIdZf2hZdNreJQIByDUyzkxWvtT4hqipOF/T24K0QlwxVnCPzLH7XW56ejSQbx9heeDEOOgPVDP8O44IFsoM0kuNcB6s04FNK/LNrJE+tjjEgc5RSYPFLh1hPRSsUOL+Hvnh/czw9/GrazYS5uPL31CfjY1Kn4zDwRlpnkn6OaQMeOh/ZkXJ8t6XhQCn1c7brEmv8Ek1pI8gHfDLwP4CFI2iNePXr9Hd8ckZSlg4BlmXOWeFlaujNUB5IwUxacTW65QS898+Q1RctIy5uhKqOZXwFuWxXKscC0RPcWwHMhLOSNijgyQ4yx7NAH9JZD3VGhc7/WiQh8eOMGw0HYpKSEC6oPyFcdYjX/AXhKpA4yZqEg2c8v/vIRcAmRb+N2jtYIDyi4tjh4IuXyro591jWsW8XRXVqSBaWY4p3W3xJAjewAcY1LOF3pR/xeyb1jBhEQ+Pv/C2ezlFxUf5gIi/x3Tt8T0QHHkWCDMfrNsRMSqAIQKb4t6q7n6XUfX27lGdR6lh/nQ9uOYDUYYW774QDphI1PDA4k9NHw12poZWqTz4f4cU7KU6t5s8j3lVy61hcSoCWa627IR6mDZmqQcnN/uyqahYenZM2pzuXmiBDOXgQBhItT8cUq3Nifi3rVqsPAZSiRXoHOG/6DZQuEoO7PRqkG+GEkx4iHAH2ye/4HS3HiseJdwNBJP1GU+BRZX7RWep9mF7VUp+AOg9GrbrhcidTlEwX+ls+ZCbCmbxQaitNhPgYaShDEIE7u1VTKRf7qWUPitB3cpOjEasLZHh3Nww008iEXfywRRlOFQhhvc8/wCD+N6kqR22C91q6s480TAM74Nok452jCjt+DrvZjndH0t5jA7ZzIs+kKD44JmAuiRzngkj57EZ7xNtCGh7dfKWAjl5RjOSJS/eO7B/r6RSWDcFvqaBldquCqNkeGBDnchO7JPnTh2WXR2SqDZDN1WQHMVywzrZz91FN6QcW/if5L8n5C75AA/9nPQrLcuqvda7OZ3Ich/8WGIg3X2jU6Usk5z6k6OKag+VfsHNliM20uf7fbJMvFnin40AIx7r3By5fPXowRvo9Lae6G3tK6fOuBjRwsztk1nAqpYfLBqWhM/CeneVzxf0ThLuPKvKuyUJzzshA6a0SmmMwsYaEfOJzhGDrp2d3Ab1VTtiTFYXVDXlDQKPy8Dw/vYQ9mzy1s+1xtmt3rqp/+ZKA0MjCRJMwu7yAwFzuQHaDDTwKELd9lvlRyA1RAdoSTU78P7aPR/1JaOaFavhsX7JA6Y5FzicYnopYcCScDgTMn2Tyt2JyMQWaLykfya6A34GIs+Tdw65zFTamri3nModticwM0iy00lp8DmdpDl7LGCNcPxz7T3RFSS55HB6kCrX8SMqbm/20yInP/JuDpftd67C0lUSkU/futjNa3y3ghVxhiz6cVDW2eZd0T2rdESnK4NME+fk+pmyaWyid6t+FC0NMWZDtdFMtz1aQ7an8T3zvnBRXp3iRMR//91Yc0MNKYXF5SyIlWoWZl4+pkAOIIsHByBYAzNrQxwrh2QvgvfFwMr0KtZqbaqOujWfcHQWiYieUQ6UeiC94PdXI/Wn72caiNQL1k67BTLuwPIlgWLCt0vYKjgrWUqZsLTM+cAXhsArvmbpgFOqC4XSOsldZ/Zwqm2gC3B+1TmlRrY+2Nb2BqUZD3ldDIhcSXQN65Jn2EFQZtXfDWWWrQauI+CnkBCcYGDCYejMqfZqvEbzL+engAclKrWpPc9KR0jUtL7JWXBeZfz9uS+OT+H1s/qy+ugQHTbc5rYZ0mQK+qykIXQ/RFJAJrAz6vvcRDX4+1RRWzMEPl8iHOELuBrsSP/FXqtL039hWv07nknkeXSWvFDeVsiw2qulhwKtLrz7eQ5CqyszPiX6AmSu5BQ4V++vLxJ1jCGPIUUDSHTyhJrvwmIyZ6daBzWltX6FBLeHjSUuXBRsFvpJyPanQFdQQCOflTJvjlqFiP7+oJygi/xE93MnVAVHW1jNgdH+dT0S6tjBW/ruXHPoBPYqFO+dVCFXciMiZWTZgXyIUKauk49ykIvan88wNV3JMHpeSWDW09WdcmbLlyYd4qeoiWCjpksEs7zg/scXcGkHUqz3OzI3FviEEFnIFCIHF/rFRUbJbYosLhnM23aLcpMwYBJKk4iKVhXj/i0daPUKVutm8SyZqtyK+idlXj9Vq+YpjXneB6rKzSqiMD5e7h5Se47I+QHnP+7w029vnNaJX7bC+FC1iUbmu/qLS9oNwK6cpfBkn1N1mxKqz0INPAt1Vk2NWm7nZOXH3y5U0z4vSYoypaCsjdnwgI+S/UnKS+LdabT6MZH8Q/K6gdeaya1siU+yaG+jcO51dhdAL2u/K5pTnoWkSeyFM6m54czLFVPyK6l0WVVBeRHbgPWi9zBnwfV8wgNf4UH45w9gkUIfzV2xMKywrxlgeLgnL1repMzu9EWZZqT00IwUm0AsvOrimPC43ElfPEpsDl91U0QursaYcT19VkJNVU9Ouu94lVvMLJjiN+scznj7wHxSa5PmoVRbgZDtDE/OvchdC4i6/c29hrp4EvsQIFjLfbwrx1jlcmg2w5vviUNFS5wG8xAL2T/K0W3JV5TBrzHL4aQjL3ZJn9nD0jLI3dfsAMASrK2GKuRbdReyLIHBC7ctjrrdtXhPOiMvydpLfo+bwNM7lbI+6SIR2yMPz1aWMCzxa8aNdbluMr84mBqwvJ3x79BmqUshGYJpcMkVGlOfC5I6qK5jaAEXjhe35L6qatKRMU5912VD+HBdKQgXQ6UtJPys6Nb2o8PWv/rjRQvmURQ63b8SH8SfCGZqwSCRjE9GB2cmNdsQ94ik9caFzyVH3kvI8LsVxaAtfUquLpueYh+kDGBnXqJNfYloK6jS589fiqPbI4jMfDYaLHjxEYu2cX8u5pGARiK5LyfiWjAlAKL+FHNevkRSn4ofW38BmOq3TctjSApz/WH/cPG8n5V5jhw1gLhBFq5AIffnz/6/4Af+/oKiYcAWMbF5fH0Kc5yofgGRxgDdOoad4G5gDV0BIUC9JJI/JCu5Z2RRPK6yG8zZshlzyNNoKBa6bL7EX6kPGe0oOC7xa3LwM35qMXVUHUTBvcaQqzuX3iT93Jhl7GV8lmhHwuSvUws3cXhXFV6XJHAyOrYuPBwn+juX55f/26vHOqu85A86GbpoQdPs0OpY/EM8QMehoPn8iZYhGaAkpEEVN7kvozxCJf8SHWKAjsvbHhX09fY0GHE+e/o7wv8LyjLVvCwo8sFqKcypbrk9v6m4k7L2LRO/c97JqJD8pRmKYGucfUgGIdvFoI/HHc8Qc4wmPBAXth6o3YQ/2cKp6vLwt9anmzd8G+5KjLcKHmJlzzxmnuE9tC0pYfcmzxcRUGd9JbDZjFQnH8z0UVsabXOAmPlnJIBpK9TpRxboTsVTHRdANPwG5HrSgim+faR9OsO7vdMMPW4jYf1Z3gIIn/xxnnlzIa5OS4LpCT7qGXjlnarZU6YMKBj5skQhCSOWhpj9Tz122I37lGZu9d/IDG1xuH26zA+I5pu1l1shClvJPfPm+zMo2vxUiuGPwXdhnGcGZGzpTzTOHYGbyHMfcPpnAN6024W7AGEnRFPEh/EMiZSO5rBvwxveyzYvrSyo0xUjjEKulZxnI2cDN+uBm6N3Zur7mqcwD2RAszIHfNCabhqh9pzCc6nGP/NJ1Wz7ul5ytrtQWPmDEAo1hUYUTl37AZRq7j0XiDudPxv+/5mvLGWk2Oa7vmvyDMeTshz4tI/OefQgzVuv6AoouvY8dvke+VZcQnuwzGKWKYvgM4HDxbTt/jIDqRwDlnWjJ33JHVqM/JhO2Sf8DoxUQcQKnE8WINYiAVCb6oTwow8HYvFKjThhuaMiDL3LEPnO4HI+15isev4uAZHhzt8EvtstzM22YFpKOjibpsM51kHVsj9EaGadpUwtOzWSBWEQICzVml8XtJeZe7g7fKGs7Gl3y4vH/cCuoC4ZeZkC2GDkRRvoPZ0WSzDRSa4Cf54v4Sa7C+yMEazEVVBrRfE+QcwG5Qp5OdwQu02vid4zE5E+LZ52WhSUGFTURtSrwhIJ2fh/umMl/KLi6KanZ+2pvjrxOsAfU6kkxGiW2jD+h/rw9ICwnUYD1z+03q4dgcJrBWon2hMsIz1suOLUGj433IJDTLjaUxk6tXdelyYftqNJraP71Y/WcbKDvybhIuLq0LsGQQsf8QwiFzZ4n6ZvQpO4iNiyiCC7sPJgUfwhNBkJw5z6pxzXoTGOPlBYZREZqCjJESD0cRZiDepSRiOroyhAVzqHIUnYEipEyTVWXylEryVGFk6Vkgzvxg7VhKcdR1GkmIv+Uae1cF9GFRhM0xr6S+QKb6qytUA1KJHd6aI80002tFYVT1YTKpYUDtggZPN49e62r+tqjUJOcRWMUN9a3QnulocNRBEwar1qDI3+0tPIsQQqQHdGZv603mCd4s2e2zbWXDC3r/V5ShWbT4irJG68BvqNfQlxPNVjkc7MMZqLG7xHo0co9UpfcfXeXRARt8mbNBCJ0y0qTRK4Y7M1KDSy5uwQ2WzIiRg85hc8bEr4ZbuBirzqsuMSVqJmxZ/HLcxFQ1SrgRmVBLBU4MJNdzlwndbTm4IbV16+MhQlhqDXBmowWqGK/4ZK8oMqRDFoY0pcAANTit9dxnoJO4jx77k01K6tzIIyVYXtsiCZkpsnKzQsGtU/Oh3FDt617pBcgfmpzFXdGCw/UU/5JNyjFiS3hCag9YSYmvV47685UKoWLQRUExaYVnLcWJQ9pQXlNwt1Kgerlpznj/NyRwjfy7HqKTH/vHeRoY2kG64MnOMtbOXhkyuDBtUqv2fn8PLEkzbdmn6880w1uGYohbh8TAXrLGUedZz99EGvRrspegtI0wXmv61wGRPBBE4HuWK0IfkVq774eXZA3qlB7bKWimmZVivM6s1ldariGwS+c5hhBUpNzK7HouMlCN3msiA+BAfFD/0Ye/nzn5Vr+GhYu+AUebAkVLCMncfn+ZwQPUCgSAg4ohlweuQleq+Z1LvLux2DSiibYTkMkhGlUpfk0K25c3ISmzipNH9YvNYLQZyysLwbTzR4VDEamgIJ6L3QXqAWW0poIfREIQt0bmhwuUVQjrkyLWjfHqsSjtS1GjWH27przukZ7Uf2oeLbT8LybraFehww0+DBrBucpYSG3eyZs+Xf+jPSBQ4tdBPVPJYo4r6EfWusNVV7v/1FcDYI7/t8JAU0/ePhi/l8V3dVcv2fjK1aTTHZ+ZNm1R4IZBQfStvzeEmaQ2oIbiMEZI22/Zov1uZ5H84en91v8AZe63UKWRc2mkByfYWuFYGLWS7jZrrbqJ9uVe6bPVzP/+HLazNQmbnX0cgsGVZuWqawocWWFbL/mU8SiP93K1zPNsuZ7jLdAPJ55sW8bERGYTIiO15R6JcuUfGrOOUHzuKkUqTr/TlloYyIygB4Ow/UKFsKyP77kE6PdzGZMzSQmZ1KRNp6SVis345jivCkBmCJDMPH6C1HwAof1qA1tPTOeeEJYny/rz6PQHzT1/edkPG0d7n8SxuoTp+Kk1cfUZQ0LB3IIivyQ2fDrL7Eqk7ES6Wq8Nr+0+KxHj2i7t9bHQY0JFKWzGzPvvndv8LyFzHX5lTOZDlQTEPfyTV+Bm8W8SmesHFMrRvjS35qvi71gDC+cbJrACeUWLMWjD+4xzBIHWe0Kj55fatIDr6+hI/O4BJyAD73owGBkkQwweDJbiC8LS+SaVs44sYen9jaU4dyjd+MiPfDpYquyxkg2ysfGX1aOlYNWbFGjX2D2QE/rY2rYGyMMfZxVHHlkngxyFvqX3mdqz68mVGv41TKSiv6/kB1gX8upshQ9D2OcEpZB1UYEcM2f22SBiDJymGOPRqrhZ+91JXTRYiv3zxNwonXim3C8BdBR+4zCnhAC9LcL56jyaKVps2Z7Z2IbcNKZ6Sgqwdl7peQzUguOykba3JHtHdVHUnCFMqkEMmhr0deEt+NnfDW+pCgx9sYBkxgY9tVkhWzi+NsFpxdbPfsGA3968eoGx9iyyMMwW1FTIk727yAsHO/hZc3q6jcRaW0xlLwPAm+kBxt8AvHF9NNtaG1TYEiTEcqgh4UyywsngsH+fwYTrwqwiqpHBaAizvz5b1zKxfY1hNtaZXlfdIcweaW5x0UBuclZgBIxvDYyy0w9ZzCQMSBYEiL8xoMbMk+SaEm8r52F36YLVKmHJ6JTjAsAOw/nfxUIHQdpc5WbBtCROua3/920X2hrbz8F9fbEK7ZPWDzHENqOzaWftUQcg1V4y8iyE8G4khKgISa3U7frAZkS9UnMzYR8vXAiPO0WQJmA0bZW57mUo3H8jZ6MSMEwBUzlhUWYMkw51ML6gpzTS3zgsnm0Lm4yqixnDofj5bxX4srvJfXu5Xtnu8VQ8yeOTzZa0jBkkDVvPXirnOWUrXoTHXFxHmN0ZZMenA1rUt7wZdE0FzsgK0LLzojiffaTLFNFMueBRkN4RwKrEQIPIsBtUOKRh5gTtaDKg8rd5n8X6gROo+dekhxlGaNH75FP7hFgGUQHfv1vOxxmxCKm5syfylG0HRsmdWGY9Msqz+G89JjbVj/mU4uOhKd2VnZZlddOXqEXVSRTxD7bJrHJjazwWm/MHVBT9ckt3LGUoIb3euWG3bf5B99bohD+s0tw5pnhF4j58I2tCUjbk/n95i9mwWoJ1C1DqJWizGn6qdO6gx0sLI95syZw3r9rZqFjRkNFutcn+JDoTOVOYxaA8R2yt6vhOhjU2hKlIBn4lMkLydMpFD6xcIv0mwKjMuN+/8TQKwDHqAzfV575j9ZlLvYZ4LGo1ZAPzTwuAVAVf+P1YDKhBIXSaJrCVscFTfOhedSbPaF6v/X4R7qcow7jxx15tbYTWatPquCivPgYlUXEyZbbjoaXGG5GUpp0DECniQbXkzJn4wsXVidaUG2oaCpPuKCJf4bqjYbQLJNqUQDNqeRXyW0JNzygwHBQ2sPLdrEbvI20YA6xSQfNgCuOOmFdNXSbGHIXemcsNsqnkYa1xsXUKRMVY0opjnwSzAgAjrx9tHEwxXupXoIEevbGWjmrDcI31g3sR84/f4qpVdL297s3HDUcB8sueB/VRsM7yBzBwoo4rkPyDKfixboNzPOBXuqfhQXEhfuLHI4BqEOPfKqbhoMH24qFzfDRQtu0gTYdUKRy21rFJt9Dwyt+Se0+xtEx05icF19u803KAjdLQL2rKS0FQqma3Xh3AAHjDp3KP+dnqbsfP6BqM7VKUp+Yzbb7COJbqBbvpQx3F5ZJ9uBy5sPW9EHYCIGnE/1vXm8PhiI9bgia6K9XThL/kpmqs4+5EC8Xz5L4xALIoW4wV+8HI7ZyEHIHXcOL+yUyxnckYeoSRecoPLbScUIkdDwNby/7QNjxYSG3n2axCZn2lLA8D64/OUuVxX6L85h5KKNsjAjmN2zb+QF0VXNaZGmMIWqqW37x8xlrijiusNNCH39RFE9bkkMlvCYH+YJeNb4e/0W2N5wh9ZPWUJzHmWYJDFk6Oz0PWwdB1i12HnRGPtoEg63LHHFoFc9K+xP9l60v8r9vZ2bPTgOjQukuZlRdz/DrF89rzZIIKhXRwBKxYEKtXqOtAOWKqpkqqDZpU8hfLEKko33bi6L8iMkB2QKIkQmiYfFbYMheN+EtMFWTGfXsEiEVsXDSYPaqiA/WzzdstR5Lh36jPws1DZf7q78tvArNB8P8wN0HHO+f5CLrtXFdhHshDi9zdBmOlNete0R6lXeRFFaoUfDn/SvZFqrydTgp16GVMywNDIv4+LpfkBdGijLAFk2cndF8HwrNMPIHvP47ipkABPMAFpjYKVG3rHLA71Gy8GFcroDEfcFwQ+EQXDv4Slrb8DN1r+6/ZKdHpuzvZWq5jpZXm/wYsxMgKoJxrW0Lxt9V9UWjT0GEnMlWWHVmHUrD93h7aF+bF4Z24dsTkWZdhx1wDUYxhFJ7rQAe2scpQw3GZqirpaDOYbjcbYC7RcC2WiPE47ItJ3b9rqvMuX1ZYkix0tU7xZ7uzouyEfzeQwDS2lGDyP0LwcjXlCA2CSfFxdZB96fdoBaFMgc8QaIBWqo5X31EKT2f3pmfm2yFoe3KmHfcZPnxhUoFQYXIMtrY/G1iEudqNdFK3A94d6qyYZyJWrmMuAzRdDa+miC1T7pr9pWwcemMPvUVurqKwlrL4gY/BaEordIEiINv7hdrbhnk8zDA10/UMBnt7aie9FCY2hM1HzwkZMsHdk/7Mvu7jB7yef0131Tmli6KUNYm86wDKp8iMIzoRdxSIwqjlMAvyqPgkW8MYW6c56zlicDWQbAwaKvUFjr7nGT3j3QUhm/qavQMraigBj8/H7Rj0+APVaS8ha4oZ6pWBcJvsiN3GdVox2NeejDhMA1cotfbH+CfjJ5QZjYyDoSyay44tFgmCwHEiIHDFNSWbXhnr4wiu2AotMK0NkEAFQLkos0aWhk/2Wc7NLbZ65/OrfAf6pj8QNao0sL5edAs2W+t5B0CVGagwRiaUyTPrIi79+20tkG/5psFJb2xwCMfTY48r051FDOdJQhpQaaHDCxaawa9GcbIxkgsJvIOCMgoxrvbX8z/kM3cMFmXj/zptit68pY7w9mKeVxclGwU1laTz47O4q6kw/O1hdKgUuXPOT8L2/9qGeyHSEAvXsk1zUJrQWrJG321Wv5AAZuLhKORPT1szpF4hXr9iW/eVCUgpvUYmA0SaE7/959Ds0opPwA3JXdlHUajvffP4NCJfOSV86HBXfyWOZfGv9FpG2zikjT4ZMhYz7y4vgK9VxWwFP3cbHU4g/7yLe1To/RQBaB/tRWiyo6m7ssiHprYAiLRdo44WxbiPUOYv5keQCiSnucs2bVMRBz04mjx2S5gS5gmc8awVk4/I1BWdsHWMsTzNpcTu9/d9lUet2ltkXMs2c5bQujUarU+ROFlk6rMKPKIqaPNfGwkr66+FujZo1BCEddLmLEGunllrtqHwwnMDFno4B1vX1uj/eRi1mgSzvK5lBranUzo5NSDUPPoOqeSTsRFZydSqxxyCl4KutqZnUf0+0wqV2rszEi3JhykBXUoBfskuBVlyKXSXIl4lLewvM+nwBd6Fxm+o9mDdGdCwGf0paFX98ohcsC8pDlic1mpGyO/StIJv36nv65NyLgU2GJJ2OrtnICZlWXNpQRztQs2uv9CSNYBHihg2ksU+bsj+s+bul5kTWyeTqIkIvPoJvy8zhUADmkfqcK5xUNCU7z2M/a78PRNu1oovAK7Hgbpxl1Im/gc2kTI+3pg0FmiaLfdXgmQ34p7zXjNQnsxJY0EDYlPtsXRZgMvY10f7p/vIrZMcQKEzQHUL7eiKlkLZWAnNdtGcvJTcsvakML1q+iE4GrzXlh7Plz6V66FV53bH5csY+qyfpiBVA0IvwXbGgOTCukfYxGDnv4OmCrkmFurXvt4axPhpRB4KB/mR1vuF1f2IVxVeiJApDD+xshhMzD1StPIt+mvBLDoi3nSjmd2gyERHv20FUIsV4Nf/Ba66u8/obsi8x2hJax42Rrjsz/OxEAAlSmMMKSXoMwdW1jxNGzFtNGsjgHlT4rTJAU3GEPdz7T8IWBmlEV2x4RRk8Tbso2dK5L9j6K3ep1sDLYbpE3gQPZh/SwscvIR8pLkxsUO6sx3oAyz9bYyY6wfrlKLYnF7GFac1dmERbxCpxqvfU91sZA/0KLWr7R0r+r8m9nHjLnX5oeMVNPuVQZhXLZ7luVX0zI1o0S64mGfRBjR1WUUFHH83/26yLNnqaVfUdZ3fc6eRS7dhpfxYVUEfLnYBfJg2aYIPXJgd5vvgdycg1mpsBEYb4MkjimuQzvLhsa2PZQ5FskNPac2a9YGcUnit9Pw2HQJeBiBMECo0ITX5xMvv64QHBQfA6vStCmKWAqA/oFQ2yg9zsJUyJB1STgnawYHKkRj4Zj/8Vz7YSSlAvg2B8Lgw4/AvhJNynSwq7tG+IWZ1nrs4UtJfu6jT9u+brEAJ+6b7nwByRwXP0hkUE1ywa541QjVMb/xN2eCsfd88yOCx4xDmUVv47lLvY1S5up4pY0g2FE7VP3ONCx/5lUYoia+Si/oWs/UzdA06uUsX+U6bbPxfE4jblMQM7bm0dfgHf8VSSzwgofx5OGvPq1WAW/it5DSFDE/eMgsuVl6DL1bRO0eMFze+JFnmL4nl4XsnU2zSX0otXm05GL+9RDd06gwuYGkmi/yGGz2Zg4NDfaXjbuEMwe38K8ldo8ARFgqx4o89Gc2AWucC/1Y/nD/I5rCF7UsmxrMLy10OS9eV41GD6OOQJNS9Kwi/eDKQ1EYHTp2tkxM8kBMLHYA/cm1BvRIrGmCx+zfXhbCEV6YJOkOPTDCX0uUFx0biE9/Dl/uEQiNXwiKfMujIi15SjaNUwAGIWyrp07wiWa2U3cJfHISAtN33yTueE8lCB8twHxHDz0lyZV/zdxsKKannocYWGgHja8clTQ2XCn5A3ZceT3o4EjPTOU4TGUmgwBG1Tlahp1YSH7lHsI91WweTFf8+j1b24xfSk0HA83RlPQMgFtBHVNTd1aYGPUyS6oaCCdxx20TWkfzNvIql7U34hdPPOVi35WdT0E2pGqPkwBcT58Jkh1r+pR13a9MlQlNepQwaG0ReXW+ry29x+qvQX5MG7gjjEftMwMw/qO5A3epfHzN3t1sEsFWLCM/0CtKYEdgTdEYkkM4/DOXNC7/ienCPWhCgWI5/ZuySxhRj70wzWNV8cTbnWkST2lTXONb9wXxi1lpeO0nYJU4EQkjW67613KihaIRxjZXE2xe2sqwYNOlHW+xTZYJrNQKmFQ1WuGjXuCYKjiMN6t51UmJelf4YSSniTcEjf/U0na0TT+mc0A1QSr/2Xb2Fyj1RQRqAJxE1ETHBNzU9HFTmXds6Ej5RyiWwdYbCqqRIkfOx0S2LkdDCC4jAGZ03LzF5yn/R9059V/QSdLJDNnRe2afaFt+akdtStW526FGkkc6G9ryGN4T7ck+AMhDj/rkOHsOfRjBHmq6Q+RgZlZQBtxI+n9sXxm4GKSMmml6xpgqrrgt5z35ZpxtrUegHpwF4Yq6PMqJclk/atT5aa1QsIoK6YejSrPf8EWehJiupgEcbKfEtcdugNUDPVSqr/QK0yvx1isrXoxrpJQoQb7RlMX+7Z2+C3cY3Ba5tr3ql37LHA0lJHiAYYTzvd0/LLW/Mr7n+NRGt7+AO2KKPFbda50EWWVafeD6IEHIx1oXwgVb2RyQGLHz8mlQTZcaMvLgj/yfA6UrSxPOozJJxLXv+Lr7vVS6HNLlyo/imySq4Tk25XnYIQWRq4V0lDTWcKUXOi/oqEAM8IW4ZVVGiYgWhVA07KJskoFx0Rry9IYWHtI+nXIh+XolB38HXl/K8DODOkwKlBEY2XZaeWrjbfCJZX8wUqIGUzj7BoFSlEcZvTF4g52qfKuTel+Km6kb8cFCO7+uksuYfoA31laru5u+/RgB2xYP3r+eXObDKYu207wxgU9p7ezpC1LlWjDASqAgKMfnxbNMlbxMRnjooq/JVC9IdsdxtSpZBbE8pjJ1Qjz3FzdXj8D/Bn2h2fdNZl0qC5zn3OaRHaa+3uyCARuF9E9eZCdfDPOEflbfWRx4WTeS6CXK0eHYOCb3FxrrvbyEOivdigLR8kZ9m8yJQB7d91ihtp3V01tpeJu98GdPPFIFFLObc3FX2qFAd0y/p4BPLi/JCQE1bqcN1J8tXrCvPJaUBdAywD26SnlrEd1zFijNZ2parv9Z5mI/7TKdLmX65HOucXHSE+blj2V/WQaxCCNzb8ivlqyKsPgYyl7y6SAf4xEs8RcZvfKzZdssN3AOv5yhLPESk0PXfxpqspky9et3092knNsaceX9HzWJryr+C4QoMI77ATrh66oSePCYeDAbqG8JKJQJScACdAosbft7ii2rDX34FNyzvkdIIaQ41MUF5kexmtBCwcK/NXLKigschlKnsuPvDlxnkuIBFy07biev+cjz4GSkAh9g0M0PAPXsbhjTeoNJnIpaoJe+B030KLEftEFPlhOKNwb6ACcj2GmCV07EaFLkxF/vaRvA6f6fkV1xG01Elf3qD1n5t6Lr/FCPw3NE3vCU2jqIarrYqanrulOLdqWCb2bqyS7hqNR/p+km9soTSyY9yppRPXaOofI9BPEIpbW66SLQWwtYQccBCJHqYH1DIHh7/g7JKtGpm5lI82ft+x0/pyJ6tjJbGxPr+a4m42bhNDcJ10H5AACQADyUGeG+6QueDyWmS4m4REaZPUpFX0/Ss0aHMluQ4ii04YsxJ1wkAu1EplbZkR3Aeu52AFCBuSoZhcgsXiAbvBvsZ5DfX5xatHCGD0dx+3NRT3KA/PdKhMQDwSh8M2KPmFac4/+hqE7u2RWykoGL8w9kK7hkinG8Tk7wZCn6VggfTS3bsmjJMkmqITBFC+htIxLjugBe+6+F4w5Nl3DYtAXR7iJi/KcT8rhcHATlrth/5RmigUx6G3ZHlduiFihEvTBL7JmxbR1mIbBVWoP1/vlKiqrS/SgGba5TQRfEOWXzS1XVsWU//I/ulQ56ODInGC+aBMqZIWXHCXNIKFPL5BM6QhsVmeO90Ju1gZp+BsHijN9Z8EgCnJ4A4QBIJN36AdzBulh3CtyfuYPg0ZE2Mauxx8zQdjZKxGexqhrZFAmAuhfeexZ+FvXqRNeLtm7yB2cD/S/z6CTxZEBDWp+D3aGVJGlER7FqhuCbT/eux/KMQWDAy3IfQRE7/TKmhqRXpgeMyeeHLXEX5ooj2/qu7Ij+GIi7qH/erWTijskULPL8M+gq0KWRyVl0rjCAxHoWqv9eL+CuKdE07weKMjHI4UzEYZu2P4uIGrKAiZjpCRfoSyXReLxAJ8h1JFOk7I3Xj1E9ApUqpi+2Sfqa0rYeV0lWAeNP2pxhqJn/svCLd3M3VUmU1hhPd5iECP9/h3vDYAADSRBEiLSl9bag/O0twyNjvl7WWpXDtDY0Hz1i/v0Hq9dBN4KnF3tebZGEJH6vzmbM2uuoGjaMjiJobZcfaRE6V9064V6Y6fAAXBwy2uwZHHKX5V0FHzv714A0nKuLOyMtDlrkvZ8xUyenmYuvbMBXMMniRQkOQdhtRqttzhIrve8tY2Ru09LoAbNtRVn5ibT0COKQCOjx++jRLXhxw9tyD9XrnMizN4TEb/iFPBEn/hSfh4xNQ3Sa4P+RaEdOmxpp6a7cBTUCXgwrfVz3bL82CGrBtGQ0U6OLZE9BHMWJuPb8kEYvvPRn2f/j7JN5Z6aWXHszoiXhhKmRcWhfl2U78bIZy4UVrbYe3Ho6mRq82kTtbhH66lFJn5ZqkvOZ/mZMwkly4cX+i6LyE1O2TWqHnLbzzn2y2F3wl9qrtke1PwiPDupDwyWv03ovHcK0XFTdShnKfwBnhTeFmkp7/VJFt3oaDXkrhGsws/Z1ZiJ/1cwnQDwWB4udZwSuv6LrG0FQw7VSLZdxWsy0+bNgyVo2rQoU0uLu+vndhFv6saOzDBbS4OG9J0+heGDI/bVT0s7bHI78NVga0yZzW+xMtyJXJ8gk1a323/bHgYnd/SD/G+AAAAAAAAAAAAAA="
 const RccaLogo = ({size=48, style={}}) => (
   <img src={CLUB_LOGO} style={{display:"block",width:size,height:"auto",objectFit:"contain",flexShrink:0,...style}} alt="Rover Car Club of Australia logo"/>
 );
@@ -2011,6 +2013,18 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
         <Row gap={12} wrap style={{justifyContent:"space-between"}}><Field label="Rego" half><Input value={carForm.reg||""} onChange={e=>setCarForm({...carForm,reg:e.target.value})}/></Field><Field label="Chassis" half><Input value={carForm.chassis||""} onChange={e=>setCarForm({...carForm,chassis:e.target.value})}/></Field></Row>
         <Field label="Status"><Select value={carForm.status||"active"} onChange={e=>setCarForm({...carForm,status:e.target.value})}><option value="active">active</option><option value="sold">sold</option><option value="destroyed">destroyed</option></Select></Field>
         <Field label="Notes"><Textarea value={carForm.notes||""} onChange={e=>setCarForm({...carForm,notes:e.target.value})}/></Field>
+        <div style={{borderTop:"1px solid var(--border)",paddingTop:14,marginTop:4,marginBottom:14}}>
+          <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:10}}>Club Permit Scheme</div>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontSize:14,color:"var(--text2)",fontWeight:600,marginBottom:12}}>
+            <input type="checkbox" checked={!!carForm.onPermit} onChange={e=>setCarForm({...carForm,onPermit:e.target.checked})} style={{width:18,height:18,accentColor:"var(--burg)"}}/>
+            This vehicle is on the VicRoads Club Permit Scheme
+          </label>
+          {carForm.onPermit&&<div>
+            <Row gap={12}><Field label="Permit Number" half><Input value={carForm.permitNumber||""} onChange={e=>setCarForm({...carForm,permitNumber:e.target.value})} placeholder="e.g. CP123456"/></Field>
+            <Field label="Permit Type" half><Select value={carForm.permitDays||90} onChange={e=>setCarForm({...carForm,permitDays:Number(e.target.value)})}><option value={45}>45 days/year</option><option value={90}>90 days/year</option></Select></Field></Row>
+            <Field label="Renewal / Expiry Date"><Input type="date" value={carForm.permitExpiry||""} onChange={e=>setCarForm({...carForm,permitExpiry:e.target.value})}/></Field>
+          </div>}
+        </div>
         <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setCarModal(null)}>Cancel</Btn><Btn onClick={saveCar}>{carModal==="add"?"Add":"Save"}</Btn></Row>
       </Modal>}
     </div>
@@ -2136,8 +2150,8 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
 
         <div style={{position:"relative",zIndex:1,maxWidth:780}} className="fade-up">
           {/* Emblem */}
-          <div style={{width:140,height:140,margin:"0 auto 28px",borderRadius:"50%",background:"#ffffff",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",boxShadow:"0 0 0 4px rgba(255,255,255,.25), 0 8px 32px rgba(0,0,0,.35)"}}>
-            <img src={CLUB_LOGO} style={{width:110,height:110,objectFit:"contain"}} alt="RCCA logo"/>
+          <div style={{width:150,height:150,margin:"0 auto 24px",display:"flex",alignItems:"center",justifyContent:"center",filter:"drop-shadow(0 4px 24px rgba(0,0,0,.5))"}}>
+            <img src={CLUB_LOGO} style={{width:150,height:150,objectFit:"contain"}} alt="RCCA logo"/>
           </div>
 
           <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"rgba(255,255,255,.7)",letterSpacing:"0.25em",textTransform:"uppercase",marginBottom:12}}>Est. 1964</div>
@@ -3505,13 +3519,18 @@ function App() {
   const [news,setNews]=useState([]);
   const [siteContent,setSiteContent]=useState(DEFAULT_SITE_CONTENT);
   const [applications,setApplications]=useState([]);
+  const [expenses,setExpenses]=useState([]);
+  const [finSettings,setFinSettings]=useState(null);
+  const [permits,setPermits]=useState([]);
+  const [tripLogs,setTripLogs]=useState([]);
   const [showApplicationForm,setShowApplicationForm]=useState(false);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
-        dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications)
+        dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
+        dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs)
       ]);
       const fm=m||SEED_MEMBERS; setMembers(fm);
       setCars(c||SEED_CARS); setTransfers(tr||[]); setMeetings(mt||SEED_MEETINGS);
@@ -3520,6 +3539,10 @@ function App() {
       setShopItems(si||SEED_SHOP); setOrders(or||[]); setNews(nw||SEED_NEWS);
       if(sc)setSiteContent(sc);
       if(ap)setApplications(ap);
+      if(ex)setExpenses(ex);
+      if(fs)setFinSettings(fs);
+      if(pm)setPermits(pm);
+      if(tl)setTripLogs(tl);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -3563,6 +3586,8 @@ function App() {
     { id:"shop",      label:"Club Shop",       icon:"⊕" },
     { id:"transfers", label:"Transfer History",icon:"→" },
     { id:"import",    label:"Bulk Import",      icon:"↑" },
+    { id:"finance",   label:"Finance",          icon:"$" },
+    { id:"permits",   label:"Club Permits",     icon:"🚗" },
     { id:"profile",   label:"My Profile",      icon:"◑" },
   ];
   const PORTAL_NAV_MEMBER = [
@@ -3573,6 +3598,7 @@ function App() {
     { id:"tasks",      label:"Tasks",           icon:"☑" },
     { id:"marketplace",label:"Marketplace",    icon:"⟳" },
     { id:"shop",       label:"Club Shop",       icon:"⊕" },
+    { id:"permits",    label:"Club Permits",    icon:"🚗" },
     { id:"profile",    label:"My Profile",      icon:"◑" },
   ];
 
@@ -3647,6 +3673,8 @@ function App() {
             {tab==="shop"       &&<ShopSection {...sp}/>}
             {tab==="transfers"  &&user.role==="admin"&&<TransfersSection transfers={transfers}/>}
             {tab==="import"&&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
+            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars}/>}
+            {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
           </div>
         </main>
@@ -3875,6 +3903,486 @@ function BulkImportSection({ members, setMembers, cars, setCars, dues, setDues }
     </div>
   );
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FINANCE SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+const DEFAULT_FIN_SETTINGS = {
+  bankName:"", accountName:"Rover Car Club of Australia",
+  bsb:"", accountNumber:"", paymentRef:"Please use your member number as reference",
+  paymentDays:14, gstRegistered:false, abn:"", invoicePrefix:"RCCA",
+  nextInvoiceNum:1001,
+};
+const EXPENSE_CATS=["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"];
+
+function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars }) {
+  const fs = finSettings || DEFAULT_FIN_SETTINGS;
+  const [tab,setTab]=useState("dashboard");
+  const [modal,setModal]=useState(null);
+  const [expForm,setExpForm]=useState({date:today,amount:"",category:"Hall Hire",description:"",reference:""});
+  const [settForm,setSettForm]=useState(fs);
+  const [invView,setInvView]=useState(null);
+
+  const fyStart = ()=>{ const d=new Date(); return d.getMonth()>=6?d.getFullYear():d.getFullYear()-1; };
+  const fyLabel = ()=>{ const s=fyStart(); return `${s}–${s+1}`; };
+  const inFY = dt=>{ const s=fyStart(); const d=new Date(dt); return d>=new Date(s,6,1)&&d<new Date(s+1,6,1); };
+
+  // Build income ledger from dues, orders, event rsvps
+  const incomeItems = [
+    ...dues.filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).map(d=>{
+      const m=members.find(x=>x.id===d.memberId);
+      return {id:"D-"+d.id,type:"dues",date:d.paidDate||d.year+"-07-01",amount:d.amount||54,description:"Membership Dues "+d.year,member:m?.name||"Unknown",memberId:d.memberId,ref:d.id};
+    }),
+    ...orders.filter(o=>inFY(o.date)).map(o=>{
+      const m=members.find(x=>x.id===o.memberId);
+      const total=o.items?o.items.reduce((s,i)=>s+i.price*i.qty,0):0;
+      return {id:"O-"+o.id,type:"shop",date:o.date,amount:total,description:"Shop Order #"+o.id.slice(-4),member:m?.name||"Unknown",memberId:o.memberId,ref:o.id};
+    }),
+  ].sort((a,b)=>b.date.localeCompare(a.date));
+
+  const expItems = expenses.filter(e=>inFY(e.date)).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalIncome = incomeItems.reduce((s,i)=>s+Number(i.amount),0);
+  const totalExpenses = expItems.reduce((s,e)=>s+Number(e.amount),0);
+  const surplus = totalIncome - totalExpenses;
+
+  async function saveExpense(){
+    if(!expForm.amount||!expForm.description)return alert("Amount and description required.");
+    const entry={...expForm,id:uid("EX"),amount:Number(expForm.amount)};
+    const u=modal?.edit?expenses.map(e=>e.id===modal.edit.id?entry:{...e}):[ ...expenses,entry];
+    setExpenses(u); await dbSet(SK.expenses,u); setModal(null);
+    setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:""});
+  }
+  async function delExpense(id){ const u=expenses.filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
+  async function saveSettings(){
+    setFinSettings(settForm); await dbSet(SK.finSettings,settForm); setModal(null);
+  }
+
+  function buildInvoice(item){
+    const m=members.find(x=>x.id===item.memberId)||{name:item.member,email:"",address:""};
+    const num=(fs.invoicePrefix||"RCCA")+"-"+String((fs.nextInvoiceNum||1001)+incomeItems.indexOf(item)).padStart(4,"0");
+    const issued=item.date; 
+    const due=new Date(new Date(issued).getTime()+((fs.paymentDays||14)*86400000)).toISOString().slice(0,10);
+    return {num,issued,due,member:m,item,fs};
+  }
+
+  function exportCSV(){
+    const all=[
+      ...incomeItems.map(i=>["Income",i.date,i.description,i.member,"",i.amount.toFixed(2)]),
+      ...expItems.map(e=>["Expense",e.date,e.description,"",e.category,e.amount.toFixed(2)]),
+    ].sort((a,b)=>b[1].localeCompare(a[1]));
+    const rows=[["Type","Date","Description","Member","Category","Amount"],...all];
+    const csv=rows.map(r=>r.map(v=>'"'+String(v||"").replace(/"/g,'""')+'"').join(",")).join("\n");
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+    a.download="RCCA_Finance_"+fyLabel().replace("–","-")+".csv"; a.click();
+  }
+
+  const tabs2=[{id:"dashboard",label:"Dashboard"},{id:"income",label:"Income"},{id:"expenses",label:"Expenses"},{id:"settings",label:"Settings"}];
+
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Finance" subtitle={`FY ${fyLabel()}`} action={<Btn variant="ghost" onClick={exportCSV}>⬇ Export CSV</Btn>}/>
+      <Row gap={8} style={{marginBottom:20,flexWrap:"wrap"}}>
+        {tabs2.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 18px",borderRadius:6,border:"1px solid var(--border)",background:tab===t.id?"var(--burg)":"var(--bg2)",color:tab===t.id?"#fff":"var(--text2)",fontWeight:600,cursor:"pointer",fontSize:13}}>{t.label}</button>)}
+      </Row>
+
+      {tab==="dashboard"&&(
+        <div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:24}}>
+            {[["Total Income","$"+totalIncome.toFixed(2),"var(--green)"],["Total Expenses","$"+totalExpenses.toFixed(2),"var(--red2)"],["Surplus / Deficit",(surplus>=0?"$":"-$")+Math.abs(surplus).toFixed(2),surplus>=0?"var(--green)":"var(--red2)"],["Transactions",(incomeItems.length+expItems.length),"var(--burg)"]].map(([k,v,c])=>(
+              <Card key={k} style={{padding:18}}>
+                <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:6}}>{k}</div>
+                <div style={{fontSize:26,fontWeight:700,color:c}}>{v}</div>
+              </Card>
+            ))}
+          </div>
+          <Card style={{padding:18,marginBottom:16}}>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Income by Category — FY {fyLabel()}</div>
+            {[["Membership Dues",dues.filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0),"var(--green)"],
+              ["Club Shop",orders.filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0),"var(--blue)"]].map(([k,v,c])=>{
+              const pct=totalIncome>0?Math.round(v/totalIncome*100):0;
+              return <div key={k} style={{marginBottom:10}}>
+                <Row justify="space-between" style={{marginBottom:4,fontSize:13}}><span>{k}</span><span style={{fontWeight:700}}>${v.toFixed(2)} <span style={{color:"var(--text3)",fontWeight:400,fontSize:11}}>({pct}%)</span></span></Row>
+                <div style={{height:8,background:"var(--bg3)",borderRadius:4}}><div style={{height:8,borderRadius:4,background:c,width:pct+"%",transition:"width .4s"}}/></div>
+              </div>;
+            })}
+          </Card>
+          <Card style={{padding:18}}>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Expenses by Category — FY {fyLabel()}</div>
+            {EXPENSE_CATS.map(cat=>{
+              const amt=expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0);
+              if(amt===0)return null;
+              const pct=totalExpenses>0?Math.round(amt/totalExpenses*100):0;
+              return <div key={cat} style={{marginBottom:10}}>
+                <Row justify="space-between" style={{marginBottom:4,fontSize:13}}><span>{cat}</span><span style={{fontWeight:700}}>${amt.toFixed(2)} <span style={{color:"var(--text3)",fontWeight:400,fontSize:11}}>({pct}%)</span></span></Row>
+                <div style={{height:8,background:"var(--bg3)",borderRadius:4}}><div style={{height:8,borderRadius:4,background:"var(--burg)",width:pct+"%",transition:"width .4s"}}/></div>
+              </div>;
+            })}
+            {expItems.length===0&&<div style={{color:"var(--text3)",fontSize:13,fontFamily:"var(--font-m)"}}>No expenses recorded this FY</div>}
+          </Card>
+        </div>
+      )}
+
+      {tab==="income"&&(
+        <div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{borderBottom:"2px solid var(--border)",background:"var(--bg3)"}}>
+                {["Date","Description","Member","Amount","Invoice"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {incomeItems.map(item=>(
+                  <tr key={item.id} style={{borderBottom:"1px solid var(--border)"}}>
+                    <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)"}}>{item.date}</td>
+                    <td style={{padding:"9px 12px"}}>{item.description}</td>
+                    <td style={{padding:"9px 12px",color:"var(--text2)"}}>{item.member}</td>
+                    <td style={{padding:"9px 12px",fontWeight:700,color:"var(--green)"}}>${Number(item.amount).toFixed(2)}</td>
+                    <td style={{padding:"9px 12px"}}><Btn variant="ghost" size="sm" onClick={()=>setInvView(buildInvoice(item))}>View Invoice</Btn></td>
+                  </tr>
+                ))}
+                {incomeItems.length===0&&<tr><td colSpan={5} style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12}}>No income recorded this FY</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab==="expenses"&&(
+        <div>
+          <Row justify="flex-end" style={{marginBottom:14}}>
+            <Btn onClick={()=>{ setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:""}); setModal({addExp:true}); }}>+ Add Expense</Btn>
+          </Row>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead><tr style={{borderBottom:"2px solid var(--border)",background:"var(--bg3)"}}>
+                {["Date","Description","Category","Reference","Amount",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {expItems.map(e=>(
+                  <tr key={e.id} style={{borderBottom:"1px solid var(--border)"}}>
+                    <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)"}}>{e.date}</td>
+                    <td style={{padding:"9px 12px"}}>{e.description}</td>
+                    <td style={{padding:"9px 12px"}}><Badge status={e.category}/></td>
+                    <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:11,fontFamily:"var(--font-m)"}}>{e.reference||"—"}</td>
+                    <td style={{padding:"9px 12px",fontWeight:700,color:"var(--red2)"}}>${Number(e.amount).toFixed(2)}</td>
+                    <td style={{padding:"9px 12px"}}><Row gap={6}>
+                      <Btn variant="ghost" size="sm" onClick={()=>{ setExpForm({...e}); setModal({edit:e}); }}>Edit</Btn>
+                      <Btn variant="danger" size="sm" onClick={()=>setModal({confirmDel:e})}>Del</Btn>
+                    </Row></td>
+                  </tr>
+                ))}
+                {expItems.length===0&&<tr><td colSpan={6} style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12}}>No expenses this FY — add one above</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {tab==="settings"&&(
+        <Card style={{padding:24,maxWidth:600}}>
+          <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,marginBottom:18}}>Finance Settings</div>
+          <Field label="Account Name"><Input value={settForm.accountName||""} onChange={e=>setSettForm({...settForm,accountName:e.target.value})}/></Field>
+          <Row gap={12}><Field label="Bank Name" half><Input value={settForm.bankName||""} onChange={e=>setSettForm({...settForm,bankName:e.target.value})}/></Field>
+          <Field label="BSB" half><Input value={settForm.bsb||""} onChange={e=>setSettForm({...settForm,bsb:e.target.value})} placeholder="000-000"/></Field></Row>
+          <Field label="Account Number"><Input value={settForm.accountNumber||""} onChange={e=>setSettForm({...settForm,accountNumber:e.target.value})}/></Field>
+          <Field label="Payment Reference Instructions"><Input value={settForm.paymentRef||""} onChange={e=>setSettForm({...settForm,paymentRef:e.target.value})}/></Field>
+          <Row gap={12}><Field label="Payment Due (days)" half><Input type="number" value={settForm.paymentDays||14} onChange={e=>setSettForm({...settForm,paymentDays:Number(e.target.value)})}/></Field>
+          <Field label="ABN" half><Input value={settForm.abn||""} onChange={e=>setSettForm({...settForm,abn:e.target.value})} placeholder="XX XXX XXX XXX"/></Field></Row>
+          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontSize:14,color:"var(--text2)",fontWeight:600,marginBottom:16}}>
+            <input type="checkbox" checked={!!settForm.gstRegistered} onChange={e=>setSettForm({...settForm,gstRegistered:e.target.checked})} style={{width:18,height:18,accentColor:"var(--burg)"}}/>
+            GST Registered (10% GST shown on invoices)
+          </label>
+          <Row gap={12}><Field label="Invoice Prefix" half><Input value={settForm.invoicePrefix||"RCCA"} onChange={e=>setSettForm({...settForm,invoicePrefix:e.target.value})}/></Field>
+          <Field label="Next Invoice Number" half><Input type="number" value={settForm.nextInvoiceNum||1001} onChange={e=>setSettForm({...settForm,nextInvoiceNum:Number(e.target.value)})}/></Field></Row>
+          <Btn onClick={saveSettings}>Save Settings</Btn>
+        </Card>
+      )}
+
+      {/* Add/Edit Expense Modal */}
+      {(modal?.addExp||modal?.edit)&&<Modal title={modal?.edit?"Edit Expense":"Add Expense"} onClose={()=>setModal(null)}>
+        <Row gap={12}><Field label="Date" half><Input type="date" value={expForm.date} onChange={e=>setExpForm({...expForm,date:e.target.value})}/></Field>
+        <Field label="Amount ($)" half><Input type="number" value={expForm.amount} onChange={e=>setExpForm({...expForm,amount:e.target.value})} placeholder="0.00"/></Field></Row>
+        <Field label="Category"><Select value={expForm.category} onChange={e=>setExpForm({...expForm,category:e.target.value})}>{EXPENSE_CATS.map(c=><option key={c}>{c}</option>)}</Select></Field>
+        <Field label="Description"><Input value={expForm.description} onChange={e=>setExpForm({...expForm,description:e.target.value})}/></Field>
+        <Field label="Reference / Receipt No (optional)"><Input value={expForm.reference} onChange={e=>setExpForm({...expForm,reference:e.target.value})}/></Field>
+        <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveExpense}>Save</Btn></Row>
+      </Modal>}
+      {modal?.confirmDel&&<Confirm message="Delete this expense?" onConfirm={()=>delExpense(modal.confirmDel.id)} onCancel={()=>setModal(null)}/>}
+
+      {/* Invoice Viewer */}
+      {invView&&<Modal title="Invoice" onClose={()=>setInvView(null)} wide>
+        <div id="inv-print" style={{background:"#fff",border:"1px solid var(--border)",borderRadius:8,padding:32,fontFamily:"var(--font-b)",fontSize:13,color:"#1a1210",maxWidth:680,margin:"0 auto"}}>
+          <Row justify="space-between" align="flex-start" style={{marginBottom:24,paddingBottom:20,borderBottom:"3px solid var(--burg)"}}>
+            <div>
+              <div style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--burg)",marginBottom:2}}>Rover Car Club of Australia</div>
+              <div style={{fontSize:11,color:"#666"}}>PO Box 6049, Wantirna VIC 3152</div>
+              <div style={{fontSize:11,color:"#666"}}>secretary@rcca.com.au</div>
+              {invView.fs?.abn&&<div style={{fontSize:11,color:"#666",marginTop:2}}>ABN: {invView.fs.abn}</div>}
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"#999",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:2}}>Invoice</div>
+              <div style={{fontFamily:"var(--font-d)",fontSize:18,fontWeight:700}}>{invView.num}</div>
+              <div style={{fontSize:11,color:"#666",marginTop:6}}>Issued: {invView.issued}</div>
+              <div style={{fontSize:11,color:"#666"}}>Due: {invView.due}</div>
+            </div>
+          </Row>
+          <Row justify="space-between" align="flex-start" style={{marginBottom:24}}>
+            <div>
+              <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"#999",marginBottom:4}}>Bill To</div>
+              <div style={{fontWeight:700,fontSize:14}}>{invView.member.name}</div>
+              {invView.member.email&&<div style={{fontSize:12,color:"#666"}}>{invView.member.email}</div>}
+              {invView.member.memberNumber&&<div style={{fontSize:12,color:"#666"}}>Member #{invView.member.memberNumber}</div>}
+            </div>
+          </Row>
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:20}}>
+            <thead><tr style={{background:"var(--burg)",color:"#fff"}}>
+              <th style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Description</th>
+              <th style={{padding:"10px 14px",textAlign:"right",fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Amount</th>
+            </tr></thead>
+            <tbody>
+              <tr style={{borderBottom:"1px solid #eee"}}>
+                <td style={{padding:"12px 14px"}}>{invView.item.description}</td>
+                <td style={{padding:"12px 14px",textAlign:"right",fontWeight:700}}>${Number(invView.item.amount).toFixed(2)}</td>
+              </tr>
+              {invView.fs?.gstRegistered&&<tr style={{borderBottom:"1px solid #eee"}}>
+                <td style={{padding:"8px 14px",color:"#666",fontSize:12}}>GST included (10%)</td>
+                <td style={{padding:"8px 14px",textAlign:"right",color:"#666",fontSize:12}}>${(Number(invView.item.amount)/11).toFixed(2)}</td>
+              </tr>}
+            </tbody>
+            <tfoot>
+              <tr style={{background:"var(--bg3)"}}>
+                <td style={{padding:"12px 14px",fontWeight:700,fontSize:14}}>TOTAL DUE</td>
+                <td style={{padding:"12px 14px",textAlign:"right",fontWeight:700,fontSize:16,color:"var(--burg)"}}>${Number(invView.item.amount).toFixed(2)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          {(invView.fs?.bsb||invView.fs?.accountNumber)&&<div style={{background:"#f0f8f4",border:"1px solid #b3d9c4",borderRadius:8,padding:16,marginBottom:16}}>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"#1e6840",marginBottom:10,fontWeight:700}}>Payment by Bank Transfer</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:12}}>
+              {[["Account Name",invView.fs.accountName],["Bank",invView.fs.bankName],["BSB",invView.fs.bsb],["Account Number",invView.fs.accountNumber]].filter(([,v])=>v).map(([k,v])=>(
+                <div key={k}><div style={{color:"#666",fontSize:10,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k}</div><div style={{fontWeight:700}}>{v}</div></div>
+              ))}
+            </div>
+            {invView.fs?.paymentRef&&<div style={{marginTop:10,fontSize:12,color:"#1e6840"}}>📌 {invView.fs.paymentRef}</div>}
+          </div>}
+          <div style={{fontSize:11,color:"#999",textAlign:"center",borderTop:"1px solid #eee",paddingTop:12}}>Rover Car Club of Australia Inc. · Thank you for your membership!</div>
+        </div>
+        <Row gap={10} justify="center" style={{marginTop:16}}>
+          <Btn onClick={()=>window.print()}>🖨️ Print Invoice</Btn>
+          <Btn variant="ghost" onClick={()=>setInvView(null)}>Close</Btn>
+        </Row>
+      </Modal>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLUB PERMIT SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, tripLogs, setTripLogs }) {
+  const isAdmin = user.role==="admin";
+  const [modal,setModal]=useState(null);
+  const [tripForm,setTripForm]=useState({date:today,startOdo:"",endOdo:"",purpose:"",destination:""});
+  const [permitForm,setPermitForm]=useState({});
+
+  // Permit year resets on permit anniversary - use calendar year for simplicity
+  const thisYear = new Date().getFullYear();
+
+  // Cars on permit scheme - either all (admin) or just mine (member)
+  const permitCars = cars.filter(c=>c.onPermit);
+  const myCars = cars.filter(c=>c.ownerId===user.id);
+  const myPermitCars = myCars.filter(c=>c.onPermit);
+
+  const carLabel = c=>c.year+" "+c.make+" "+c.model+(c.reg?" ("+c.reg+")":"");
+  const ownerOf = c=>members.find(m=>m.id===c.ownerId);
+
+  // Days used this year for a car
+  const daysUsed = carId=>{
+    const logs = tripLogs.filter(t=>t.carId===carId&&t.date.startsWith(thisYear+""));
+    return logs.length;
+  };
+  const tripsForCar = carId=>tripLogs.filter(t=>t.carId===carId).sort((a,b)=>b.date.localeCompare(a.date));
+
+  // Days remaining
+  const allowance = c=>(c.permitDays===45?45:90);
+  const daysLeft = c=>Math.max(0,allowance(c)-daysUsed(c.id));
+  const pctUsed = c=>Math.min(100,Math.round(daysUsed(c.id)/allowance(c)*100));
+
+  async function saveTrip(carId){
+    if(!tripForm.date||!tripForm.purpose)return alert("Date and purpose required.");
+    const entry={id:uid("TL"),carId,memberId:user.id,date:tripForm.date,
+      startOdo:tripForm.startOdo?Number(tripForm.startOdo):null,
+      endOdo:tripForm.endOdo?Number(tripForm.endOdo):null,
+      km:(tripForm.startOdo&&tripForm.endOdo)?Number(tripForm.endOdo)-Number(tripForm.startOdo):null,
+      purpose:tripForm.purpose,destination:tripForm.destination};
+    const u=[...tripLogs,entry]; setTripLogs(u); await dbSet(SK.tripLogs,u);
+    setModal(null); setTripForm({date:today,startOdo:"",endOdo:"",purpose:"",destination:""});
+  }
+  async function deleteTrip(id){ const u=tripLogs.filter(t=>t.id!==id); setTripLogs(u); await dbSet(SK.tripLogs,u); }
+
+  async function saveCarPermit(car){
+    const u=cars.map(c=>c.id===car.id?{...c,...permitForm,onPermit:true}:c);
+    setCars(u); await dbSet(SK.cars,u); setModal(null);
+  }
+  async function removePermit(carId){
+    const u=cars.map(c=>c.id===carId?{...c,onPermit:false,permitNumber:"",permitExpiry:"",permitDays:90}:c);
+    setCars(u); await dbSet(SK.cars,u);
+  }
+
+  const expiryStatus = c=>{
+    if(!c.permitExpiry)return "unknown";
+    const days=Math.round((new Date(c.permitExpiry)-new Date())/(1000*60*60*24));
+    if(days<0)return "expired";
+    if(days<=60)return "soon";
+    return "ok";
+  };
+  const expiryColour = s=>({expired:"var(--red2)",soon:"#b45309",ok:"var(--green)",unknown:"var(--text3)"}[s]);
+
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Club Permits" subtitle={isAdmin?`${permitCars.length} vehicles on scheme`:"VicRoads Club Permit Scheme"}/>
+
+      {/* Info banner */}
+      <div style={{background:"linear-gradient(90deg,#f0f4ff,#e8f5ee)",border:"1px solid #c5d8f0",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:13,color:"var(--text2)"}}>
+        <span style={{fontWeight:700}}>Victoria Club Permit Scheme</span> — Vehicles 25+ years old may be driven up to <strong>45 or 90 days per year</strong> on public roads. RCCA is an approved club with VicRoads. A logbook must be maintained. Contact the Club Permit Officer for new applications.
+      </div>
+
+      {isAdmin?(
+        <div>
+          {/* Admin: renewal alerts */}
+          {permitCars.filter(c=>["expired","soon"].includes(expiryStatus(c))).length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>Renewal Alerts</div>
+              {permitCars.filter(c=>["expired","soon"].includes(expiryStatus(c))).map(c=>{
+                const s=expiryStatus(c); const owner=ownerOf(c);
+                return <div key={c.id} style={{background:s==="expired"?"#fff0f0":"#fffbeb",border:"1px solid "+(s==="expired"?"var(--red2)":"#f59e0b"),borderRadius:6,padding:"10px 14px",marginBottom:6,fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div><span style={{fontWeight:700,color:expiryColour(s)}}>{s==="expired"?"⚠ EXPIRED":"⏰ Expiring Soon"}</span> — {carLabel(c)} · {owner?.name||"Unknown"}</div>
+                  <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{c.permitExpiry||"No date set"}</div>
+                </div>;
+              })}
+            </div>
+          )}
+
+          {/* Admin: full permit table */}
+          <Card style={{padding:0,overflow:"hidden"}}>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{borderBottom:"2px solid var(--border)",background:"var(--bg3)"}}>
+                  {["Owner","Vehicle","Permit No","Type","Expiry","Days Used","Status",""].map(h=><th key={h} style={{textAlign:"left",padding:"10px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em",whiteSpace:"nowrap"}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {permitCars.map(c=>{
+                    const owner=ownerOf(c); const used=daysUsed(c.id); const allow=allowance(c); const s=expiryStatus(c);
+                    return <tr key={c.id} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"10px 12px"}}><Row gap={6} align="center"><Avatar name={owner?.name||"?"} size={22}/><span style={{fontWeight:600}}>{owner?.name||"Unknown"}</span></Row></td>
+                      <td style={{padding:"10px 12px",color:"var(--text2)"}}>{carLabel(c)}</td>
+                      <td style={{padding:"10px 12px",fontFamily:"var(--font-m)",fontSize:11}}>{c.permitNumber||"—"}</td>
+                      <td style={{padding:"10px 12px"}}><span style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:4,padding:"2px 8px",fontSize:11,fontFamily:"var(--font-m)"}}>{allow} days</span></td>
+                      <td style={{padding:"10px 12px",color:expiryColour(s),fontWeight:s!=="ok"?700:400,fontSize:11,fontFamily:"var(--font-m)"}}>{c.permitExpiry||"—"}</td>
+                      <td style={{padding:"10px 12px"}}>
+                        <div style={{fontSize:11,marginBottom:4}}>{used}/{allow} days</div>
+                        <div style={{height:6,background:"var(--bg3)",borderRadius:3,width:80}}><div style={{height:6,borderRadius:3,background:pctUsed(c)>80?"var(--red2)":"var(--green)",width:pctUsed(c)+"%"}}/></div>
+                      </td>
+                      <td style={{padding:"10px 12px"}}><span style={{fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,color:expiryColour(s)}}>{s==="expired"?"Expired":s==="soon"?"Expiring Soon":s==="ok"?"Active":"Unknown"}</span></td>
+                      <td style={{padding:"10px 12px"}}><Btn variant="ghost" size="sm" onClick={()=>{setPermitForm({permitNumber:c.permitNumber||"",permitExpiry:c.permitExpiry||"",permitDays:c.permitDays||90});setModal({editPermit:c});}}>Edit</Btn></td>
+                    </tr>;
+                  })}
+                  {permitCars.length===0&&<tr><td colSpan={8} style={{padding:"24px",textAlign:"center",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12}}>No vehicles on the Club Permit Scheme</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      ):(
+        <div>
+          {myPermitCars.length===0&&<div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:20,fontSize:13,color:"var(--text2)",marginBottom:16}}>
+            You have no vehicles on the Club Permit Scheme. To add a vehicle, go to <strong>My Profile → Vehicles</strong> and enable "Club Permit" on an eligible vehicle (25+ years old).
+          </div>}
+          {myPermitCars.map(c=>{
+            const used=daysUsed(c.id); const allow=allowance(c); const left=daysLeft(c); const pct=pctUsed(c); const s=expiryStatus(c);
+            const trips=tripsForCar(c.id);
+            return <Card key={c.id} style={{marginBottom:20,overflow:"hidden"}}>
+              <div style={{height:4,background:pct>80?"linear-gradient(90deg,var(--red2),#f87171)":"linear-gradient(90deg,var(--green),#34d399)"}}/>
+              <div style={{padding:20}}>
+                <Row justify="space-between" align="flex-start" style={{marginBottom:14}}>
+                  <div>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,marginBottom:3}}>{carLabel(c)}</div>
+                    <Row gap={12} style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>
+                      <span>Permit: {c.permitNumber||"Not set"}</span>
+                      <span>Type: {allow} day</span>
+                      <span style={{color:expiryColour(s),fontWeight:s!=="ok"?700:400}}>Expires: {c.permitExpiry||"Not set"} {s==="expired"?"⚠":s==="soon"?"⏰":""}</span>
+                    </Row>
+                  </div>
+                  <Btn variant="ghost" size="sm" onClick={()=>{setTripForm({date:today,startOdo:"",endOdo:"",purpose:"",destination:""});setModal({addTrip:c});}}>+ Log Trip</Btn>
+                </Row>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
+                  {[["Days Used",used,"var(--burg)"],["Days Remaining",left,left<=10?"var(--red2)":"var(--green)"],["Allowance",allow+" days","var(--text2)"]].map(([k,v,col])=>(
+                    <div key={k} style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px",textAlign:"center"}}>
+                      <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:4}}>{k}</div>
+                      <div style={{fontSize:22,fontWeight:700,color:col}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginBottom:4,fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>Usage {thisYear} — {used}/{allow} days ({pct}%)</div>
+                <div style={{height:10,background:"var(--bg3)",borderRadius:5,marginBottom:16}}>
+                  <div style={{height:10,borderRadius:5,background:pct>80?"var(--red2)":"var(--green)",width:pct+"%",transition:"width .4s"}}/>
+                </div>
+                <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>Trip Logbook ({trips.length} entries)</div>
+                {trips.length===0&&<div style={{fontSize:13,color:"var(--text3)",fontFamily:"var(--font-m)"}}>No trips logged yet. Use "+ Log Trip" to record each outing.</div>}
+                {trips.slice(0,10).map(t=>(
+                  <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--border)",fontSize:13}}>
+                    <div>
+                      <span style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",marginRight:10}}>{t.date}</span>
+                      <span style={{fontWeight:600}}>{t.purpose}</span>
+                      {t.destination&&<span style={{color:"var(--text3)",marginLeft:6}}>→ {t.destination}</span>}
+                    </div>
+                    <Row gap={10} align="center">
+                      {t.km&&<span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{t.km}km</span>}
+                      <button onClick={()=>setModal({confirmDelTrip:t})} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:14,padding:"2px 6px"}}>×</button>
+                    </Row>
+                  </div>
+                ))}
+                {trips.length>10&&<div style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)",textAlign:"center",paddingTop:8}}>Showing 10 of {trips.length} trips</div>}
+              </div>
+            </Card>;
+          })}
+        </div>
+      )}
+
+      {/* Admin edit permit modal */}
+      {modal?.editPermit&&<Modal title={"Edit Permit — "+carLabel(modal.editPermit)} onClose={()=>setModal(null)}>
+        <Field label="Permit Number"><Input value={permitForm.permitNumber||""} onChange={e=>setPermitForm({...permitForm,permitNumber:e.target.value})} placeholder="e.g. CP123456"/></Field>
+        <Field label="Permit Type">
+          <Select value={permitForm.permitDays||90} onChange={e=>setPermitForm({...permitForm,permitDays:Number(e.target.value)})}>
+            <option value={45}>45 days per year</option>
+            <option value={90}>90 days per year</option>
+          </Select>
+        </Field>
+        <Field label="Renewal / Expiry Date"><Input type="date" value={permitForm.permitExpiry||""} onChange={e=>setPermitForm({...permitForm,permitExpiry:e.target.value})}/></Field>
+        <Row gap={10} justify="space-between">
+          <Btn variant="danger" size="sm" onClick={()=>{removePermit(modal.editPermit.id);setModal(null);}}>Remove from Scheme</Btn>
+          <Row gap={10}><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={()=>saveCarPermit(modal.editPermit)}>Save</Btn></Row>
+        </Row>
+      </Modal>}
+
+      {/* Log Trip modal */}
+      {modal?.addTrip&&<Modal title={"Log Trip — "+carLabel(modal.addTrip)} onClose={()=>setModal(null)}>
+        <div style={{background:"#fffbeb",border:"1px solid #f59e0b",borderRadius:6,padding:"10px 14px",marginBottom:16,fontSize:12,color:"#92400e"}}>
+          Each day you use your Club Permit vehicle counts as one day toward your annual allowance ({allowance(modal.addTrip)} days). Log each outing even if multiple trips happen in one day — or log once per calendar day used.
+        </div>
+        <Row gap={12}><Field label="Date" half><Input type="date" value={tripForm.date} onChange={e=>setTripForm({...tripForm,date:e.target.value})}/></Field>
+        <Field label="Purpose / Occasion" half><Input value={tripForm.purpose} onChange={e=>setTripForm({...tripForm,purpose:e.target.value})} placeholder="e.g. Club run, Display day"/></Field></Row>
+        <Field label="Destination (optional)"><Input value={tripForm.destination} onChange={e=>setTripForm({...tripForm,destination:e.target.value})} placeholder="e.g. Yarra Valley"/></Field>
+        <Row gap={12}><Field label="Start Odometer (optional)" half><Input type="number" value={tripForm.startOdo} onChange={e=>setTripForm({...tripForm,startOdo:e.target.value})}/></Field>
+        <Field label="End Odometer (optional)" half><Input type="number" value={tripForm.endOdo} onChange={e=>setTripForm({...tripForm,endOdo:e.target.value})}/></Field></Row>
+        {tripForm.startOdo&&tripForm.endOdo&&Number(tripForm.endOdo)>Number(tripForm.startOdo)&&<div style={{fontSize:13,color:"var(--green)",fontWeight:700,marginBottom:12}}>Distance: {Number(tripForm.endOdo)-Number(tripForm.startOdo)} km</div>}
+        <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={()=>saveTrip(modal.addTrip.id)}>Save Trip</Btn></Row>
+      </Modal>}
+
+      {modal?.confirmDelTrip&&<Confirm message="Delete this trip log entry?" onConfirm={()=>{deleteTrip(modal.confirmDelTrip.id);setModal(null);}} onCancel={()=>setModal(null)}/>}
+    </div>
+  );
+}
+
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(App));
