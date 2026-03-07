@@ -93,6 +93,7 @@ const SK = {
   expenses:"rcca:expenses", finSettings:"rcca:finSettings",
   permits:"rcca:permits", tripLogs:"rcca:tripLogs",
   categories:"rcca:categories",
+  messages:"rcca:messages",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -662,7 +663,7 @@ function Sidebar({ user, tab, setTab, onLogout, notifs={} }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, listings, setTab }) {
+function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, listings, messages, setTab }) {
   const isAdmin=user.role==="admin";
   const overdue=dues.filter(d=>d.year===yr&&!d.paid);
   const upcoming=[...meetings,...events].filter(e=>e.status==="upcoming").sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
@@ -681,6 +682,45 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
           &nbsp;·&nbsp; {user.state||"—"}
         </p>
       </div>
+
+      {/* ── Seller Inbox Alerts ──────────────────────────────────── */}
+      {(()=>{
+        const myMsgs = messages.filter(m=>m.toMemberId===user.id&&!m.read);
+        if(!myMsgs.length) return null;
+        return (
+          <div style={{marginBottom:20}}>
+            <div style={{fontFamily:"var(--font-m)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.12em",color:"var(--burg)",marginBottom:10,fontWeight:700}}>
+              📬 New Messages — {myMsgs.length} unread
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {myMsgs.map(m=>(
+                <div key={m.id} style={{background:"#fff",border:"2px solid var(--burg)",borderRadius:10,padding:"14px 18px",position:"relative",boxShadow:"0 2px 12px rgba(192,40,42,.1)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13.5,color:"var(--text)",marginBottom:4}}>
+                        Message about: <span style={{color:"var(--burg)"}}>{m.listingTitle}</span>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:"4px 16px",fontSize:12.5,marginBottom:m.note?8:0}}>
+                        <div><span style={{color:"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>From: </span><span style={{fontWeight:600,color:"var(--text)"}}>{m.fromName}</span></div>
+                        <div><span style={{color:"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Email: </span><a href={"mailto:"+m.fromEmail} style={{fontWeight:600,color:"var(--burg)",textDecoration:"none"}}>{m.fromEmail}</a></div>
+                        {m.fromPhone&&<div><span style={{color:"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Phone: </span><a href={"tel:"+m.fromPhone} style={{fontWeight:600,color:"var(--burg)",textDecoration:"none"}}>{m.fromPhone}</a></div>}
+                        <div><span style={{color:"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Received: </span><span style={{color:"var(--text3)"}}>{m.sent}</span></div>
+                      </div>
+                      {m.note&&<div style={{background:"var(--bg3)",borderRadius:6,padding:"8px 12px",fontSize:12.5,color:"var(--text2)",lineHeight:1.6,fontStyle:"italic",marginTop:4}}>"{m.note}"</div>}
+                    </div>
+                    <button onClick={async()=>{
+                      const updated=messages.map(x=>x.id===m.id?{...x,read:true}:x);
+                      setMessages(updated);await dbSet(SK.messages,updated);
+                    }} title="Mark as read" style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,padding:"5px 12px",fontSize:11,fontFamily:"var(--font-m)",color:"var(--text3)",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
+                      ✓ Dismiss
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))",gap:10,marginBottom:24}}>
         {isAdmin ? <>
@@ -1569,6 +1609,105 @@ function TasksSection({ user, members, tasks, setTasks }) {
 // ══════════════════════════════════════════════════════════════════════════════
 
 
+// ── ContactSeller ─────────────────────────────────────────────────────────────
+// Shown on listings where the seller has hidden their details.
+// Logged-in members can send a message; guests are prompted to log in.
+function ContactSeller({ listing, user, messages, setMessages }) {
+  const [open, setOpen] = React.useState(false);
+  const [form, setForm] = React.useState({ name:"", email:"", phone:"", note:"" });
+  const [sent, setSent] = React.useState(false);
+  const [err, setErr] = React.useState({});
+
+  // Check if user already sent a message for this listing
+  const alreadySent = messages.some(m => m.listingId===listing.id && m.fromMemberId===user?.id);
+
+  async function send() {
+    const e = {};
+    if(!form.name.trim()) e.name="Required";
+    if(!form.email.trim()) e.email="Required";
+    if(Object.keys(e).length){setErr(e);return;}
+    const msg = {
+      id: "MSG"+Date.now().toString(36).toUpperCase(),
+      listingId: listing.id,
+      listingTitle: listing.title,
+      toMemberId: listing.memberId,
+      fromMemberId: user?.id||null,
+      fromName: form.name||user?.name||"",
+      fromEmail: form.email||user?.email||"",
+      fromPhone: form.phone||"",
+      note: form.note||"",
+      sent: new Date().toISOString().slice(0,10),
+      read: false,
+    };
+    const updated = [...messages, msg];
+    setMessages(updated);
+    await dbSet(SK.messages, updated);
+    setSent(true);
+    setOpen(false);
+  }
+
+  const iSt = (k) => ({
+    width:"100%", padding:"9px 12px", border:`1px solid ${err[k]?"var(--burg)":"var(--border2)"}`,
+    borderRadius:6, fontSize:13, fontFamily:"var(--font-b)", color:"var(--text)",
+    background:"var(--bg2)", outline:"none", boxSizing:"border-box"
+  });
+
+  if(sent||alreadySent) return (
+    <div style={{background:"#f0fdf4",border:"1px solid #86efac",borderRadius:8,padding:"12px 16px",marginBottom:12,fontSize:13,color:"#166534"}}>
+      ✓ Your message has been sent. The seller will see it when they next log in.
+    </div>
+  );
+
+  return (
+    <div style={{marginBottom:12}}>
+      <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",marginBottom:open?0:0}}>
+        <div style={{fontSize:12,color:"var(--text3)",marginBottom:10,lineHeight:1.5}}>
+          🔒 The seller has kept their contact details private. You can send them an anonymous message and they'll be notified next time they log in.
+        </div>
+        {!open
+          ?<button onClick={()=>setOpen(true)}
+            style={{background:"var(--burg)",border:"none",borderRadius:7,padding:"10px 22px",color:"#fff",fontFamily:"var(--font-b)",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+            ✉ Message Seller
+          </button>
+          :<div style={{marginTop:12,borderTop:"1px solid var(--border)",paddingTop:14}}>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:12}}>Your contact details</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Your Name *</label>
+                <input style={iSt("name")} value={form.name} onChange={e=>{setForm(f=>({...f,name:e.target.value}));setErr(v=>({...v,name:null}));}} placeholder="Your full name"/>
+                {err.name&&<div style={{fontSize:11,color:"var(--burg)",marginTop:2}}>{err.name}</div>}
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Your Email *</label>
+                <input style={iSt("email")} type="email" value={form.email} onChange={e=>{setForm(f=>({...f,email:e.target.value}));setErr(v=>({...v,email:null}));}} placeholder="your@email.com"/>
+                {err.email&&<div style={{fontSize:11,color:"var(--burg)",marginTop:2}}>{err.email}</div>}
+              </div>
+            </div>
+            <div style={{marginBottom:10}}>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Phone <span style={{fontWeight:400,color:"var(--text3)"}}>(optional)</span></label>
+              <input style={iSt()} value={form.phone} onChange={e=>setForm(f=>({...f,phone:e.target.value}))} placeholder="04xx xxx xxx"/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Message <span style={{fontWeight:400,color:"var(--text3)"}}>(optional)</span></label>
+              <textarea style={{...iSt(),minHeight:72,resize:"vertical"}} value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} placeholder="Any questions or information for the seller…"/>
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={send}
+                style={{background:"var(--burg)",border:"none",borderRadius:7,padding:"10px 22px",color:"#fff",fontFamily:"var(--font-b)",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                Send Message →
+              </button>
+              <button onClick={()=>{setOpen(false);setErr({});}}
+                style={{background:"none",border:"1px solid var(--border2)",borderRadius:7,padding:"10px 16px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer"}}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  );
+}
+
 // ── ListingGallery ────────────────────────────────────────────────────────────
 function ListingGallery({ images }) {
   const [active, setActive] = React.useState(0);
@@ -1758,7 +1897,7 @@ function ListingPhotoUploader({ photos, onChange }) {
   );
 }
 
-function MarketplaceSection({ user, members, listings, setListings, cats }) {
+function MarketplaceSection({ user, members, listings, setListings, cats, messages, setMessages }) {
   const [search,setSearch]=useState(""); const [fType,setFType]=useState("all"); const [fCat,setFCat]=useState("all");
   const [modal,setModal]=useState(null); const [form,setForm]=useState({}); const [view,setView]=useState(null);
   const [portalTab,setPortalTab]=useState("active");
@@ -1768,7 +1907,7 @@ function MarketplaceSection({ user, members, listings, setListings, cats }) {
     return txt.includes(search.toLowerCase())&&(fType==="all"||l.type===fType)&&(fCat==="all"||l.category===fCat)&&l.status==="active";
   });
   const myListings=listings.filter(l=>l.memberId===user.id);
-  function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",status:"pending",created:today});setModal("add");}
+  function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",hideContact:false,status:"pending",created:today});setModal("add");}
   function openEdit(l){setForm({...l});setModal({edit:l});}
   async function handleSave(){
     if(!form.title||!form.description)return alert("Title and description required.");
@@ -1851,9 +1990,10 @@ function MarketplaceSection({ user, members, listings, setListings, cats }) {
                   <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{l.location}</div>
                 </div>
               </Row>
-              {(l.condition||l.mileage||l.colour)&&<div style={{marginTop:8}}>
+              {(l.condition||l.mileage||l.colour||l.hideContact)&&<div style={{marginTop:8}}>
                 <Row gap={6} wrap>
                   {l.condition&&<Badge status={l.condition}/>}
+                  {l.hideContact&&<span style={{fontSize:10,background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:3,padding:"2px 7px",fontFamily:"var(--font-m)",fontWeight:700,color:"#8f1a1a"}}>🔒 Contact hidden</span>}}
                   {l.mileage&&<span style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"2px 7px",fontFamily:"var(--font-m)",color:"var(--text2)"}}>🔢 {l.mileage}</span>}
                   {l.colour&&<span style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"2px 7px",fontFamily:"var(--font-m)",color:"var(--text2)"}}>🎨 {l.colour}</span>}
                 </Row>
@@ -1946,10 +2086,17 @@ function MarketplaceSection({ user, members, listings, setListings, cats }) {
           </div>
         )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:12.5}}>
-          {[["Posted by",sellerName(view.memberId)],["Location",view.location],["Contact",view.contact],["Listed",view.created]].map(([k,v])=>(
+          {[["Posted by",sellerName(view.memberId)],["Location",view.location],["Listed",view.created]].map(([k,v])=>v?(
             <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.08em"}}>{k}: </span><span style={{color:"var(--text)"}}>{v}</span></div>
-          ))}
+          ):null)}
         </div>
+        {view.hideContact
+          ?<ContactSeller listing={view} user={user} messages={messages} setMessages={setMessages}/>
+          :view.contact&&<div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",marginBottom:12,fontSize:13}}>
+            <span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.08em"}}>Contact: </span>
+            <span style={{color:"var(--burg)",fontWeight:600}}>{view.contact}</span>
+          </div>
+        }
         {(user.role==="admin"||view.memberId===user.id)&&(
           <Row gap={8} justify="flex-end">
             <Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete listing?",fn:()=>del(view.id)}})}>Delete</Btn>
@@ -1992,13 +2139,20 @@ function MarketplaceSection({ user, members, listings, setListings, cats }) {
             <Field label="VIN / Chassis No." half><Input value={form.vin||""} onChange={e=>setForm({...form,vin:e.target.value})} placeholder="Optional"/></Field>
           </Row>
         </div>}
-        <Row gap{12} wrap style={{justifyContent:"space-between"}}>
+        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
           <Field label="Location" half><Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Melbourne, VIC"/></Field>
           <Field label="Contact Email" half><Input value={form.contact||""} onChange={e=>setForm({...form,contact:e.target.value})}/></Field>
         </Row>
         <Row gap={12} wrap style={{justifyContent:"space-between"}}>
           <Field label="Seller Name" half><Input value={form.sellerName||""} onChange={e=>setForm({...form,sellerName:e.target.value})} placeholder="Name shown on listing"/></Field>
         </Row>
+        <div style={{background:form.hideContact?"rgba(192,40,42,.07)":"var(--bg3)",border:`1px solid ${form.hideContact?"var(--burg)":"var(--border)"}`,borderRadius:8,padding:"12px 16px",marginBottom:12,display:"flex",alignItems:"flex-start",gap:14,cursor:"pointer"}} onClick={()=>setForm({...form,hideContact:!form.hideContact})}>
+          <input type="checkbox" checked={!!form.hideContact} onChange={()=>{}} style={{width:18,height:18,accentColor:"var(--burg)",marginTop:2,flexShrink:0,cursor:"pointer"}}/>
+          <div>
+            <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:2}}>Hide my contact details</div>
+            <div style={{fontSize:12,color:"var(--text3)",lineHeight:1.5}}>Your name, email and phone won't be shown on the listing. Interested buyers can send you a message through the portal — you'll see it when you next log in.</div>
+          </div>
+        </div>
         <Field label="Negotiable?"><Select value={form.negotiable?"yes":"no"} onChange={e=>setForm({...form,negotiable:e.target.value==="yes"})}><option value="no">Fixed Price</option><option value="yes">Negotiable / ONO</option></Select></Field>
         <Field label="Photos (up to 5)">
           <ListingPhotoUploader photos={form.images||[]} onChange={imgs=>setForm({...form,images:imgs})}/>
@@ -3386,8 +3540,11 @@ function PublicMarketplace({ listings, setListings, members, user, onLoginClick 
                     <span>📍 {l.location}</span><span style={{fontFamily:"var(--font-m)",fontSize:11}}>{l.created}</span>
                   </div>
                   <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:12,color:"var(--text3)"}}>Contact: <span style={{color:"var(--burg)",fontWeight:600}}>{l.contact}</span></span>
-                    <button onClick={()=>setShowForm(true)} style={{background:"none",border:"1px solid var(--burg)",borderRadius:5,padding:"5px 12px",color:"var(--burg)",fontFamily:"var(--font-b)",fontSize:12,fontWeight:700,cursor:"pointer"}}>Enquire →</button>
+                    {l.hideContact
+                      ?<span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>🔒 Contact via portal</span>
+                      :<span style={{fontSize:12,color:"var(--text3)"}}>Contact: <span style={{color:"var(--burg)",fontWeight:600}}>{l.contact}</span></span>
+                    }
+                    <button onClick={()=>setShowForm(true)} style={{background:"none",border:"1px solid var(--burg)",borderRadius:5,padding:"5px 12px",color:"var(--burg)",fontFamily:"var(--font-b)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{l.hideContact?"View in portal →":"Enquire →"}</button>
                   </div>
                 </div>
               </div>
@@ -4106,6 +4263,7 @@ function App() {
   const [dues,setDues]=useState([]);
   const [rsvps,setRsvps]=useState([]);
   const [listings,setListings]=useState([]);
+  const [messages,setMessages]=useState([]);
   const [shopItems,setShopItems]=useState([]);
   const [orders,setOrders]=useState([]);
   const [news,setNews]=useState([]);
@@ -4120,15 +4278,15 @@ function App() {
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
-        dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories)
+        dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages)
       ]);
       const fm=m||SEED_MEMBERS; setMembers(fm);
       setCars(c||SEED_CARS); setTransfers(tr||[]); setMeetings(mt||SEED_MEETINGS);
       setEvents(ev||SEED_EVENTS); setTasks(tk||SEED_TASKS); setDues(d||SEED_DUES);
-      setRsvps(r||SEED_RSVPS); setListings(li||SEED_LISTINGS);
+      setRsvps(r||SEED_RSVPS); setListings(li||SEED_LISTINGS); setMessages(msg||[]);
       setShopItems(si||SEED_SHOP); setOrders(or||[]); setNews(nw||SEED_NEWS);
       if(sc)setSiteContent(sc);
       if(ap)setApplications(ap);
@@ -4163,7 +4321,7 @@ function App() {
     marketplace: user?.role==="admin"?listings.filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
