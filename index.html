@@ -1604,6 +1604,40 @@ function TasksSection({ user, members, tasks, setTasks }) {
   );
 }
 
+const DEFAULT_CATEGORIES = {
+  memberType:   ["City","Country","Associate","Life","Honorary"],
+  eventType:    ["show","drive","social","charity","competition"],
+  meetingType:  ["general","committee","extraordinary","social"],
+  taskPriority: ["high","medium","low"],
+  listingType:  ["sell","wanted","swap"],
+  listingCat:   ["car","parts","memorabilia","manuals","tools","other"],
+  shopCat:      ["apparel","badges","publications","merchandise","tools","other"],
+  expenseCat:   ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
+  dietary:      ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
+  vehicleStatus:["active","sold","destroyed","restoration"],
+  taskTag:      ["admin","legal","events","nationals","design","maintenance","finance"],
+};
+
+
+const DEFAULT_CATEGORIES = {
+  memberType:   ["City","Country","Associate","Life","Honorary"],
+  eventType:    ["show","drive","social","charity","competition"],
+  meetingType:  ["general","committee","extraordinary","social"],
+  taskPriority: ["high","medium","low"],
+  listingType:  ["sell","wanted","swap"],
+  listingCat:   ["car","parts","memorabilia","manuals","tools","other"],
+  shopCat:      ["apparel","badges","publications","merchandise","tools","other"],
+  expenseCat:   ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
+  dietary:      ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
+  vehicleStatus:["active","sold","destroyed","restoration"],
+  taskTag:      ["admin","legal","events","nationals","design","maintenance","finance"],
+};
+
+function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...categories} : DEFAULT_CATEGORIES; }
+</script>
+
+<script type="text/babel" data-presets="react">
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MARKETPLACE
 // ══════════════════════════════════════════════════════════════════════════════
@@ -2625,9 +2659,7 @@ const DEFAULT_CATEGORIES = {
 };
 
 function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...categories} : DEFAULT_CATEGORIES; }
-</script>
-
-<script type="text/babel" data-presets="react">// ── Import cross-script globals ───────────────────────────────────────────────
+// ── Import cross-script globals ───────────────────────────────────────────────
 
 function PublicNav({ page, setPage, onLoginClick }) {
   const [menuOpen, setMenuOpen] = useState(false);
