@@ -1693,25 +1693,62 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
   const isAdmin=user.role==="admin";
   const [cart,setCart]=useState({});
   const [tab2,setTab2]=useState("shop");
-  const [modal,setModal]=useState(null); const [form,setForm]=useState({});
-  const [view,setView]=useState(null);
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
   const [selVariant,setSelVariant]=useState({});
+  const [shipping,setShipping]=useState({name:user.name||"",address:"",suburb:"",state:"VIC",postcode:"",notes:""});
+
   const cartCount=Object.values(cart).reduce((s,v)=>s+(v.qty||0),0);
-  const cartTotal=Object.entries(cart).reduce((s,[id,{qty}])=>{const item=shopItems.find(x=>x.id===id);return s+(item?item.price*qty:0);},0);
+  const cartTotal=Object.entries(cart).reduce((s,[id,{qty}])=>{const item=shopItems.find(x=>x.id===id.split("_")[0]);return s+(item?item.price*qty:0);},0);
+
+  // How many of an item has this member already ordered (delivered/dispatched/processing/pending)
+  function alreadyOrdered(itemId){
+    return orders.filter(o=>o.memberId===user.id&&o.status!=="cancelled")
+      .reduce((s,o)=>s+(o.items||[]).filter(x=>x.itemId===itemId).reduce((t,x)=>t+x.qty,0),0);
+  }
+  // How many currently in cart for this item
+  function inCart(itemId){
+    return Object.entries(cart).filter(([k])=>k.split("_")[0]===itemId).reduce((s,[,v])=>s+v.qty,0);
+  }
+  // Max more can be added (0 = limit reached)
+  function canAdd(item){
+    if(!item.maxPerMember)return item.stock>0?99:0;
+    const remaining=item.maxPerMember-alreadyOrdered(item.id)-inCart(item.id);
+    return Math.max(0,Math.min(remaining,item.stock));
+  }
 
   function addToCart(item,variant=""){
+    if(canAdd(item)<=0){
+      if(item.maxPerMember)alert("You have reached the maximum of "+item.maxPerMember+" unit"+(item.maxPerMember>1?"s":"")+" allowed per member for this item.");
+      return;
+    }
     const key=item.id+(variant?"_"+variant:"");
     setCart(c=>({...c,[key]:{itemId:item.id,variant,qty:(c[key]?.qty||0)+1}}));
   }
   function removeFromCart(key){setCart(c=>{const n={...c};delete n[key];return n;});}
-  function adjustQty(key,delta){setCart(c=>{const n={...c};if(!n[key])return n;n[key]={...n[key],qty:Math.max(0,n[key].qty+delta)};if(n[key].qty===0)delete n[key];return n;});}
+  function adjustQty(key,delta){
+    const itemId=key.split("_")[0];
+    const item=shopItems.find(x=>x.id===itemId);
+    setCart(c=>{
+      const n={...c};
+      if(!n[key])return n;
+      const newQty=n[key].qty+delta;
+      if(delta>0&&item&&canAdd(item)<=0){
+        if(item.maxPerMember)alert("Maximum of "+item.maxPerMember+" unit"+(item.maxPerMember>1?"s":"")+" per member reached.");
+        return n;
+      }
+      n[key]={...n[key],qty:Math.max(0,newQty)};
+      if(n[key].qty===0)delete n[key];
+      return n;
+    });
+  }
 
   async function placeOrder(){
     if(cartCount===0)return;
+    if(!shipping.address||!shipping.suburb||!shipping.postcode)return alert("Please enter your delivery address before placing the order.");
     const items=Object.entries(cart).map(([key,{itemId,variant,qty}])=>{const item=shopItems.find(x=>x.id===itemId);return{itemId,itemName:item?.name||itemId,variant,qty,unitPrice:item?.price||0};});
-    const order={id:uid("ORD"),memberId:user.id,memberName:user.name,items,total:cartTotal,status:"pending",placed:today,notes:""};
+    const order={id:uid("ORD"),memberId:user.id,memberName:user.name,memberEmail:user.email||"",items,total:cartTotal,status:"pending",placed:today,shipping:{...shipping},notes:""};
     const u=[...orders,order]; setOrders(u); await dbSet(SK.orders,u);
-    // Deduct stock
     const updatedShop=shopItems.map(item=>{const sold=items.filter(x=>x.itemId===item.id).reduce((s,x)=>s+x.qty,0);return sold>0?{...item,stock:Math.max(0,item.stock-sold)}:item;});
     setShopItems(updatedShop); await dbSet(SK.shopItems,updatedShop);
     setCart({}); setModal({orderPlaced:order});
@@ -1719,17 +1756,50 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
 
   async function handleSaveItem(){
     if(!form.name||!form.price)return alert("Name and price required.");
-    const u=modal==="addItem"?[...shopItems,{...form,id:uid("S"),price:Number(form.price),stock:Number(form.stock)||0,variants:form.variants?form.variants.split(",").map(s=>s.trim()).filter(Boolean):[]}]
-      :shopItems.map(x=>x.id===form.id?{...form,price:Number(form.price),stock:Number(form.stock)||0,variants:form.variants?form.variants.split(",").map(s=>s.trim()).filter(Boolean):x.variants}:x);
+    const base={...form,price:Number(form.price),stock:Number(form.stock)||0,
+      maxPerMember:form.maxPerMember?Number(form.maxPerMember):null,
+      variants:form.variants?form.variants.split(",").map(s=>s.trim()).filter(Boolean):[]};
+    const u=modal==="addItem"?[...shopItems,{...base,id:uid("S")}]:shopItems.map(x=>x.id===form.id?{...base}:x);
     setShopItems(u);await dbSet(SK.shopItems,u);setModal(null);
   }
 
   async function updateOrderStatus(id,status){const u=orders.map(o=>o.id===id?{...o,status}:o);setOrders(u);await dbSet(SK.orders,u);}
 
+  function printInvoice(o){
+    const w=window.open("","_blank","width=800,height=600");
+    const rows=o.items.map(x=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${x.qty}&times; ${x.itemName}${x.variant?" ("+x.variant+")":""}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">A$${(x.qty*x.unitPrice).toFixed(2)}</td></tr>`).join("");
+    const ship=o.shipping;
+    w.document.write(`<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:680px;margin:40px auto;color:#1a1210">
+      <div style="display:flex;justify-content:space-between;border-bottom:3px solid #c0282a;padding-bottom:16px;margin-bottom:24px">
+        <div><div style="font-size:20px;font-weight:700;color:#c0282a">Rover Car Club of Australia</div>
+        <div style="font-size:12px;color:#666">PO Box 6049, Wantirna VIC 3152 &middot; secretary@rcca.com.au</div></div>
+        <div style="text-align:right"><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.1em">Invoice</div>
+        <div style="font-size:18px;font-weight:700">${o.id}</div>
+        <div style="font-size:11px;color:#666">${o.placed}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;font-size:13px">
+        <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:4px">Bill To</div>
+        <div style="font-weight:700">${o.memberName}</div><div style="color:#666">${o.memberEmail||""}</div></div>
+        ${ship?`<div><div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:4px">Ship To</div>
+        <div>${ship.name}</div><div style="color:#666">${ship.address}</div><div style="color:#666">${ship.suburb} ${ship.state} ${ship.postcode}</div></div>`:""}
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <thead><tr style="background:#c0282a;color:#fff"><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase">Item</th><th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Amount</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr style="background:#f8f5f0"><td style="padding:12px;font-weight:700;font-size:15px">TOTAL</td><td style="padding:12px;text-align:right;font-weight:700;font-size:18px;color:#c0282a">A$${o.total.toFixed(2)}</td></tr></tfoot>
+      </table>
+      <div style="background:#f0f8f4;border:1px solid #b3d9c4;border-radius:8px;padding:16px;font-size:12px">
+        <div style="font-weight:700;color:#1e6840;margin-bottom:8px">Payment by Bank Transfer</div>
+        <div>Account Name: <strong>Rover Car Club of Australia</strong></div>
+        <div style="color:#666;font-size:11px;margin-top:6px">Bank details will be provided by the treasurer. Please use Order ${o.id} as your payment reference.</div>
+      </div>
+      <script>window.print();window.close();<\/script></body></html>`);
+    w.document.close();
+  }
+
   const myOrders=orders.filter(o=>o.memberId===user.id);
   const cats=[...new Set(shopItems.map(x=>x.category))];
-
-  const STATUS_ORDER_COL={pending:"var(--gold)",processing:"var(--blue2)",dispatched:"var(--green2)",delivered:"var(--green2)",cancelled:"var(--red2)"};
+  const STATUS_COL={pending:"var(--gold)",processing:"var(--blue2)",dispatched:"var(--green2)",delivered:"var(--green2)",cancelled:"var(--red2)"};
 
   return (
     <div className="fade-up">
@@ -1744,13 +1814,12 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
           </button>}
           {isAdmin&&<Btn variant="ghost" size="sm" onClick={()=>setTab2("orders")}>Orders</Btn>}
           <Btn variant="ghost" size="sm" onClick={()=>setTab2("myorders")}>My Orders</Btn>
-          {isAdmin&&<Btn size="sm" onClick={()=>{setForm({name:"",description:"",price:"",stock:"",category:"merchandise",sku:"",image:"📦",variants:"",status:"active"});setModal("addItem");}}>+ Add Item</Btn>}
+          {isAdmin&&<Btn size="sm" onClick={()=>{setForm({name:"",description:"",price:"",stock:"",category:"merchandise",sku:"",image:"📦",variants:"",maxPerMember:"",status:"active"});setModal("addItem");}}>+ Add Item</Btn>}
         </Row>
       </Row>
 
-      {/* Sub-tabs */}
       <Row gap={0} style={{marginBottom:20,borderBottom:"1px solid var(--border)"}}>
-        {[{id:"shop",label:"Shop"},{id:"cart",label:`Cart (${cartCount})`},{id:"myorders",label:"My Orders"},{...(isAdmin?{id:"orders",label:"All Orders"}:{id:null})}].filter(x=>x.id).map(t=>(
+        {[{id:"shop",label:"Shop"},{id:"cart",label:"Cart ("+cartCount+")"},{id:"myorders",label:"My Orders"},...(isAdmin?[{id:"orders",label:"All Orders"}]:[])].map(t=>(
           <button key={t.id} onClick={()=>setTab2(t.id)} style={{background:"none",border:"none",borderBottom:tab2===t.id?"2px solid var(--gold)":"2px solid transparent",color:tab2===t.id?"var(--gold2)":"var(--text3)",padding:"8px 18px",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer",marginBottom:-1,fontWeight:tab2===t.id?700:400}}>
             {t.label}
           </button>
@@ -1767,6 +1836,9 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:12}}>
                 {catItems.map(item=>{
                   const sv=selVariant[item.id]||"";
+                  const already=alreadyOrdered(item.id);
+                  const addable=canAdd(item);
+                  const limitMsg=item.maxPerMember?(already>=item.maxPerMember?"Limit reached ("+item.maxPerMember+" max)":addable>0?"Limit: "+item.maxPerMember+" per member":null):null;
                   return (
                     <Card key={item.id} className="hover-lift" style={{padding:16,display:"flex",flexDirection:"column",gap:10}}>
                       <div style={{textAlign:"center",fontSize:44,lineHeight:1,marginBottom:4}}>{item.image}</div>
@@ -1775,19 +1847,20 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
                         <div style={{fontSize:11,color:"var(--text3)",lineHeight:1.5}}>{item.description}</div>
                       </div>
                       <div style={{marginTop:"auto"}}>
-                        <Row justify="space-between" align="center" style={{marginBottom:8}}>
+                        <Row justify="space-between" align="center" style={{marginBottom:6}}>
                           <span style={{fontFamily:"var(--font-m)",fontSize:18,color:"var(--gold2)",fontWeight:700}}>A${item.price}</span>
-                          <span style={{fontSize:10.5,color:item.stock>0?"var(--green2)":"var(--red2)",fontFamily:"var(--font-m)"}}>{item.stock>0?`${item.stock} in stock`:"Out of stock"}</span>
+                          <span style={{fontSize:10.5,color:item.stock>0?"var(--green2)":"var(--red2)",fontFamily:"var(--font-m)"}}>{item.stock>0?item.stock+" in stock":"Out of stock"}</span>
                         </Row>
+                        {limitMsg&&<div style={{fontSize:10,fontFamily:"var(--font-m)",color:already>=item.maxPerMember?"var(--red2)":"var(--text3)",marginBottom:6}}>{limitMsg}</div>}
                         {item.variants?.length>0&&<Select value={sv} onChange={e=>setSelVariant({...selVariant,[item.id]:e.target.value})} style={{marginBottom:8,fontSize:12}}>
                           <option value="">Select size/variant…</option>
                           {item.variants.map(v=><option key={v} value={v}>{v}</option>)}
                         </Select>}
                         <Row gap={6}>
-                          <Btn onClick={()=>{if(item.variants?.length>0&&!sv){alert("Please select a variant.");return;}addToCart(item,sv);}} style={{flex:1,justifyContent:"center"}} size="sm" variant={item.stock>0?"primary":"ghost"} disabled={item.stock===0}>
-                            {item.stock>0?"Add to Cart":"Unavailable"}
+                          <Btn onClick={()=>{if(item.variants?.length>0&&!sv){alert("Please select a variant.");return;}addToCart(item,sv);}} style={{flex:1,justifyContent:"center"}} size="sm" variant={item.stock>0&&addable>0?"primary":"ghost"} disabled={item.stock===0||addable===0}>
+                            {item.stock===0?"Out of Stock":already>=(item.maxPerMember||999)?"Limit Reached":"Add to Cart"}
                           </Btn>
-                          {isAdmin&&<Btn variant="ghost" size="sm" onClick={()=>{setForm({...item,variants:(item.variants||[]).join(",")});setModal({editItem:item});}}>✏</Btn>}
+                          {isAdmin&&<Btn variant="ghost" size="sm" onClick={()=>{setForm({...item,variants:(item.variants||[]).join(","),maxPerMember:item.maxPerMember||""});setModal({editItem:item});}}>✏</Btn>}
                         </Row>
                       </div>
                     </Card>
@@ -1800,7 +1873,7 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
       )}
 
       {tab2==="cart"&&(
-        <div style={{maxWidth:600}}>
+        <div style={{maxWidth:680}}>
           {cartCount===0?<EmptyState icon="🛒" text="Your cart is empty" sub="Browse the shop and add items"/>:(
             <>
               <Col gap={10} style={{marginBottom:20}}>
@@ -1826,12 +1899,28 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
                   );
                 })}
               </Col>
+
+              {/* Shipping address */}
+              <Card style={{padding:20,marginBottom:16}}>
+                <div style={{fontFamily:"var(--font-m)",fontSize:11,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:14}}>Delivery Address</div>
+                <Field label="Full Name"><Input value={shipping.name} onChange={e=>setShipping({...shipping,name:e.target.value})}/></Field>
+                <Field label="Street Address"><Input value={shipping.address} onChange={e=>setShipping({...shipping,address:e.target.value})} placeholder="Street number and name"/></Field>
+                <Row gap={12}>
+                  <Field label="Suburb" style={{flex:2}}><Input value={shipping.suburb} onChange={e=>setShipping({...shipping,suburb:e.target.value})}/></Field>
+                  <Field label="State" half><Select value={shipping.state} onChange={e=>setShipping({...shipping,state:e.target.value})}>
+                    {["VIC","NSW","QLD","SA","WA","TAS","ACT","NT"].map(s=><option key={s}>{s}</option>)}
+                  </Select></Field>
+                  <Field label="Postcode" half><Input value={shipping.postcode} onChange={e=>setShipping({...shipping,postcode:e.target.value})} placeholder="3000"/></Field>
+                </Row>
+                <Field label="Order notes (optional)"><Textarea value={shipping.notes} onChange={e=>setShipping({...shipping,notes:e.target.value})} placeholder="e.g. leave at door, special instructions..." style={{minHeight:60}}/></Field>
+              </Card>
+
               <Card style={{padding:20,background:"linear-gradient(135deg,var(--bg2),var(--bg3))"}}>
-                <Row justify="space-between" align="center" style={{marginBottom:16}}>
+                <Row justify="space-between" align="center" style={{marginBottom:8}}>
                   <div style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--text2)"}}>Order Total</div>
                   <div style={{fontFamily:"var(--font-m)",fontSize:22,color:"var(--gold2)",fontWeight:700}}>A${cartTotal.toFixed(2)}</div>
                 </Row>
-                <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:16}}>Payment will be arranged separately. You will be contacted by the club treasurer.</div>
+                <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:16}}>The club treasurer will contact you to arrange payment. Orders dispatched within 5–7 business days.</div>
                 <Btn size="lg" style={{width:"100%"}} onClick={placeOrder}>Place Order →</Btn>
               </Card>
             </>
@@ -1842,17 +1931,19 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
       {tab2==="myorders"&&(
         <Col gap={12}>
           {myOrders.length===0?<EmptyState icon="📦" text="No orders yet" sub="Your order history will appear here"/>:
-            myOrders.map(o=>(
+            [...myOrders].reverse().map(o=>(
               <Card key={o.id} style={{padding:18}}>
                 <Row justify="space-between" align="flex-start" style={{marginBottom:10}}>
                   <div><div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",marginBottom:3}}>Order {o.id} · {o.placed}</div><div style={{fontFamily:"var(--font-m)",fontSize:18,color:"var(--gold2)",fontWeight:700}}>A${o.total.toFixed(2)}</div></div>
-                  <span style={{background:"var(--bg3)",border:`1px solid ${STATUS_ORDER_COL[o.status]||"var(--border)"}`,color:STATUS_ORDER_COL[o.status]||"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",borderRadius:4,padding:"3px 8px",letterSpacing:"0.1em",textTransform:"uppercase"}}>{o.status}</span>
+                  <Row gap={8} align="center">
+                    <span style={{background:"var(--bg3)",border:"1px solid "+(STATUS_COL[o.status]||"var(--border)"),color:STATUS_COL[o.status]||"var(--text3)",fontSize:10,fontFamily:"var(--font-m)",borderRadius:4,padding:"3px 8px",letterSpacing:"0.1em",textTransform:"uppercase"}}>{o.status}</span>
+                    <Btn variant="ghost" size="sm" onClick={()=>printInvoice(o)}>🖨 Invoice</Btn>
+                  </Row>
                 </Row>
-                <Col gap={5}>
-                  {o.items.map((x,i)=>(
-                    <div key={i} style={{fontSize:12.5,color:"var(--text2)"}}>{x.qty}× {x.itemName}{x.variant?` (${x.variant})`:""} <span style={{color:"var(--text3)"}}>— A${(x.qty*x.unitPrice).toFixed(2)}</span></div>
-                  ))}
+                <Col gap={4} style={{marginBottom:o.shipping?10:0}}>
+                  {o.items.map((x,i)=>(<div key={i} style={{fontSize:12.5,color:"var(--text2)"}}>{x.qty}× {x.itemName}{x.variant?" ("+x.variant+")":""} <span style={{color:"var(--text3)"}}>— A${(x.qty*x.unitPrice).toFixed(2)}</span></div>))}
                 </Col>
+                {o.shipping&&<div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",borderTop:"1px solid var(--border)",paddingTop:8}}>📬 {o.shipping.address}, {o.shipping.suburb} {o.shipping.state} {o.shipping.postcode}</div>}
               </Card>
             ))
           }
@@ -1868,18 +1959,19 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
                   <div>
                     <Row gap={8} align="center"><Avatar name={o.memberName} size={26}/><div style={{fontWeight:700,color:"var(--text)",fontFamily:"var(--font-d)",fontSize:14}}>{o.memberName}</div></Row>
                     <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",marginTop:4}}>Order {o.id} · {o.placed}</div>
+                    {o.shipping&&<div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:2}}>📬 {o.shipping.address}, {o.shipping.suburb} {o.shipping.state} {o.shipping.postcode}</div>}
+                    {o.shipping?.notes&&<div style={{fontSize:11,color:"var(--text2)",fontFamily:"var(--font-m)",marginTop:2}}>Note: {o.shipping.notes}</div>}
                   </div>
                   <Row gap={10} align="center">
                     <span style={{fontFamily:"var(--font-m)",fontSize:18,color:"var(--gold2)",fontWeight:700}}>A${o.total.toFixed(2)}</span>
+                    <Btn variant="ghost" size="sm" onClick={()=>printInvoice(o)}>🖨 Invoice</Btn>
                     <Select value={o.status} onChange={e=>updateOrderStatus(o.id,e.target.value)} style={{width:"auto",fontSize:11,padding:"4px 8px"}}>
                       {["pending","processing","dispatched","delivered","cancelled"].map(s=><option key={s} value={s}>{s}</option>)}
                     </Select>
                   </Row>
                 </Row>
                 <Col gap={4}>
-                  {o.items.map((x,i)=>(
-                    <div key={i} style={{fontSize:12,color:"var(--text2)"}}>{x.qty}× {x.itemName}{x.variant?` (${x.variant})`:""} — A${(x.qty*x.unitPrice).toFixed(2)}</div>
-                  ))}
+                  {o.items.map((x,i)=>(<div key={i} style={{fontSize:12,color:"var(--text2)"}}>{x.qty}× {x.itemName}{x.variant?" ("+x.variant+")":""} — A${(x.qty*x.unitPrice).toFixed(2)}</div>))}
                 </Col>
               </Card>
             ))
@@ -1896,9 +1988,12 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
         </Row>
         <Row gap={12} wrap style={{justifyContent:"space-between"}}>
           <Field label="Category" half><Select value={form.category||"merchandise"} onChange={e=>setForm({...form,category:e.target.value})}>{["apparel","badges","publications","merchandise","tools","other"].map(c=><option key={c}>{c}</option>)}</Select></Field>
-          <Field label="SKU" half><Input value={form.sku||""} onChange={e=>setForm({...form,sku:e.target.value})}/></Field>
+          <Field label="Max Per Member (optional)" half><Input type="number" value={form.maxPerMember||""} onChange={e=>setForm({...form,maxPerMember:e.target.value})} placeholder="Leave blank = no limit"/></Field>
         </Row>
-        <Field label="Emoji Icon"><Input value={form.image||""} onChange={e=>setForm({...form,image:e.target.value})} placeholder="📦"/></Field>
+        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+          <Field label="SKU" half><Input value={form.sku||""} onChange={e=>setForm({...form,sku:e.target.value})}/></Field>
+          <Field label="Emoji Icon" half><Input value={form.image||""} onChange={e=>setForm({...form,image:e.target.value})} placeholder="📦"/></Field>
+        </Row>
         <Field label="Variants (comma-separated)"><Input value={form.variants||""} onChange={e=>setForm({...form,variants:e.target.value})} placeholder="S, M, L, XL, XXL — or leave blank"/></Field>
         <Field label="Status"><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}><option value="active">Active</option><option value="inactive">Inactive</option></Select></Field>
         <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSaveItem}>Save Item</Btn></Row>
@@ -1909,14 +2004,19 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
           <div style={{fontSize:48,marginBottom:12}}>✅</div>
           <div style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--gold3)",marginBottom:8}}>Thank you for your order!</div>
           <div style={{fontSize:13,color:"var(--text2)",marginBottom:4}}>Order {modal.orderPlaced.id}</div>
-          <div style={{fontFamily:"var(--font-m)",fontSize:18,color:"var(--gold2)",marginBottom:16}}>A${modal.orderPlaced.total.toFixed(2)}</div>
-          <div style={{fontSize:12,color:"var(--text3)",lineHeight:1.7}}>Our treasurer will be in touch to arrange payment.<br/>Orders are dispatched within 5–7 business days.</div>
+          <div style={{fontFamily:"var(--font-m)",fontSize:18,color:"var(--gold2)",marginBottom:8}}>A${modal.orderPlaced.total.toFixed(2)}</div>
+          {modal.orderPlaced.shipping&&<div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>📬 Shipping to: {modal.orderPlaced.shipping.address}, {modal.orderPlaced.shipping.suburb} {modal.orderPlaced.shipping.state} {modal.orderPlaced.shipping.postcode}</div>}
+          <div style={{fontSize:12,color:"var(--text3)",lineHeight:1.7}}>The club treasurer will be in touch to arrange payment.<br/>Orders are dispatched within 5–7 business days.</div>
         </div>
-        <Btn style={{width:"100%"}} onClick={()=>{setModal(null);setTab2("myorders");}}>View My Orders</Btn>
+        <Row gap={10} justify="center">
+          <Btn onClick={()=>printInvoice(modal.orderPlaced)}>🖨 Print Invoice</Btn>
+          <Btn variant="ghost" onClick={()=>{setModal(null);setTab2("myorders");}}>View My Orders</Btn>
+        </Row>
       </Modal>}
     </div>
   );
 }
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TRANSFERS
@@ -3286,9 +3386,14 @@ function SiteContentSection({ siteContent, setSiteContent }) {
 
   return (
     <div>
-      <div style={{marginBottom:24}}>
-        <h2 style={{fontFamily:"var(--font-d)",fontSize:26,color:"var(--gold3)",fontWeight:700,marginBottom:4}}>Site Content Editor</h2>
-        <p style={{fontSize:13,color:"var(--text3)"}}>Edit the text and details shown on the public-facing website.</p>
+      <div style={{marginBottom:24,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:26,color:"var(--gold3)",fontWeight:700,marginBottom:4}}>Site Content Editor</h2>
+          <p style={{fontSize:13,color:"var(--text3)"}}>Edit the text and details shown on the public-facing website.</p>
+        </div>
+        <a href={window.location.href.split("?")[0]} target="_blank" rel="noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,padding:"8px 14px",fontSize:13,color:"var(--text2)",fontWeight:600,textDecoration:"none",fontFamily:"var(--font-b)"}}>
+          🌐 View Site
+        </a>
       </div>
 
       <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
@@ -3686,7 +3791,7 @@ function App() {
   if(showLogin) return (
     <div style={{minHeight:"100vh",background:"var(--bg3)"}}>
       <div style={{padding:"16px 24px",borderBottom:"1px solid var(--border)",background:"white",display:"flex",alignItems:"center",gap:12}}>
-        <button onClick={()=>setShowLogin(false)} style={{background:"none",border:"none",color:"var(--gold)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer"}}>← Back to Website</button>
+        <button onClick={()=>setShowLogin(false)} style={{background:"none",border:"1px solid var(--burg)",borderRadius:6,color:"var(--burg)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer",padding:"6px 14px",fontWeight:600}}>← Back to Website</button>
       </div>
       <LoginScreen members={members} onLogin={m=>{setUser(m);setTab("dashboard");setShowLogin(false);}}/>
     </div>
@@ -3976,11 +4081,71 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
     a.download="RCCA_Finance_"+fyLabel().replace("–","-")+".csv"; a.click();
   }
 
+  const [adhocForm,setAdhocForm]=useState({memberSearch:"",memberName:"",memberEmail:"",memberNumber:"",lines:[{description:"",amount:""}],notes:"",issueDate:today,dueDate:""});
+
+  function calcDue(issue){ const d=new Date(issue); d.setDate(d.getDate()+(fs.paymentDays||14)); return d.toISOString().slice(0,10); }
+
+  function openAdhoc(){
+    setAdhocForm({memberSearch:"",memberName:"",memberEmail:"",memberNumber:"",lines:[{description:"",amount:""}],notes:"",issueDate:today,dueDate:calcDue(today)});
+    setModal({adhoc:true});
+  }
+  function pickMember(m){ setAdhocForm(f=>({...f,memberName:m.name,memberEmail:m.email||"",memberNumber:m.memberNumber||"",memberSearch:m.name})); }
+  function addLine(){ setAdhocForm(f=>({...f,lines:[...f.lines,{description:"",amount:""}]})); }
+  function updateLine(i,field,val){ setAdhocForm(f=>({...f,lines:f.lines.map((l,n)=>n===i?{...l,[field]:val}:l)})); }
+  function removeLine(i){ setAdhocForm(f=>({...f,lines:f.lines.filter((_,n)=>n!==i)})); }
+
+  function printAdhocInvoice(){
+    if(!adhocForm.memberName)return alert("Please enter a recipient name.");
+    if(!adhocForm.lines.some(l=>l.description&&l.amount))return alert("Please add at least one line item.");
+    const num=(fs.invoicePrefix||"RCCA")+"-ADH-"+String(Date.now()).slice(-5);
+    const total=adhocForm.lines.reduce((s,l)=>s+(Number(l.amount)||0),0);
+    const w=window.open("","_blank","width=800,height=700");
+    const rows=adhocForm.lines.filter(l=>l.description).map(l=>`<tr><td style="padding:8px 12px;border-bottom:1px solid #eee">${l.description}</td><td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right">A$${Number(l.amount||0).toFixed(2)}</td></tr>`).join("");
+    const gstLine=fs.gstRegistered?`<tr><td style="padding:6px 12px;color:#666;font-size:12px">GST included (10%)</td><td style="padding:6px 12px;text-align:right;color:#666;font-size:12px">A$${(total/11).toFixed(2)}</td></tr>`:"";
+    w.document.write(`<!DOCTYPE html><html><body style="font-family:sans-serif;max-width:680px;margin:40px auto;color:#1a1210">
+      <div style="display:flex;justify-content:space-between;border-bottom:3px solid #c0282a;padding-bottom:16px;margin-bottom:24px">
+        <div><div style="font-size:20px;font-weight:700;color:#c0282a">Rover Car Club of Australia</div>
+        <div style="font-size:12px;color:#666">PO Box 6049, Wantirna VIC 3152 · secretary@rcca.com.au</div>
+        ${fs.abn?`<div style="font-size:12px;color:#666">ABN: ${fs.abn}</div>`:""}
+        </div>
+        <div style="text-align:right"><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:.1em">Invoice</div>
+        <div style="font-size:18px;font-weight:700">${num}</div>
+        <div style="font-size:11px;color:#666">Issued: ${adhocForm.issueDate}</div>
+        <div style="font-size:11px;color:#c0282a;font-weight:600">Due: ${adhocForm.dueDate}</div></div>
+      </div>
+      <div style="margin-bottom:24px;font-size:13px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:4px">Bill To</div>
+        <div style="font-weight:700;font-size:15px">${adhocForm.memberName}</div>
+        ${adhocForm.memberEmail?`<div style="color:#666">${adhocForm.memberEmail}</div>`:""}
+        ${adhocForm.memberNumber?`<div style="color:#666">Member #${adhocForm.memberNumber}</div>`:""}
+      </div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <thead><tr style="background:#c0282a;color:#fff"><th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase">Description</th><th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Amount</th></tr></thead>
+        <tbody>${rows}${gstLine}</tbody>
+        <tfoot><tr style="background:#f8f5f0"><td style="padding:12px;font-weight:700;font-size:15px">TOTAL DUE</td><td style="padding:12px;text-align:right;font-weight:700;font-size:18px;color:#c0282a">A$${total.toFixed(2)}</td></tr></tfoot>
+      </table>
+      ${adhocForm.notes?`<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:#5d4037"><strong>Notes:</strong> ${adhocForm.notes}</div>`:""}
+      ${(fs.bsb||fs.accountNumber)?`<div style="background:#f0f8f4;border:1px solid #b3d9c4;border-radius:8px;padding:16px;font-size:12px">
+        <div style="font-weight:700;color:#1e6840;margin-bottom:8px">Payment by Bank Transfer</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${fs.accountName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Name</div><div style="font-weight:700">${fs.accountName}</div></div>`:""}
+          ${fs.bankName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Bank</div><div style="font-weight:700">${fs.bankName}</div></div>`:""}
+          ${fs.bsb?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">BSB</div><div style="font-weight:700">${fs.bsb}</div></div>`:""}
+          ${fs.accountNumber?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Number</div><div style="font-weight:700">${fs.accountNumber}</div></div>`:""}
+        </div>
+        ${fs.paymentRef?`<div style="margin-top:8px;color:#1e6840">📌 ${fs.paymentRef} — please use ${num} as reference</div>`:""}
+      </div>`:""}
+      <div style="margin-top:20px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:12px">Rover Car Club of Australia Inc. · Thank you!</div>
+      <script>window.print();window.close();<\/script></body></html>`);
+    w.document.close();
+    setModal(null);
+  }
+
   const tabs2=[{id:"dashboard",label:"Dashboard"},{id:"income",label:"Income"},{id:"expenses",label:"Expenses"},{id:"settings",label:"Settings"}];
 
   return (
     <div className="fade-up">
-      <SectionHeader title="Finance" subtitle={`FY ${fyLabel()}`} action={<Btn variant="ghost" onClick={exportCSV}>⬇ Export CSV</Btn>}/>
+      <SectionHeader title="Finance" subtitle={`FY ${fyLabel()}`} action={<Row gap={8}><Btn onClick={openAdhoc}>+ New Invoice</Btn><Btn variant="ghost" onClick={exportCSV}>⬇ Export CSV</Btn></Row>}/>
       <Row gap={8} style={{marginBottom:20,flexWrap:"wrap"}}>
         {tabs2.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 18px",borderRadius:6,border:"1px solid var(--border)",background:tab===t.id?"var(--burg)":"var(--bg2)",color:tab===t.id?"#fff":"var(--text2)",fontWeight:600,cursor:"pointer",fontSize:13}}>{t.label}</button>)}
       </Row>
@@ -4107,6 +4272,51 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveExpense}>Save</Btn></Row>
       </Modal>}
       {modal?.confirmDel&&<Confirm message="Delete this expense?" onConfirm={()=>delExpense(modal.confirmDel.id)} onCancel={()=>setModal(null)}/>}
+
+      {/* Ad-hoc Invoice Modal */}
+      {modal?.adhoc&&<Modal title="New Invoice" onClose={()=>setModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:4}}>
+          <div>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:10}}>Bill To</div>
+            <Field label="Search member (optional)">
+              <Select value={adhocForm.memberSearch} onChange={e=>{const m=members.find(x=>x.name===e.target.value);if(m)pickMember(m);else setAdhocForm(f=>({...f,memberSearch:e.target.value}));}}>
+                <option value="">— Select a member or enter manually —</option>
+                {members.filter(m=>m.status==="active").map(m=><option key={m.id} value={m.name}>{m.name} #{m.memberNumber}</option>)}
+              </Select>
+            </Field>
+            <Field label="Name"><Input value={adhocForm.memberName} onChange={e=>setAdhocForm(f=>({...f,memberName:e.target.value}))}/></Field>
+            <Field label="Email (optional)"><Input value={adhocForm.memberEmail} onChange={e=>setAdhocForm(f=>({...f,memberEmail:e.target.value}))}/></Field>
+          </div>
+          <div>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:10}}>Invoice Details</div>
+            <Field label="Issue Date"><Input type="date" value={adhocForm.issueDate} onChange={e=>setAdhocForm(f=>({...f,issueDate:e.target.value,dueDate:calcDue(e.target.value)}))}/></Field>
+            <Field label="Due Date"><Input type="date" value={adhocForm.dueDate} onChange={e=>setAdhocForm(f=>({...f,dueDate:e.target.value}))}/></Field>
+          </div>
+        </div>
+
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:10}}>Line Items</div>
+          {adhocForm.lines.map((line,i)=>(
+            <Row key={i} gap={8} align="flex-start" style={{marginBottom:8}}>
+              <div style={{flex:3}}><Input value={line.description} onChange={e=>updateLine(i,"description",e.target.value)} placeholder="Description"/></div>
+              <div style={{width:110}}><Input type="number" value={line.amount} onChange={e=>updateLine(i,"amount",e.target.value)} placeholder="A$0.00"/></div>
+              {adhocForm.lines.length>1&&<button onClick={()=>removeLine(i)} style={{background:"none",border:"none",color:"var(--red2)",cursor:"pointer",fontSize:18,padding:"8px 4px"}}>×</button>}
+            </Row>
+          ))}
+          <Btn variant="ghost" size="sm" onClick={addLine}>+ Add Line</Btn>
+          <div style={{textAlign:"right",fontFamily:"var(--font-m)",fontSize:16,fontWeight:700,color:"var(--burg)",marginTop:10}}>
+            Total: A${adhocForm.lines.reduce((s,l)=>s+(Number(l.amount)||0),0).toFixed(2)}
+            {fs.gstRegistered&&<span style={{fontSize:11,color:"var(--text3)",fontWeight:400,marginLeft:8}}>(incl. A${(adhocForm.lines.reduce((s,l)=>s+(Number(l.amount)||0),0)/11).toFixed(2)} GST)</span>}
+          </div>
+        </div>
+
+        <Field label="Notes (optional — appears on invoice)"><Textarea value={adhocForm.notes} onChange={e=>setAdhocForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. Payment for special event registration, equipment hire..." style={{minHeight:60}}/></Field>
+        {(!fs.bsb&&!fs.accountNumber)&&<div style={{background:"#fffbeb",border:"1px solid #f59e0b",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#92400e",marginBottom:12}}>⚠ Bank details not set — go to Finance → Settings to add them so they appear on invoices.</div>}
+        <Row gap={10} justify="flex-end">
+          <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+          <Btn onClick={printAdhocInvoice}>🖨 Generate & Print Invoice</Btn>
+        </Row>
+      </Modal>}
 
       {/* Invoice Viewer */}
       {invView&&<Modal title="Invoice" onClose={()=>setInvView(null)} wide>
