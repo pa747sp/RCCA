@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v3.6 -->
+<!-- RCCA v4.0 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -355,21 +355,31 @@ function Card({ children, style={}, className="", onClick }) {
 }
 
 function Modal({ title, subtitle, onClose, children, wide=false, extraWide=false }) {
-  return (
+  React.useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = e => { if(e.key==="Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); };
+  }, []);
+
+  return ReactDOM.createPortal(
     <div style={{
-      position:"fixed",inset:0,zIndex:1000,display:"flex",
-      alignItems:"flex-start",justifyContent:"center",padding:"24px 16px",
-      overflowY:"auto",
+      position:"fixed",inset:0,zIndex:9999,display:"flex",
+      alignItems:"flex-start",justifyContent:"center",
+      padding:"24px 16px 40px",overflowY:"auto",
       background:"rgba(0,0,0,.85)",backdropFilter:"blur(4px)"
-    }} className="fade-in">
+    }} className="fade-in" onClick={e=>{ if(e.target===e.currentTarget) onClose(); }}>
       <Card style={{
         width:"100%", maxWidth: extraWide?940:wide?680:520,
-        maxHeight:"calc(100vh - 48px)", display:"flex", flexDirection:"column",
-        boxShadow:"0 32px 100px rgba(0,0,0,.8), inset 0 1px 0 rgba(201,146,42,.15)"
-      }} className="fade-up">
+        flexShrink:0, display:"flex", flexDirection:"column",
+        boxShadow:"0 32px 100px rgba(0,0,0,.8), inset 0 1px 0 rgba(201,146,42,.15)",
+        marginTop:0
+      }} className="fade-up" onClick={e=>e.stopPropagation()}>
         <div style={{
           padding:"18px 24px", borderBottom:"1px solid var(--border)",
-          flexShrink:0, background:"linear-gradient(135deg,var(--bg3),var(--bg2))"
+          flexShrink:0, background:"linear-gradient(135deg,var(--bg3),var(--bg2))",
+          borderRadius:"10px 10px 0 0"
         }}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
@@ -382,7 +392,8 @@ function Modal({ title, subtitle, onClose, children, wide=false, extraWide=false
         </div>
         <div style={{padding:"20px 24px",overflowY:"auto",flex:1}}>{children}</div>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -1158,12 +1169,15 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
           <div style={{gridColumn:"1/-1",borderTop:"1px solid var(--border)",paddingTop:14,marginTop:4}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"var(--burg)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Club Permit Details</div>
-              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13}}>
-                <input type="checkbox" checked={!!form.onPermit} onChange={function(e){setForm(Object.assign({},form,{onPermit:e.target.checked}));}} style={{width:15,height:15,accentColor:"var(--burg)"}}/>
-                <span style={{fontWeight:600,color:"var(--text)"}}>Enrolled in Club Permit Scheme</span>
-              </label>
+              {isAdmin
+                ? <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13}}>
+                    <input type="checkbox" checked={!!form.onPermit} onChange={function(e){setForm(Object.assign({},form,{onPermit:e.target.checked}));}} style={{width:15,height:15,accentColor:"var(--burg)"}}/>
+                    <span style={{fontWeight:600,color:"var(--text)"}}>Enrolled in Club Permit Scheme</span>
+                  </label>
+                : <div style={{fontSize:12,color:"var(--text3)",fontStyle:"italic"}}>Permit details are managed by the club administrator.</div>
+              }
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {isAdmin && <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <Field label="Permit Number"><Input value={form.permitNumber||""} onChange={function(e){setForm(Object.assign({},form,{permitNumber:e.target.value}));}} placeholder="e.g. CP-12345"/></Field>
               <Field label="Permit Expiry"><Input type="date" value={form.permitExpiry||""} onChange={function(e){setForm(Object.assign({},form,{permitExpiry:e.target.value}));}}/></Field>
               <Field label="Permit Conditions"><Select value={form.permitConditions||""} onChange={function(e){setForm(Object.assign({},form,{permitConditions:e.target.value}));}}>
@@ -1175,7 +1189,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
               <Field label="Log Book No."><Input value={form.logBook||""} onChange={function(e){setForm(Object.assign({},form,{logBook:e.target.value}));}} placeholder="Log book number"/></Field>
               <Field label="Days Used (this year)"><Input type="number" min="0" max="90" value={form.daysUsed||""} onChange={function(e){setForm(Object.assign({},form,{daysUsed:e.target.value}));}} placeholder="0"/></Field>
               <Field label="Issue Date"><Input type="date" value={form.permitIssued||""} onChange={function(e){setForm(Object.assign({},form,{permitIssued:e.target.value}));}}/></Field>
-            </div>
+            </div>}
           </div>
           <Row gap={8} justify="flex-end">
             <Btn variant="ghost" onClick={function(){setModal(null);}}>Cancel</Btn>
@@ -4271,8 +4285,8 @@ function MembershipApplicationForm({ onBack }) {
 function ApplicationsSection({ applications, setApplications, members, setMembers, dues, setDues }) {
   const [view, setView] = useState(null);
   const [declineNote, setDeclineNote] = useState("");
-  const pending = applications.filter(a=>a.status==="pending");
-  const processed = applications.filter(a=>a.status!=="pending");
+  const pending = (applications||[]).filter(a=>a.status==="pending");
+  const processed = (applications||[]).filter(a=>a.status!=="pending");
 
   async function approve(app) {
     const mNum = String(members.length+1).padStart(3,"0");
@@ -4938,18 +4952,19 @@ function App() {
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books)
       ]);
-      const fm=m||SEED_MEMBERS; setMembers(fm);
-      setCars(c||SEED_CARS); setTransfers(tr||[]); setMeetings(mt||SEED_MEETINGS);
-      setEvents(ev||SEED_EVENTS); setTasks(tk||SEED_TASKS); setDues(d||SEED_DUES);
-      setRsvps(r||SEED_RSVPS); setListings(li||SEED_LISTINGS); setMessages(Array.isArray(msg)?msg:[]);
-      setShopItems(si||SEED_SHOP); setOrders(or||[]); setNews(nw||SEED_NEWS);
-      if(sc)setSiteContent(sc);
-      if(ap)setApplications(ap);
-      if(ex)setExpenses(ex);
-      if(fs)setFinSettings(fs);
-      if(pm)setPermits(pm);
-      if(tl)setTripLogs(tl);
-      if(cat)setCategories(cat);
+      const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
+      setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
+      setCars(toArr(c).length?c:SEED_CARS); setTransfers(toArr(tr)); setMeetings(toArr(mt).length?mt:SEED_MEETINGS);
+      setEvents(toArr(ev).length?ev:SEED_EVENTS); setTasks(toArr(tk).length?tk:SEED_TASKS); setDues(toArr(d).length?d:SEED_DUES);
+      setRsvps(toArr(r)); setListings(toArr(li).length?li:SEED_LISTINGS); setMessages(toArr(msg));
+      setShopItems(toArr(si).length?si:SEED_SHOP); setOrders(toArr(or)); setNews(toArr(nw).length?nw:SEED_NEWS);
+      setSiteContent(sc||DEFAULT_SITE_CONTENT);
+      setApplications(toArr(ap));
+      setExpenses(toArr(ex));
+      setFinSettings(fs||null);
+      setPermits(toArr(pm));
+      setTripLogs(toArr(tl));
+      setCategories(cat||null);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -4982,37 +4997,48 @@ function App() {
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
-    { id:"dashboard", label:"Dashboard",       icon:"⊞" },
-    { id:"members",   label:"Members",         icon:"◉" },
-    { id:"applications",label:"Applications",   icon:"📋" },
-    { id:"cars",      label:"Vehicle Register",icon:"◎" },
-    { id:"dues",      label:"Dues & Renewals", icon:"◇" },
-    { id:"meetings",  label:"Meetings",        icon:"◆" },
-    { id:"events",    label:"Events & Shows",  icon:"★" },
-    { id:"tasks",     label:"Tasks",           icon:"☑" },
-    { id:"news",      label:"News",            icon:"📰" },
-    { id:"site",      label:"Site Content",    icon:"🌐" },
-    { id:"marketplace",label:"Marketplace",   icon:"⟳" },
-    { id:"shop",      label:"Club Shop",       icon:"⊕" },
-    { id:"library",   label:"Library",          icon:"📚" },
-    { id:"transfers", label:"Transfer History",icon:"→" },
-    { id:"import",    label:"Bulk Import",      icon:"↑" },
-    { id:"finance",   label:"Finance",          icon:"$" },
-    { id:"categories", label:"Categories",       icon:"≡" },
-    { id:"permits",   label:"Club Permits",     icon:"🚗" },
-    { id:"profile",   label:"My Profile",      icon:"◑" },
+    { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
+    { divider: true, label: "Membership" },
+    { id:"members",      label:"Members",          icon:"◉" },
+    { id:"applications", label:"Applications",     icon:"📋" },
+    { id:"dues",         label:"Dues & Renewals",  icon:"◇" },
+    { divider: true, label: "Vehicles" },
+    { id:"cars",         label:"Vehicle Register", icon:"◎" },
+    { id:"permits",      label:"Club Permits",     icon:"🚗" },
+    { id:"transfers",    label:"Transfer History", icon:"→" },
+    { divider: true, label: "Club Activity" },
+    { id:"meetings",     label:"Meetings",         icon:"◆" },
+    { id:"events",       label:"Events & Shows",   icon:"★" },
+    { id:"tasks",        label:"Tasks",            icon:"☑" },
+    { divider: true, label: "Commerce" },
+    { id:"shop",         label:"Club Shop",        icon:"⊕" },
+    { id:"marketplace",  label:"Marketplace",      icon:"⟳" },
+    { id:"library",      label:"Library",          icon:"📚" },
+    { divider: true, label: "Administration" },
+    { id:"finance",      label:"Finance",          icon:"$" },
+    { id:"categories",   label:"Categories",       icon:"≡" },
+    { id:"import",       label:"Bulk Import",      icon:"↑" },
+    { divider: true, label: "Website" },
+    { id:"site",         label:"Site Content",     icon:"🌐" },
+    { id:"news",         label:"News",             icon:"📰" },
+    { divider: true },
+    { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
   const PORTAL_NAV_MEMBER = [
-    { id:"dashboard",  label:"Dashboard",       icon:"⊞" },
-    { id:"cars",       label:"My Vehicles",     icon:"◎" },
-    { id:"meetings",   label:"Meetings",        icon:"◆" },
-    { id:"events",     label:"Events & Shows",  icon:"★" },
-    { id:"tasks",      label:"Tasks",           icon:"☑" },
-    { id:"marketplace",label:"Marketplace",    icon:"⟳" },
-    { id:"shop",       label:"Club Shop",       icon:"⊕" },
-    { id:"permits",    label:"Club Permits",    icon:"🚗" },
-    { id:"library",    label:"Library",          icon:"📚" },
-    { id:"profile",    label:"My Profile",      icon:"◑" },
+    { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
+    { divider: true, label: "Membership" },
+    { id:"cars",         label:"My Vehicles",      icon:"◎" },
+    { id:"permits",      label:"Club Permits",     icon:"🚗" },
+    { divider: true, label: "Club Activity" },
+    { id:"meetings",     label:"Meetings",         icon:"◆" },
+    { id:"events",       label:"Events & Shows",   icon:"★" },
+    { id:"tasks",        label:"Tasks",            icon:"☑" },
+    { divider: true, label: "Commerce" },
+    { id:"shop",         label:"Club Shop",        icon:"⊕" },
+    { id:"marketplace",  label:"Marketplace",      icon:"⟳" },
+    { id:"library",      label:"Library",          icon:"📚" },
+    { divider: true },
+    { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
 
   if(loading) return (
@@ -5053,12 +5079,18 @@ function App() {
             </Row>
           </div>
           <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
-            {navItems.map(item=>{
+            {navItems.map((item,i)=>{
+              if(item.divider) return (
+                <div key={"div"+i} style={{margin:"6px 0 2px",padding:"0 16px"}}>
+                  {item.label&&<div style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--text3)",opacity:.6,paddingTop:4,borderTop:"1px solid rgba(255,255,255,.07)"}}>{item.label}</div>}
+                  {!item.label&&<div style={{borderTop:"1px solid rgba(255,255,255,.1)",margin:"4px 0"}}/>}
+                </div>
+              );
               const active=tab===item.id;
               const n=notifs[item.id]||0;
               return (
-                <button key={item.id} onClick={()=>setTab(item.id)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"9px 16px",background:active?"rgba(107,26,42,.4)":"none",border:"none",borderLeft:active?"3px solid var(--gold)":"3px solid transparent",color:active?"var(--gold2)":"var(--text3)",fontSize:12.5,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:400}}>
-                  <span style={{fontSize:13,opacity:.8,fontFamily:"var(--font-m)"}}>{item.icon}</span>
+                <button key={item.id} onClick={()=>setTab(item.id)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"7px 16px",background:active?"rgba(107,26,42,.4)":"none",border:"none",borderLeft:active?"3px solid var(--gold)":"3px solid transparent",color:active?"var(--gold2)":"var(--text3)",fontSize:12.5,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:400}}>
+                  <span style={{fontSize:12,opacity:.75,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center"}}>{item.icon}</span>
                   <span style={{flex:1,textAlign:"left"}}>{item.label}</span>
                   {n>0&&<span style={{background:"var(--burg)",color:"#ffffff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{n}</span>}
                 </button>
@@ -5649,18 +5681,18 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
   // Build income ledger from dues, orders, event rsvps
   const incomeItems = [
-    ...dues.filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).map(d=>{
+    ...(dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).map(d=>{
       const m=members.find(x=>x.id===d.memberId);
       return {id:"D-"+d.id,type:"dues",date:d.paidDate||d.year+"-07-01",amount:d.amount||54,description:"Membership Dues "+d.year,member:m?.name||"Unknown",memberId:d.memberId,ref:d.id};
     }),
-    ...orders.filter(o=>inFY(o.date)).map(o=>{
+    ...(orders||[]).filter(o=>inFY(o.date)).map(o=>{
       const m=members.find(x=>x.id===o.memberId);
       const total=o.items?o.items.reduce((s,i)=>s+i.price*i.qty,0):0;
       return {id:"O-"+o.id,type:"shop",date:o.date,amount:total,description:"Shop Order #"+o.id.slice(-4),member:m?.name||"Unknown",memberId:o.memberId,ref:o.id};
     }),
   ].sort((a,b)=>b.date.localeCompare(a.date));
 
-  const expItems = expenses.filter(e=>inFY(e.date)).sort((a,b)=>b.date.localeCompare(a.date));
+  const expItems = (expenses||[]).filter(e=>inFY(e.date)).sort((a,b)=>b.date.localeCompare(a.date));
   const totalIncome = incomeItems.reduce((s,i)=>s+Number(i.amount),0);
   const totalExpenses = expItems.reduce((s,e)=>s+Number(e.amount),0);
   const surplus = totalIncome - totalExpenses;
@@ -5668,11 +5700,11 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   async function saveExpense(){
     if(!expForm.amount||!expForm.description)return alert("Amount and description required.");
     const entry={...expForm,id:uid("EX"),amount:Number(expForm.amount)};
-    const u=modal?.edit?expenses.map(e=>e.id===modal.edit.id?entry:{...e}):[ ...expenses,entry];
+    const u=modal?.edit?(expenses||[]).map(e=>e.id===modal.edit.id?entry:{...e}):[...(expenses||[]),entry];
     setExpenses(u); await dbSet(SK.expenses,u); setModal(null);
     setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:""});
   }
-  async function delExpense(id){ const u=expenses.filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
+  async function delExpense(id){ const u=(expenses||[]).filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
   async function saveSettings(){
     setFinSettings(settForm); await dbSet(SK.finSettings,settForm); setModal(null);
   }
@@ -5777,8 +5809,8 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
           </div>
           <Card style={{padding:18,marginBottom:16}}>
             <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Income by Category — FY {fyLabel()}</div>
-            {[["Membership Dues",dues.filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0),"var(--green)"],
-              ["Club Shop",orders.filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0),"var(--blue)"]].map(([k,v,c])=>{
+            {[["Membership Dues",(dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0),"var(--green)"],
+              ["Club Shop",(orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0),"var(--blue)"]].map(([k,v,c])=>{
               const pct=totalIncome>0?Math.round(v/totalIncome*100):0;
               return <div key={k} style={{marginBottom:10}}>
                 <Row justify="space-between" style={{marginBottom:4,fontSize:13}}><span>{k}</span><span style={{fontWeight:700}}>${v.toFixed(2)} <span style={{color:"var(--text3)",fontWeight:400,fontSize:11}}>({pct}%)</span></span></Row>
@@ -6013,7 +6045,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
   const thisYear = new Date().getFullYear();
 
   // Cars on permit scheme - either all (admin) or just mine (member)
-  const permitCars = cars.filter(c=>c.onPermit);
+  const permitCars = (cars||[]).filter(c=>c.onPermit);
   const myCars = cars.filter(c=>c.ownerId===user.id);
   const myPermitCars = myCars.filter(c=>c.onPermit);
 
@@ -6022,10 +6054,10 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 
   // Days used this year for a car
   const daysUsed = carId=>{
-    const logs = tripLogs.filter(t=>t.carId===carId&&t.date.startsWith(thisYear+""));
+    const logs = (tripLogs||[]).filter(t=>t.carId===carId&&t.date.startsWith(thisYear+""));
     return logs.length;
   };
-  const tripsForCar = carId=>tripLogs.filter(t=>t.carId===carId).sort((a,b)=>b.date.localeCompare(a.date));
+  const tripsForCar = carId=>(tripLogs||[]).filter(t=>t.carId===carId).sort((a,b)=>b.date.localeCompare(a.date));
 
   // Days remaining
   const allowance = c=>(c.permitDays===45?45:90);
@@ -6039,10 +6071,10 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
       endOdo:tripForm.endOdo?Number(tripForm.endOdo):null,
       km:(tripForm.startOdo&&tripForm.endOdo)?Number(tripForm.endOdo)-Number(tripForm.startOdo):null,
       purpose:tripForm.purpose,destination:tripForm.destination};
-    const u=[...tripLogs,entry]; setTripLogs(u); await dbSet(SK.tripLogs,u);
+    const u=[...(tripLogs||[]),entry]; setTripLogs(u); await dbSet(SK.tripLogs,u);
     setModal(null); setTripForm({date:today,startOdo:"",endOdo:"",purpose:"",destination:""});
   }
-  async function deleteTrip(id){ const u=tripLogs.filter(t=>t.id!==id); setTripLogs(u); await dbSet(SK.tripLogs,u); }
+  async function deleteTrip(id){ const u=(tripLogs||[]).filter(t=>t.id!==id); setTripLogs(u); await dbSet(SK.tripLogs,u); }
 
   async function saveCarPermit(car){
     const u=cars.map(c=>c.id===car.id?{...c,...permitForm,onPermit:true}:c);
