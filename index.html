@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v4.2 -->
+<!-- RCCA v4.3 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3210,8 +3210,8 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
             {sc.hero.tagline}
           </p>
           <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-            <button onClick={onLoginClick} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 32px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>
-              {sc.hero.ctaLabel}
+            <button onClick={()=>setPage("membership")} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 32px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>
+              📋 Apply for Membership
             </button>
             <button onClick={()=>setPage("about")} style={{background:"none",border:"2px solid var(--gold)",borderRadius:8,padding:"14px 32px",color:"var(--gold3)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
               {sc.hero.ctaSecondary}
@@ -3333,8 +3333,8 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
           <p style={{fontSize:14,color:"rgba(255,255,255,.75)",lineHeight:1.7,maxWidth:500,margin:"0 auto 28px"}}>
             Join Australia's Rover community. City membership A$54/yr, Country/Interstate A$46/yr. New member joining fee A$20. Access to all club events, the members' portal, marketplace, and shop.
           </p>
-          <button onClick={onLoginClick} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 36px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-            Contact Us to Join
+          <button onClick={()=>setPage("membership")} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 36px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
+            📋 Apply Online Now
           </button>
         </div>
       </div>
