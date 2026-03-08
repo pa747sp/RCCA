@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v3.0 -->
+<!-- RCCA v3.1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1101,6 +1101,29 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
             <Field label="Date Registered" half><Input type="date" value={form.registered||""} onChange={function(e){setForm(Object.assign({},form,{registered:e.target.value}));}}/></Field>
           </Row>
           <Field label="Notes"><Textarea value={form.notes||""} onChange={function(e){setForm(Object.assign({},form,{notes:e.target.value}));}}/></Field>
+          {/* Club Permit Details */}
+          <div style={{gridColumn:"1/-1",borderTop:"1px solid var(--border)",paddingTop:14,marginTop:4}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"var(--burg)",letterSpacing:"0.04em",textTransform:"uppercase"}}>Club Permit Details</div>
+              <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13}}>
+                <input type="checkbox" checked={!!form.onPermit} onChange={function(e){setForm(Object.assign({},form,{onPermit:e.target.checked}));}} style={{width:15,height:15,accentColor:"var(--burg)"}}/>
+                <span style={{fontWeight:600,color:"var(--text)"}}>Enrolled in Club Permit Scheme</span>
+              </label>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Field label="Permit Number"><Input value={form.permitNumber||""} onChange={function(e){setForm(Object.assign({},form,{permitNumber:e.target.value}));}} placeholder="e.g. CP-12345"/></Field>
+              <Field label="Permit Expiry"><Input type="date" value={form.permitExpiry||""} onChange={function(e){setForm(Object.assign({},form,{permitExpiry:e.target.value}));}}/></Field>
+              <Field label="Permit Conditions"><Select value={form.permitConditions||""} onChange={function(e){setForm(Object.assign({},form,{permitConditions:e.target.value}));}}>
+                <option value="">None / Not applicable</option>
+                <option value="Classic">Classic</option>
+                <option value="Limited">Limited</option>
+                <option value="Club">Club</option>
+              </Select></Field>
+              <Field label="Log Book No."><Input value={form.logBook||""} onChange={function(e){setForm(Object.assign({},form,{logBook:e.target.value}));}} placeholder="Log book number"/></Field>
+              <Field label="Days Used (this year)"><Input type="number" min="0" max="90" value={form.daysUsed||""} onChange={function(e){setForm(Object.assign({},form,{daysUsed:e.target.value}));}} placeholder="0"/></Field>
+              <Field label="Issue Date"><Input type="date" value={form.permitIssued||""} onChange={function(e){setForm(Object.assign({},form,{permitIssued:e.target.value}));}}/></Field>
+            </div>
+          </div>
           <Row gap={8} justify="flex-end">
             <Btn variant="ghost" onClick={function(){setModal(null);}}>Cancel</Btn>
             <Btn onClick={handleSave}>Save</Btn>
@@ -4701,6 +4724,20 @@ function App() {
 
 
 
+const CAT_META = {
+  memberType:   {label:"Membership Types",        desc:"Types shown when adding members & in the application form"},
+  eventType:    {label:"Event Types",              desc:"Types available when creating events"},
+  meetingType:  {label:"Meeting Types",            desc:"Types available when creating meetings"},
+  taskPriority: {label:"Task Priorities",          desc:"Priority levels available on tasks"},
+  listingType:  {label:"Marketplace Listing Types",desc:"Sell / Wanted / Swap etc."},
+  listingCat:   {label:"Marketplace Categories",   desc:"Item categories in the marketplace"},
+  shopCat:      {label:"Shop Categories",          desc:"Product categories in the club shop"},
+  expenseCat:   {label:"Expense Categories",       desc:"Categories used in Finance > Expenses"},
+  dietary:      {label:"Dietary Requirements",     desc:"Options shown on event registration forms"},
+  vehicleStatus:{label:"Vehicle Statuses",         desc:"Status options in the vehicle register"},
+  taskTag:      {label:"Task Tags",                desc:"Tags that can be applied to tasks"},
+};
+
 function CategoriesSection({ categories, setCategories }) {
   const cats = getCats(categories);
   const keys = Object.keys(CAT_META);
@@ -5269,7 +5306,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
                 const s=expiryStatus(c); const owner=ownerOf(c);
                 return <div key={c.id} style={{background:s==="expired"?"#fff0f0":"#fffbeb",border:"1px solid "+(s==="expired"?"var(--red2)":"#f59e0b"),borderRadius:6,padding:"10px 14px",marginBottom:6,fontSize:13,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div><span style={{fontWeight:700,color:expiryColour(s)}}>{s==="expired"?"⚠ EXPIRED":"⏰ Expiring Soon"}</span> — {carLabel(c)} · {owner?.name||"Unknown"}</div>
-                  <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{c.permitExpiry||"No date set"}</div>
+                  <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{c.permitConditions?c.permitConditions+" · ":""}{c.permitExpiry||"No date set"}{c.permitNumber?" · #"+c.permitNumber:""}</div>
                 </div>;
               })}
             </div>
