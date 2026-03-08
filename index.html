@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v3.2 -->
+<!-- RCCA v3.6 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -90,6 +90,7 @@ const SK = {
   dues:"rcca:dues", rsvps:"rcca:rsvps", listings:"rcca:listings",
   shopItems:"rcca:shopItems", orders:"rcca:orders", cart:"rcca:cart",
   news:"rcca:news", siteContent:"rcca:siteContent", applications:"rcca:applications",
+  books:"rcca:books",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -185,14 +186,32 @@ const SEED_DUES = [
 
 const SEED_MEETINGS = [
   { id:"MT001", title:"Annual General Meeting", date:`${yr}-05-18`, time:"14:00",
-    location:"The Rover Rooms, 22 Bourke St, Melbourne VIC", type:"general", status:"upcoming",
-    agenda:"1. Opening & Apologies\n2. Minutes of Previous AGM\n3. President's Report\n4. Treasurer's Report\n5. Election of Officers\n6. Membership Fees Review\n7. Events Calendar\n8. General Business",
-    minutes:"", organiser:"M001" },
+    location:"Uniting Church Hall, 166 Glenferrie Rd, Hawthorn VIC 3122", type:"agm", status:"upcoming",
+    organiser:"M001",
+    agendaItems:[
+      {id:"AI01",category:"Opening & Apologies",notes:"",minutes:""},
+      {id:"AI02",category:"Confirmation of Previous Minutes",notes:"",minutes:""},
+      {id:"AI03",category:"Business Arising",notes:"",minutes:""},
+      {id:"AI04",category:"President's Report",notes:"",minutes:""},
+      {id:"AI05",category:"Treasurer's Report",notes:"",minutes:""},
+      {id:"AI06",category:"Election of Officers",notes:"",minutes:""},
+      {id:"AI07",category:"Membership Fees Review",notes:"",minutes:""},
+      {id:"AI08",category:"Events Report",notes:"Discuss upcoming National Rove",minutes:""},
+      {id:"AI09",category:"General Business",notes:"",minutes:""},
+      {id:"AI10",category:"Any Other Business",notes:"",minutes:""},
+      {id:"AI11",category:"Next Meeting",notes:"",minutes:""},
+      {id:"AI12",category:"Close",notes:"",minutes:""},
+    ]},
   { id:"MT002", title:"Committee Meeting — March", date:`${yr}-03-10`, time:"19:00",
     location:"Zoom / Online", type:"committee", status:"past",
-    agenda:"Budget review, National Rove planning, Website update",
-    minutes:"Meeting opened 19:05. Budget surplus of $620 from Canberra rally. National Rove 2026 confirmed as Perth WA. Website redesign approved. Meeting closed 20:40.",
-    organiser:"M001" },
+    organiser:"M001",
+    agendaItems:[
+      {id:"AI13",category:"Opening & Apologies",notes:"",minutes:"Meeting opened 19:05. Quorum present."},
+      {id:"AI14",category:"Treasurer's Report",notes:"Budget review",minutes:"Budget surplus of $620 from Canberra rally confirmed."},
+      {id:"AI15",category:"Events Report",notes:"National Rove planning",minutes:"National Rove 2026 confirmed as Perth WA, 18–21 Sep 2026, hosted by WAROC."},
+      {id:"AI16",category:"General Business",notes:"Website update",minutes:"Website redesign approved. New system to go live by end of March."},
+      {id:"AI17",category:"Close",notes:"",minutes:"Meeting closed 20:40."},
+    ]},
 ];
 
 const SEED_EVENTS = [
@@ -508,6 +527,15 @@ function SectionHeader({ title, subtitle, action }) {
     </Row>
   );
 }
+const SEED_BOOKS = [
+  {id:"B001",title:"The Rover Story",author:"Graham Robson",category:"History",isbn:"978-1-84584-199-5",year:2007,publisher:"Veloce",description:"The complete story of the Rover car company from its beginnings to the end of production.",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""},
+  {id:"B002",title:"Original Rover 75 & MG ZT",author:"James Taylor",category:"Technical",isbn:"978-0-76034-262-0",year:2004,publisher:"Bay View Books",description:"A detailed guide to the Rover 75 and MG ZT models including specifications and restoration advice.",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""},
+  {id:"B003",title:"Rover P6: 2000, 2200, 3500",author:"James Taylor",category:"Technical",isbn:"978-1-84425-303-9",year:2009,publisher:"Crowood Press",description:"Comprehensive coverage of the award-winning Rover P6 series.",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""},
+  {id:"B004",title:"Rover SD1 Gold Portfolio",author:"R.M. Clarke",category:"Technical",isbn:"978-1-85520-278-5",year:1994,publisher:"Brooklands Books",description:"Road tests and articles covering the Rover SD1 range.",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""},
+  {id:"B005",title:"Rover 800 Series: Maestro & Montego",author:"James Taylor",category:"Technical",isbn:"978-1-86126-882-3",year:2007,publisher:"Crowood Press",description:"The story of BL and Rover's family cars of the 1980s.",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""},
+];
+
+
 
 // ══════════════════════════════════════════════════════════════════════════════
 // LOGIN
@@ -660,13 +688,13 @@ function Sidebar({ user, tab, setTab, onLogout, notifs={} }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, listings, messages, setTab }) {
+function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, listings, messages, books, setTab }) {
   const isAdmin=user.role==="admin";
-  const overdue=dues.filter(d=>d.year===yr&&!d.paid);
+  const overdue=(dues||[]).filter(d=>d.year===yr&&!d.paid);
   const upcoming=[...meetings,...events].filter(e=>e.status==="upcoming").sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
-  const myTasks=tasks.filter(t=>t.assigneeId===user.id&&t.status!=="done");
-  const myRsvps=rsvps.filter(r=>r.memberId===user.id&&r.status==="attending");
-  const myListings=listings.filter(l=>l.memberId===user.id&&l.status==="active");
+  const myTasks=(tasks||[]).filter(t=>t.assigneeId===user.id&&t.status!=="done");
+  const myRsvps=(rsvps||[]).filter(r=>r.memberId===user.id&&r.status==="attending");
+  const myListings=(listings||[]).filter(l=>l.memberId===user.id&&l.status==="active");
   return (
     <div className="fade-up">
       <div style={{marginBottom:26, borderBottom:"1px solid var(--border)", paddingBottom:20}}>
@@ -680,9 +708,33 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
         </p>
       </div>
 
+      {/* ── Library Overdue Alert ─────────────────────────────────── */}
+      {(()=>{
+        const myOverdue = (books||[]).filter(b=>b.status==="overdue"&&b.borrowedBy===user.id);
+        if(!myOverdue.length) return null;
+        return (
+          <div style={{marginBottom:20,borderRadius:8,border:"2px solid #c0282a",background:"rgba(192,40,42,.07)",padding:16}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <span style={{fontSize:18}}>📚</span>
+              <span style={{fontWeight:700,color:"var(--burg)",fontFamily:"var(--font-d)",fontSize:14}}>Overdue Library Book{myOverdue.length>1?"s":""}</span>
+              <span style={{background:"var(--burg)",color:"#fff",borderRadius:10,padding:"1px 8px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700}}>{myOverdue.length}</span>
+            </div>
+            {myOverdue.map(b=>(
+              <div key={b.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"rgba(192,40,42,.08)",borderRadius:6,marginBottom:6,gap:12}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{b.title}</div>
+                  <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:2}}>Due: {b.dueDate} · Please return to the club library</div>
+                </div>
+                <button onClick={()=>setTab("library")} style={{background:"var(--burg)",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>View</button>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* ── Seller Inbox Alerts ──────────────────────────────────── */}
       {(()=>{
-        const myMsgs = messages.filter(m=>m.toMemberId===user.id&&!m.read);
+        const msgs = Array.isArray(messages)?messages:[]; const myMsgs = msgs.filter(m=>m.toMemberId===user.id&&!m.read);
         if(!myMsgs.length) return null;
         return (
           <div style={{marginBottom:20}}>
@@ -706,7 +758,7 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
                       {m.note&&<div style={{background:"var(--bg3)",borderRadius:6,padding:"8px 12px",fontSize:12.5,color:"var(--text2)",lineHeight:1.6,fontStyle:"italic",marginTop:4}}>"{m.note}"</div>}
                     </div>
                     <button onClick={async()=>{
-                      const updated=messages.map(x=>x.id===m.id?{...x,read:true}:x);
+                      const updated=(messages||[]).map(x=>x.id===m.id?{...x,read:true}:x);
                       setMessages(updated);await dbSet(SK.messages,updated);
                     }} title="Mark as read" style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,padding:"5px 12px",fontSize:11,fontFamily:"var(--font-m)",color:"var(--text3)",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>
                       ✓ Dismiss
@@ -1232,25 +1284,346 @@ function DuesSection({ members, dues, setDues }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // MEETINGS
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// MEETINGS
+// ══════════════════════════════════════════════════════════════════════════════
+const AGENDA_CATEGORIES = [
+  "Opening & Apologies",
+  "Confirmation of Previous Minutes",
+  "Business Arising",
+  "President's Report",
+  "Secretary's Report",
+  "Treasurer's Report",
+  "Membership Report",
+  "Technical Report",
+  "Events Report",
+  "Committee Report",
+  "Election of Officers",
+  "Correspondence",
+  "General Business",
+  "Notice of Motion",
+  "Matters Arising",
+  "Guest Speaker",
+  "Presentation",
+  "Competition Report",
+  "Permit Scheme Report",
+  "Library Report",
+  "Newsletter Report",
+  "Sponsorship",
+  "Any Other Business",
+  "Next Meeting",
+  "Close",
+];
+
+// Migrate flat agenda/minutes string into structured agendaItems array
+function migrateAgendaItems(meeting) {
+  if (meeting.agendaItems) return meeting.agendaItems;
+  const raw = meeting.agenda || "";
+  const lines = raw.split(/\n/).map(l => l.replace(/^\d+\.\s*/,"").trim()).filter(Boolean);
+  return lines.map((text, i) => ({
+    id: "AI" + i,
+    category: text,
+    notes: "",
+    minutes: "",
+  }));
+}
+
 function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps }) {
-  const isAdmin=user.role==="admin";
-  const [modal,setModal]=useState(null); const [form,setForm]=useState({}); const [view,setView]=useState(null);
-  const sorted=[...meetings].sort((a,b)=>b.date.localeCompare(a.date));
-  function openAdd(){setForm({title:"",date:today,time:"19:00",location:"",type:"general",status:"upcoming",agenda:"",minutes:"",organiser:user.id});setModal("add");}
-  async function handleSave(){
-    if(!form.title||!form.date)return alert("Title and date required.");
-    const u=modal==="add"?[...meetings,{...form,id:uid("MT")}]:meetings.map(m=>m.id===form.id?{...form}:m);
-    setMeetings(u);await dbSet(SK.meetings,u);setModal(null);
+  const isAdmin = user.role === "admin";
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({});
+  const [view, setView] = useState(null);
+  const [minutesTab, setMinutesTab] = useState(null); // meeting id being edited for minutes
+  const [agendaItems, setAgendaItems] = useState([]);
+
+  const sorted = [...meetings].sort((a,b) => b.date.localeCompare(a.date));
+
+  function openAdd() {
+    setForm({
+      title:"", date:today, time:"19:00",
+      location:"Uniting Church Hall, 166 Glenferrie Rd, Hawthorn VIC 3122",
+      type:"general", status:"upcoming", organiser:user.id,
+      agendaItems:[
+        {id:uid("AI"),category:"Opening & Apologies",notes:"",minutes:""},
+        {id:uid("AI"),category:"Confirmation of Previous Minutes",notes:"",minutes:""},
+        {id:uid("AI"),category:"Business Arising",notes:"",minutes:""},
+        {id:uid("AI"),category:"General Business",notes:"",minutes:""},
+        {id:uid("AI"),category:"Any Other Business",notes:"",minutes:""},
+        {id:uid("AI"),category:"Next Meeting",notes:"",minutes:""},
+        {id:uid("AI"),category:"Close",notes:"",minutes:""},
+      ],
+    });
+    setModal("add");
   }
-  async function del(id){const u=meetings.filter(m=>m.id!==id);setMeetings(u);await dbSet(SK.meetings,u);setModal(null);setView(null);}
-  const myR=eid=>rsvps.find(r=>r.eventId===eid&&r.memberId===user.id);
-  async function rsvp(eid,status){
-    const ex=rsvps.find(r=>r.eventId===eid&&r.memberId===user.id);
-    const u=ex?rsvps.map(r=>r.id===ex.id?{...r,status}:r):[...rsvps,{id:uid("R"),eventId:eid,memberId:user.id,status,created:today}];
-    setRsvps(u);await dbSet(SK.rsvps,u);
+
+  function openEdit(m) {
+    setForm({...m, agendaItems: migrateAgendaItems(m)});
+    setModal({edit:m});
   }
-  const cnt=(eid,s)=>rsvps.filter(r=>r.eventId===eid&&r.status===s).length;
-  const orgName=id=>members.find(m=>m.id===id)?.name||"Unknown";
+
+  function openMinutes(m) {
+    setAgendaItems(migrateAgendaItems(m));
+    setMinutesTab(m.id);
+  }
+
+  async function handleSave() {
+    if (!form.title || !form.date) return alert("Title and date required.");
+    const items = (form.agendaItems||[]).filter(i=>i.category.trim());
+    const u = modal==="add"
+      ? [...meetings, {...form, agendaItems:items, id:uid("MT")}]
+      : meetings.map(m => m.id===form.id ? {...form, agendaItems:items} : m);
+    setMeetings(u); await dbSet(SK.meetings, u); setModal(null);
+  }
+
+  async function saveMinutes() {
+    const u = meetings.map(m => m.id===minutesTab ? {...m, agendaItems} : m);
+    setMeetings(u); await dbSet(SK.meetings, u); setMinutesTab(null);
+    alert("Minutes saved.");
+  }
+
+  async function del(id) {
+    const u = meetings.filter(m => m.id!==id);
+    setMeetings(u); await dbSet(SK.meetings, u); setModal(null);
+  }
+
+  const myR = eid => rsvps.find(r => r.eventId===eid && r.memberId===user.id);
+  async function rsvp(eid, status) {
+    const ex = rsvps.find(r => r.eventId===eid && r.memberId===user.id);
+    const u = ex
+      ? rsvps.map(r => r.id===ex.id ? {...r,status} : r)
+      : [...rsvps, {id:uid("R"),eventId:eid,memberId:user.id,status}];
+    setRsvps(u); await dbSet(SK.rsvps, u);
+  }
+  const cnt = (eid,s) => rsvps.filter(r=>r.eventId===eid&&r.status===s).length;
+  const orgName = id => members.find(m=>m.id===id)?.name||"Unknown";
+
+  // ── AGENDA ITEM editor helpers ──
+  function addAgendaItem(items, setItems) {
+    setItems([...items, {id:uid("AI"),category:"General Business",notes:"",minutes:""}]);
+  }
+  function removeAgendaItem(items, setItems, id) {
+    setItems(items.filter(i=>i.id!==id));
+  }
+  function moveItem(items, setItems, idx, dir) {
+    const a = [...items];
+    const b = idx + dir;
+    if (b<0||b>=a.length) return;
+    [a[idx],a[b]]=[a[b],a[idx]];
+    setItems(a);
+  }
+  function updateItem(items, setItems, id, field, val) {
+    setItems(items.map(i=>i.id===id?{...i,[field]:val}:i));
+  }
+
+  // ── PDF EXPORT ──
+  function exportPDF(m) {
+    const items = migrateAgendaItems(m);
+    const organiser = orgName(m.organiser);
+    const hasMinutes = items.some(i=>i.minutes&&i.minutes.trim());
+
+    const itemsHTML = items.map((item,n) => `
+      <div class="agenda-item">
+        <div class="item-header">
+          <span class="item-num">${n+1}.</span>
+          <span class="item-cat">${item.category}</span>
+          ${item.notes ? `<span class="item-notes">${item.notes}</span>` : ""}
+        </div>
+        ${hasMinutes ? `<div class="item-minutes">${item.minutes||"<em style='color:#999'>No minutes recorded for this item.</em>"}</div>` : ""}
+      </div>
+    `).join("");
+
+    const win = window.open("","_blank");
+    win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<title>${m.title} — ${m.date}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+3:wght@400;600&display=swap');
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Source Sans 3',sans-serif; font-size:11pt; color:#1a1210; padding:20mm 20mm 24mm; max-width:210mm; margin:0 auto; }
+  @media print { body { padding:15mm 18mm 20mm; } .no-print { display:none; } }
+  .header { border-bottom:3px solid #c0282a; padding-bottom:14px; margin-bottom:20px; }
+  .club-name { font-family:'Playfair Display',serif; font-size:10pt; color:#c0282a; font-weight:700; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; }
+  h1 { font-family:'Playfair Display',serif; font-size:22pt; font-weight:700; color:#1a1210; margin-bottom:8px; line-height:1.15; }
+  .meta { display:flex; gap:24px; flex-wrap:wrap; font-size:10pt; color:#5a4838; margin-top:8px; }
+  .meta span { display:flex; align-items:center; gap:5px; }
+  .section-title { font-family:'Playfair Display',serif; font-size:13pt; font-weight:700; color:#c0282a; margin:22px 0 10px; border-bottom:1px solid #ddd; padding-bottom:5px; text-transform:uppercase; letter-spacing:.06em; font-size:9pt; }
+  .agenda-item { margin-bottom:14px; page-break-inside:avoid; }
+  .item-header { display:flex; align-items:baseline; gap:8px; margin-bottom:${hasMinutes?"5px":"2px"}; }
+  .item-num { font-weight:700; color:#c0282a; font-size:10pt; min-width:18px; }
+  .item-cat { font-weight:600; font-size:11pt; color:#1a1210; }
+  .item-notes { font-size:10pt; color:#5a4838; font-style:italic; margin-left:4px; }
+  .item-notes::before { content:"— "; }
+  .item-minutes { background:#f8f5f0; border-left:3px solid #c0282a; padding:8px 12px; font-size:10.5pt; color:#3d3028; line-height:1.6; margin-left:26px; border-radius:0 4px 4px 0; white-space:pre-wrap; }
+  .rsvp-section { margin-top:18px; }
+  .rsvp-list { font-size:10pt; color:#3d3028; line-height:1.7; }
+  .footer { margin-top:32px; padding-top:10px; border-top:1px solid #ddd; font-size:9pt; color:#7a6a58; display:flex; justify-content:space-between; }
+  .print-btn { position:fixed; top:16px; right:16px; background:#c0282a; color:#fff; border:none; padding:10px 22px; font-size:11pt; border-radius:6px; cursor:pointer; font-family:sans-serif; }
+</style>
+</head><body>
+<button class="print-btn no-print" onclick="window.print()">🖨 Print / Save PDF</button>
+<div class="header">
+  <div class="club-name">Rover Car Club of Australia</div>
+  <h1>${m.title}</h1>
+  <div class="meta">
+    <span>📅 ${m.date}${m.time?" at "+m.time:""}</span>
+    <span>📍 ${m.location||"Venue TBC"}</span>
+    <span>Organised by ${organiser}</span>
+  </div>
+</div>
+<div class="section-title">${hasMinutes?"Agenda & Minutes":"Agenda"}</div>
+${itemsHTML}
+<div class="footer">
+  <span>Rover Car Club of Australia · Minutes ${hasMinutes?"recorded":"pending"}</span>
+  <span>Printed ${new Date().toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})}</span>
+</div>
+<script>setTimeout(()=>{},300);<\/script>
+</body></html>`);
+    win.document.close();
+  }
+
+  // ── AGENDA ITEM editor component (shared between add/edit form) ──
+  function AgendaEditor({items, setItems}) {
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+          <div style={{fontSize:11,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>Agenda Items</div>
+          <button onClick={()=>addAgendaItem(items,setItems)} style={{background:"var(--burg)",color:"#fff",border:"none",borderRadius:5,padding:"4px 10px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,cursor:"pointer"}}>+ Add Item</button>
+        </div>
+        {items.map((item,idx)=>(
+          <div key={item.id} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,padding:"10px 12px",marginBottom:7}}>
+            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:item.notes!==undefined?6:0}}>
+              <span style={{fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,color:"var(--burg)",minWidth:20}}>{idx+1}.</span>
+              <Select value={item.category} onChange={e=>updateItem(items,setItems,item.id,"category",e.target.value)} style={{flex:1,fontSize:12}}>
+                {AGENDA_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+                {!AGENDA_CATEGORIES.includes(item.category)&&<option value={item.category}>{item.category}</option>}
+              </Select>
+              <button onClick={()=>moveItem(items,setItems,idx,-1)} disabled={idx===0} style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"3px 7px",cursor:"pointer",color:"var(--text3)",fontSize:11}}>↑</button>
+              <button onClick={()=>moveItem(items,setItems,idx,1)} disabled={idx===items.length-1} style={{background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"3px 7px",cursor:"pointer",color:"var(--text3)",fontSize:11}}>↓</button>
+              <button onClick={()=>removeAgendaItem(items,setItems,item.id)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:16,padding:"0 4px",lineHeight:1}}>&times;</button>
+            </div>
+            <Input value={item.notes||""} onChange={e=>updateItem(items,setItems,item.id,"notes",e.target.value)} placeholder="Optional notes for this item…" style={{fontSize:11,marginLeft:26}}/>
+          </div>
+        ))}
+        {items.length===0&&<div style={{color:"var(--text3)",fontSize:12,fontStyle:"italic",padding:"8px 0"}}>No agenda items yet. Click + Add Item.</div>}
+      </div>
+    );
+  }
+
+  // ── MINUTES EDITOR (per-item) ──
+  if (minutesTab) {
+    const meeting = meetings.find(m=>m.id===minutesTab);
+    if (!meeting) { setMinutesTab(null); return null; }
+    return (
+      <div className="fade-up">
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+          <button onClick={()=>setMinutesTab(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:13,fontFamily:"var(--font-m)",padding:0}}>← Back</button>
+          <div style={{flex:1}}>
+            <h2 style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--gold3)",margin:0}}>{meeting.title}</h2>
+            <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{meeting.date}{meeting.time?" · "+meeting.time:""} · {meeting.location}</div>
+          </div>
+          <Btn variant="ghost" onClick={()=>exportPDF({...meeting,agendaItems})}>↗ Export PDF</Btn>
+          <Btn onClick={saveMinutes}>Save Minutes</Btn>
+        </div>
+        <div style={{marginBottom:16,padding:"10px 14px",background:"rgba(192,40,42,.06)",border:"1px solid rgba(192,40,42,.2)",borderRadius:6,fontSize:12,color:"var(--text2)"}}>
+          Enter minutes for each agenda item below. Leave blank if not discussed.
+        </div>
+        {agendaItems.map((item,idx)=>(
+          <Card key={item.id} style={{padding:16,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:8}}>
+              <span style={{fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,color:"var(--burg)",minWidth:22}}>{idx+1}.</span>
+              <span style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:600,color:"var(--text)"}}>{item.category}</span>
+              {item.notes&&<span style={{fontSize:12,color:"var(--text3)",fontStyle:"italic"}}>— {item.notes}</span>}
+            </div>
+            <Textarea
+              value={item.minutes||""}
+              onChange={e=>setAgendaItems(agendaItems.map(i=>i.id===item.id?{...i,minutes:e.target.value}:i))}
+              rows={3}
+              placeholder={`Minutes for "${item.category}"…`}
+              style={{marginLeft:30,fontSize:12.5}}
+            />
+          </Card>
+        ))}
+        {agendaItems.length===0&&<EmptyState icon="◆" text="No agenda items" sub="Edit the meeting to add agenda items first"/>}
+        <Row gap={8} justify="flex-end" style={{marginTop:8}}>
+          <Btn variant="ghost" onClick={()=>exportPDF({...meeting,agendaItems})}>↗ Export PDF</Btn>
+          <Btn onClick={saveMinutes}>Save Minutes</Btn>
+        </Row>
+      </div>
+    );
+  }
+
+  // ── VIEW MODAL ──
+  function ViewModal({m}) {
+    const items = migrateAgendaItems(m);
+    const hasMinutes = items.some(i=>i.minutes&&i.minutes.trim());
+    const myRsvp = myR(m.id);
+    return (
+      <Modal title={m.title} onClose={()=>setView(null)} wide>
+        <Row gap={8} wrap style={{marginBottom:14}}>
+          <Badge status={m.status}/><Badge status={m.type}/>
+          <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{m.date}{m.time?" · "+m.time:""}</span>
+          <span style={{fontSize:12,color:"var(--text3)"}}>📍 {m.location}</span>
+        </Row>
+
+        {/* Agenda + Minutes */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>
+            {hasMinutes?"Agenda & Minutes":"Agenda"}
+          </div>
+          {items.map((item,idx)=>(
+            <div key={item.id} style={{marginBottom:10,paddingBottom:10,borderBottom:"1px solid var(--border)"}}>
+              <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:hasMinutes&&item.minutes?5:0}}>
+                <span style={{fontSize:11,fontFamily:"var(--font-m)",fontWeight:700,color:"var(--burg)",minWidth:20}}>{idx+1}.</span>
+                <span style={{fontWeight:600,fontSize:13,color:"var(--text)"}}>{item.category}</span>
+                {item.notes&&<span style={{fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>— {item.notes}</span>}
+              </div>
+              {item.minutes&&item.minutes.trim()&&(
+                <div style={{marginLeft:28,background:"var(--bg3)",borderLeft:"3px solid var(--burg)",padding:"8px 12px",borderRadius:"0 4px 4px 0",fontSize:12.5,color:"var(--text2)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{item.minutes}</div>
+              )}
+              {hasMinutes&&(!item.minutes||!item.minutes.trim())&&(
+                <div style={{marginLeft:28,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>No minutes recorded.</div>
+              )}
+            </div>
+          ))}
+          {items.length===0&&<div style={{color:"var(--text3)",fontSize:12,fontStyle:"italic"}}>No agenda items set.</div>}
+        </div>
+
+        {/* RSVPs */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:6}}>RSVPs</div>
+          <Row gap={6} wrap>
+            {rsvps.filter(r=>r.eventId===m.id).map(r=>{
+              const mb=members.find(me=>me.id===r.memberId);
+              return mb?<span key={r.id} style={{fontSize:12,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:4,padding:"2px 8px",color:r.status==="attending"?"var(--green)":r.status==="declined"?"var(--burg)":"var(--text3)"}}>{mb.name.split(" ")[0]} {r.status==="attending"?"✓":r.status==="declined"?"✗":"?"}</span>:null;
+            })}
+            {rsvps.filter(r=>r.eventId===m.id).length===0&&<span style={{color:"var(--text3)",fontSize:12,fontStyle:"italic"}}>No RSVPs yet.</span>}
+          </Row>
+        </div>
+
+        <Row gap={8} justify="flex-end">
+          <Btn variant="ghost" size="sm" onClick={()=>exportPDF(m)}>↗ Export PDF</Btn>
+          {isAdmin&&<>
+            <Btn variant="ghost" size="sm" onClick={()=>{setView(null);openMinutes(m);}}>✎ Enter Minutes</Btn>
+            <Btn variant="ghost" size="sm" onClick={()=>{setView(null);openEdit(m);}}>Edit</Btn>
+            <Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete this meeting?",fn:()=>del(m.id)}})}>Delete</Btn>
+          </>}
+        </Row>
+        {m.status==="upcoming"&&(
+          <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"var(--font-m)"}}>Your RSVP:</div>
+            <Row gap={6}>
+              {["attending","maybe","declined"].map(s=>(
+                <Btn key={s} variant={myRsvp?.status===s?"primary":"ghost"} size="sm" onClick={()=>rsvp(m.id,s)}>
+                  {s==="attending"?"✓ Attending":s==="maybe"?"? Maybe":"✗ Decline"}
+                </Btn>
+              ))}
+            </Row>
+          </div>
+        )}
+      </Modal>
+    );
+  }
+
   return (
     <div className="fade-up">
       <SectionHeader title="Meetings" subtitle={`${meetings.filter(m=>m.status==="upcoming").length} upcoming`}
@@ -1259,51 +1632,78 @@ function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps
         {sorted.length===0&&<EmptyState icon="◆" text="No meetings scheduled"/>}
         {sorted.map(m=>{
           const r=myR(m.id);
-          return (<Card key={m.id} className="hover-lift" style={{padding:18,cursor:"pointer",borderTop:`3px solid ${m.status==="upcoming"?"var(--gold)":"var(--border)"}`}} onClick={()=>setView(m)}>
-            <Row justify="space-between" align="flex-start" style={{marginBottom:10}}>
-              <div><div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,color:"var(--text)"}}>{m.title}</div><div style={{fontSize:10.5,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:3}}>{m.date} · {m.time}</div></div>
-              <Col gap={4} align="flex-end"><Badge status={m.status}/><Badge status={m.type}/></Col>
-            </Row>
-            <div style={{fontSize:12,color:"var(--text2)",marginBottom:10}}>📍 {m.location}</div>
-            <Row gap={12} style={{fontSize:10.5,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:10}}>
-              <span>✓ {cnt(m.id,"attending")}</span><span>? {cnt(m.id,"maybe")}</span><span>✗ {cnt(m.id,"declined")}</span>
-              <span>Org: {orgName(m.organiser).split(" ")[0]}</span>
-            </Row>
-            {m.status==="upcoming"&&<Row gap={5} onClick={e=>e.stopPropagation()}>
-              {["attending","maybe","declined"].map(s=><Btn key={s} variant={r?.status===s?"primary":"ghost"} size="sm" onClick={()=>rsvp(m.id,s)}>{s==="attending"?"✓ Going":s==="maybe"?"? Maybe":"✗ Can't"}</Btn>)}
-            </Row>}
-          </Card>);
+          const items = migrateAgendaItems(m);
+          const hasMinutes = items.some(i=>i.minutes&&i.minutes.trim());
+          return (
+            <Card key={m.id} className="hover-lift" style={{padding:18,cursor:"pointer",borderTop:`3px solid ${m.status==="upcoming"?"var(--burg)":"var(--border)"}`}} onClick={()=>setView(m)}>
+              <Row justify="space-between" align="flex-start" style={{marginBottom:10}}>
+                <div>
+                  <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,color:"var(--text)",marginBottom:4}}>{m.title}</div>
+                  <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{m.date}{m.time?" · "+m.time:""}</div>
+                </div>
+                <Col gap={4} align="flex-end"><Badge status={m.status}/><Badge status={m.type}/></Col>
+              </Row>
+              <div style={{fontSize:12,color:"var(--text2)",marginBottom:8}}>📍 {m.location}</div>
+              <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:10}}>
+                {items.length} agenda item{items.length!==1?"s":""}
+                {hasMinutes&&<span style={{color:"var(--green)",marginLeft:8}}>✓ Minutes</span>}
+              </div>
+              <Row gap={12} style={{fontSize:10.5,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:m.status==="upcoming"?10:0}}>
+                <span>✓ {cnt(m.id,"attending")}</span><span>? {cnt(m.id,"maybe")}</span><span>✗ {cnt(m.id,"declined")}</span>
+                <span>Org: {orgName(m.organiser).split(" ")[0]}</span>
+              </Row>
+              {m.status==="upcoming"&&(
+                <Row gap={5} onClick={e=>e.stopPropagation()}>
+                  {["attending","maybe","declined"].map(s=>(
+                    <Btn key={s} variant={r?.status===s?"primary":"ghost"} size="sm"
+                      onClick={e=>{e.stopPropagation();rsvp(m.id,s);}}>
+                      {s==="attending"?"✓":s==="maybe"?"?":"✗"}
+                    </Btn>
+                  ))}
+                  {isAdmin&&<Btn variant="ghost" size="sm" style={{marginLeft:"auto"}} onClick={e=>{e.stopPropagation();openMinutes(m);}}>✎ Minutes</Btn>}
+                </Row>
+              )}
+            </Card>
+          );
         })}
       </div>
-      {view&&<Modal title={view.title} onClose={()=>setView(null)} wide>
-        <Row gap={8} wrap style={{marginBottom:14}}><Badge status={view.status}/><Badge status={view.type}/><span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{view.date} · {view.time} · {view.location}</span></Row>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:16}}>
-          {[["Agenda",view.agenda||"No agenda set"],["Minutes",view.minutes||"No minutes yet"]].map(([label,val])=>(
-            <div key={label}><div style={{fontSize:9.5,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>{label}</div>
-            <div style={{background:"var(--bg3)",borderRadius:6,padding:"12px",fontSize:12.5,color:"var(--text2)",whiteSpace:"pre-wrap",minHeight:80,lineHeight:1.6}}>{val}</div></div>
-          ))}
-        </div>
-        <div style={{marginBottom:14}}>
-          <div style={{fontSize:9.5,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>RSVPs</div>
-          <Row gap={6} wrap>
-            {rsvps.filter(r=>r.eventId===view.id).map(r=>{const m2=members.find(m=>m.id===r.memberId);return m2?<Row key={r.id} gap={6} align="center" style={{background:"var(--bg3)",borderRadius:6,padding:"5px 10px"}}><Avatar name={m2.name} size={20}/><span style={{fontSize:12,color:"var(--text2)"}}>{m2.name.split(" ")[0]}</span><Badge status={r.status}/></Row>:null;})}
-            {rsvps.filter(r=>r.eventId===view.id).length===0&&<span style={{color:"var(--text3)",fontSize:12,fontFamily:"var(--font-m)"}}>No RSVPs yet</span>}
-          </Row>
-        </div>
-        {isAdmin&&<Row gap={8} justify="flex-end"><Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete meeting?",fn:()=>del(view.id)}})}>Delete</Btn><Btn variant="ghost" size="sm" onClick={()=>{setView(null);setForm({...view});setModal({edit:view});}}>Edit</Btn></Row>}
-      </Modal>}
-      {(modal==="add"||modal?.edit)&&<Modal title={modal==="add"?"Schedule Meeting":"Edit Meeting"} onClose={()=>setModal(null)} wide>
-        <Field label="Title"><Input value={form.title||""} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Annual General Meeting"/></Field>
-        <Row gap={12} wrap style={{justifyContent:"space-between"}}><Field label="Date" half><Input type="date" value={form.date||""} onChange={e=>setForm({...form,date:e.target.value})}/></Field><Field label="Time" half><Input type="time" value={form.time||""} onChange={e=>setForm({...form,time:e.target.value})}/></Field></Row>
-        <Field label="Location"><Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="The Rover Rooms, Melbourne VIC"/></Field>
-        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-          <Field label="Type" half><Select value={form.type||"general"} onChange={e=>setForm({...form,type:e.target.value})}>{["general","committee","extraordinary","social"].map(t=><option key={t}>{t}</option>)}</Select></Field>
-          <Field label="Status" half><Select value={form.status||"upcoming"} onChange={e=>setForm({...form,status:e.target.value})}>{["upcoming","past","cancelled"].map(s=><option key={s}>{s}</option>)}</Select></Field>
-        </Row>
-        <Field label="Agenda"><Textarea value={form.agenda||""} onChange={e=>setForm({...form,agenda:e.target.value})} style={{minHeight:100}}/></Field>
-        <Field label="Minutes"><Textarea value={form.minutes||""} onChange={e=>setForm({...form,minutes:e.target.value})} style={{minHeight:100}}/></Field>
-        <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSave}>Save</Btn></Row>
-      </Modal>}
+
+      {view&&<ViewModal m={view}/>}
+
+      {(modal==="add"||modal?.edit)&&(()=>{
+        const items = form.agendaItems||[];
+        const setItems = newItems => setForm({...form, agendaItems:newItems});
+        return (
+          <Modal title={modal==="add"?"Schedule Meeting":"Edit Meeting"} onClose={()=>setModal(null)} wide>
+            <Field label="Title"><Input value={form.title||""} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Monthly General Meeting"/></Field>
+            <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+              <Field label="Date" half><Input type="date" value={form.date||today} onChange={e=>setForm({...form,date:e.target.value})}/></Field>
+              <Field label="Time" half><Input type="time" value={form.time||"19:00"} onChange={e=>setForm({...form,time:e.target.value})}/></Field>
+            </Row>
+            <Field label="Location"><Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Venue name and address"/></Field>
+            <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+              <Field label="Type" half>
+                <Select value={form.type||"general"} onChange={e=>setForm({...form,type:e.target.value})}>
+                  {["general","agm","committee","special","social"].map(t=><option key={t}>{t}</option>)}
+                </Select>
+              </Field>
+              <Field label="Status" half>
+                <Select value={form.status||"upcoming"} onChange={e=>setForm({...form,status:e.target.value})}>
+                  {["upcoming","past","cancelled"].map(s=><option key={s}>{s}</option>)}
+                </Select>
+              </Field>
+            </Row>
+            <div style={{marginTop:4}}>
+              <AgendaEditor items={items} setItems={setItems}/>
+            </div>
+            <Row gap={8} justify="flex-end" style={{marginTop:14}}>
+              <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+              <Btn onClick={handleSave}>Save Meeting</Btn>
+            </Row>
+          </Modal>
+        );
+      })()}
+
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
     </div>
   );
@@ -1677,7 +2077,7 @@ function ContactSeller({ listing, user, messages, setMessages }) {
   const [err, setErr] = React.useState({});
 
   // Check if user already sent a message for this listing
-  const alreadySent = messages.some(m => m.listingId===listing.id && m.fromMemberId===user?.id);
+  const alreadySent = (messages||[]).some(m => m.listingId===listing.id && m.fromMemberId===user?.id);
 
   async function send() {
     const e = {};
@@ -1697,7 +2097,7 @@ function ContactSeller({ listing, user, messages, setMessages }) {
       sent: new Date().toISOString().slice(0,10),
       read: false,
     };
-    const updated = [...messages, msg];
+    const updated = [...(Array.isArray(messages)?messages:[]), msg];
     setMessages(updated);
     await dbSet(SK.messages, updated);
     setSent(true);
@@ -1956,15 +2356,16 @@ function ListingPhotoUploader({ photos, onChange }) {
 }
 
 function MarketplaceSection({ user, members, listings, setListings, cats, messages, setMessages }) {
+  const isAdmin=user.role==="admin";
   const [search,setSearch]=useState(""); const [fType,setFType]=useState("all"); const [fCat,setFCat]=useState("all");
   const [modal,setModal]=useState(null); const [form,setForm]=useState({}); const [view,setView]=useState(null);
   const [portalTab,setPortalTab]=useState("active");
-  const pending=listings.filter(l=>l.status==="pending");
-  const filtered=listings.filter(l=>{
+  const pending=(listings||[]).filter(l=>l.status==="pending");
+  const filtered=(listings||[]).filter(l=>{
     const txt=`${l.title} ${l.description} ${l.location}`.toLowerCase();
     return txt.includes(search.toLowerCase())&&(fType==="all"||l.type===fType)&&(fCat==="all"||l.category===fCat)&&l.status==="active";
   });
-  const myListings=listings.filter(l=>l.memberId===user.id);
+  const myListings=(listings||[]).filter(l=>l.memberId===user.id);
   function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",hideContact:false,status:"pending",created:today});setModal("add");}
   function openEdit(l){setForm({...l});setModal({edit:l});}
   async function handleSave(){
@@ -4482,17 +4883,20 @@ function BulkImportSection({ members, setMembers, cars, setCars, dues, setDues }
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = {error: null}; }
-  componentDidCatch(error, info) {
-    console.error("React error:", error, info);
-    document.getElementById('root').innerHTML = 
-      '<div style="font-family:monospace;padding:30px;background:#1a0000;color:#ff8080;font-size:13px;min-height:100vh">' +
-      '<h2 style="color:#ff4444">React Error Caught</h2>' +
-      '<p><b>Error:</b> ' + error.message + '</p>' +
-      '<pre style="margin-top:16px;font-size:11px;color:#ffaaaa;white-space:pre-wrap">' + error.stack + '</pre>' +
-      '</div>';
-  }
+  componentDidCatch(error, info) { console.error("React error:", error, info); }
   static getDerivedStateFromError(error) { return {error}; }
-  render() { return this.state.error ? null : this.props.children; }
+  render() {
+    if (this.state.error) {
+      const e = this.state.error;
+      return React.createElement("div", {style:{fontFamily:"monospace",padding:30,background:"#1a0000",color:"#ff8080",fontSize:13,minHeight:"100vh"}},
+        React.createElement("h2", {style:{color:"#ff4444",marginBottom:12}}, "Something went wrong"),
+        React.createElement("p", null, React.createElement("b", null, "Error: "), String(e.message||e)),
+        React.createElement("pre", {style:{marginTop:16,fontSize:11,color:"#ffaaaa",whiteSpace:"pre-wrap",overflow:"auto"}}, String(e.stack||"")),
+        React.createElement("button", {onClick:()=>window.location.reload(), style:{marginTop:20,background:"#c0282a",color:"#fff",border:"none",borderRadius:6,padding:"10px 20px",cursor:"pointer",fontSize:13}}, "Reload Page")
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function App() {
@@ -4524,19 +4928,20 @@ function App() {
   const [permits,setPermits]=useState([]);
   const [tripLogs,setTripLogs]=useState([]);
   const [categories,setCategories]=useState(null);
+  const [books,setBooks]=useState([]);
   const [showApplicationForm,setShowApplicationForm]=useState(false);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
-        dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages)
+        dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books)
       ]);
       const fm=m||SEED_MEMBERS; setMembers(fm);
       setCars(c||SEED_CARS); setTransfers(tr||[]); setMeetings(mt||SEED_MEETINGS);
       setEvents(ev||SEED_EVENTS); setTasks(tk||SEED_TASKS); setDues(d||SEED_DUES);
-      setRsvps(r||SEED_RSVPS); setListings(li||SEED_LISTINGS); setMessages(msg||[]);
+      setRsvps(r||SEED_RSVPS); setListings(li||SEED_LISTINGS); setMessages(Array.isArray(msg)?msg:[]);
       setShopItems(si||SEED_SHOP); setOrders(or||[]); setNews(nw||SEED_NEWS);
       if(sc)setSiteContent(sc);
       if(ap)setApplications(ap);
@@ -4555,6 +4960,7 @@ function App() {
       if(!li)await dbSet(SK.listings,SEED_LISTINGS);
       if(!si)await dbSet(SK.shopItems,SEED_SHOP);
       if(!nw)await dbSet(SK.news,SEED_NEWS);
+      if(bk)setBooks(bk); else { setBooks(SEED_BOOKS); await dbSet(SK.books,SEED_BOOKS); }
       setLoading(false);
     })();
   },[]);
@@ -4564,14 +4970,15 @@ function App() {
   },[members]);
 
   const notifs={
-    dues: user?.role==="admin"?dues.filter(d=>d.year===yr&&!d.paid).length:0,
-    tasks: tasks.filter(t=>t.assigneeId===user?.id&&t.status!=="done").length,
-    news: user?.role==="admin"?news.filter(n=>n.status==="draft").length:0,
-    applications: user?.role==="admin"?applications.filter(a=>a.status==="pending").length:0,
-    marketplace: user?.role==="admin"?listings.filter(l=>l.status==="pending").length:0,
+    library: (books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length,
+    dues: user?.role==="admin"?(dues||[]).filter(d=>d.year===yr&&!d.paid).length:0,
+    tasks: (tasks||[]).filter(t=>t.assigneeId===user?.id&&t.status!=="done").length,
+    news: user?.role==="admin"?(news||[]).filter(n=>n.status==="draft").length:0,
+    applications: user?.role==="admin"?(applications||[]).filter(a=>a.status==="pending").length:0,
+    marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -4587,6 +4994,7 @@ function App() {
     { id:"site",      label:"Site Content",    icon:"🌐" },
     { id:"marketplace",label:"Marketplace",   icon:"⟳" },
     { id:"shop",      label:"Club Shop",       icon:"⊕" },
+    { id:"library",   label:"Library",          icon:"📚" },
     { id:"transfers", label:"Transfer History",icon:"→" },
     { id:"import",    label:"Bulk Import",      icon:"↑" },
     { id:"finance",   label:"Finance",          icon:"$" },
@@ -4603,6 +5011,7 @@ function App() {
     { id:"marketplace",label:"Marketplace",    icon:"⟳" },
     { id:"shop",       label:"Club Shop",       icon:"⊕" },
     { id:"permits",    label:"Club Permits",    icon:"🚗" },
+    { id:"library",    label:"Library",          icon:"📚" },
     { id:"profile",    label:"My Profile",      icon:"◑" },
   ];
 
@@ -4620,7 +5029,7 @@ function App() {
   if(user) {
     const navItems = user.role==="admin" ? PORTAL_NAV_ADMIN : PORTAL_NAV_MEMBER;
     return (
-      <div style={{display:"flex",minHeight:"100vh"}}>
+      <div style={{display:"flex",height:"100vh",overflow:"hidden"}}>
         {/* Custom sidebar with nav items */}
         <div style={{width:228,flexShrink:0,background:"#ffffff",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,backgroundImage:"linear-gradient(180deg,#f8f0ee 0%,#ffffff 100px)"}}>
           <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)"}}>
@@ -4661,7 +5070,7 @@ function App() {
             <button onClick={()=>{setUser(null);setPublicPage("home");}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
           </div>
         </div>
-        <main style={{flex:1,overflowY:"auto",padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
+        <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
           <div className="slide-r" key={tab}>
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp}/>}
@@ -4675,6 +5084,7 @@ function App() {
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
+            {tab==="library"    &&<LibrarySection {...sp}/>}
             {tab==="transfers"  &&user.role==="admin"&&<TransfersSection transfers={transfers}/>}
             {tab==="import"&&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
@@ -4724,6 +5134,370 @@ function App() {
 
 
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// LIBRARY
+// ══════════════════════════════════════════════════════════════════════════════
+function LibrarySection({ user, members, books, setBooks }) {
+  const isAdmin = user.role === "admin";
+  const today = new Date().toISOString().slice(0,10);
+
+  // Auto-mark overdue: borrowed > 30 days ago
+  React.useEffect(()=>{
+    const updated = (books||[]).map(b=>{
+      if(b.status==="borrowed" && b.dueDate && b.dueDate < today) {
+        return {...b, status:"overdue"};
+      }
+      return b;
+    });
+    const changed = updated.some((b,i)=>b.status !== (books||[])[i]?.status);
+    if(changed){ setBooks(updated); dbSet(SK.books, updated); }
+  },[books]);
+
+  const dueDate = ()=>{ const d=new Date(); d.setDate(d.getDate()+30); return d.toISOString().slice(0,10); };
+
+  const [tab,setTab] = useState("catalogue");
+  const [search,setSearch] = useState("");
+  const [filterStatus,setFilterStatus] = useState("all");
+  const [filterCat,setFilterCat] = useState("all");
+  const [modal,setModal] = useState(null);
+  const [form,setForm] = useState({});
+  const [importText,setImportText] = useState("");
+  const [importResult,setImportResult] = useState(null);
+  const [bulkModal,setBulkModal] = useState(false);
+
+  const BLANK = {title:"",author:"",category:"History",isbn:"",year:"",publisher:"",description:"",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""};
+  const CATS = ["History","Technical","Biography","Racing","Restoration","Club Archive","Magazine","Other"];
+  const STATUS_COLOURS = {available:"var(--green)",requested:"#b87a00",borrowed:"var(--burg)",overdue:"#8f1a1c",returned:"var(--text3)"};
+  const STATUS_LABELS = {available:"Available",requested:"Requested",borrowed:"On Loan",overdue:"OVERDUE",returned:"Returned"};
+
+  const allBooks = books||[];
+  const cats = [...new Set(allBooks.map(b=>b.category))];
+  const all_cats = [...new Set([...CATS,...cats])];
+
+  const visible = allBooks.filter(b=>{
+    const q = search.toLowerCase();
+    const matchQ = !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || (b.isbn||"").includes(q);
+    const matchS = filterStatus==="all" || b.status===filterStatus;
+    const matchC = filterCat==="all" || b.category===filterCat;
+    return matchQ && matchS && matchC;
+  });
+
+  // My loans (for members)
+  const myBooks = allBooks.filter(b=>b.borrowedBy===user.id||b.requestedBy===user.id);
+  const overdueBooksAdmin = allBooks.filter(b=>b.status==="overdue");
+  const requestedBooks = allBooks.filter(b=>b.status==="requested");
+
+  const borrowerName = id=>members.find(m=>m.id===id)?.name||"Unknown";
+
+  async function save(){
+    const updated = modal==="add"
+      ? [...allBooks,{...form,id:uid("BK")}]
+      : allBooks.map(b=>b.id===form.id?{...form}:b);
+    setBooks(updated); await dbSet(SK.books,updated); setModal(null);
+  }
+
+  async function requestBook(book){
+    if(book.requestedBy===user.id){ alert("You have already requested this book."); return; }
+    if(book.status!=="available"){ alert("This book is not currently available."); return; }
+    const updated = allBooks.map(b=>b.id===book.id?{...b,status:"requested",requestedBy:user.id}:b);
+    setBooks(updated); await dbSet(SK.books,updated);
+  }
+
+  async function approveRequest(book){
+    const updated = allBooks.map(b=>b.id===book.id?{...b,status:"borrowed",borrowedBy:book.requestedBy,borrowedDate:today,dueDate:dueDate(),requestedBy:null}:b);
+    setBooks(updated); await dbSet(SK.books,updated);
+  }
+
+  async function markReturned(book){
+    const updated = allBooks.map(b=>b.id===book.id?{...b,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null}:b);
+    setBooks(updated); await dbSet(SK.books,updated);
+  }
+
+  async function cancelRequest(book){
+    const updated = allBooks.map(b=>b.id===book.id?{...b,status:"available",requestedBy:null}:b);
+    setBooks(updated); await dbSet(SK.books,updated);
+  }
+
+  async function deleteBook(id){
+    const updated = allBooks.filter(b=>b.id!==id);
+    setBooks(updated); await dbSet(SK.books,updated); setModal(null);
+  }
+
+  // Bulk import CSV
+  function parseImport(){
+    const lines = importText.trim().split(/\n/);
+    if(!lines.length){ setImportResult({error:"No data found."}); return; }
+    // Try to detect header
+    const header = lines[0].toLowerCase();
+    const hasHeader = header.includes("title");
+    const dataLines = hasHeader ? lines.slice(1) : lines;
+    const imported = [];
+    const errors = [];
+    dataLines.forEach((line,i)=>{
+      const cols = line.split(",").map(c=>c.trim().replace(/^"|"$/g,""));
+      if(cols.length < 2){ errors.push(`Row ${i+2}: too few columns`); return; }
+      imported.push({
+        id:uid("BK"),
+        title: cols[0]||"",
+        author: cols[1]||"",
+        category: cols[2]||"Other",
+        isbn: cols[3]||"",
+        year: cols[4]||"",
+        publisher: cols[5]||"",
+        description: cols[6]||"",
+        copies: parseInt(cols[7])||1,
+        status:"available",
+        borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""
+      });
+    });
+    setImportResult({imported,errors});
+  }
+
+  async function confirmImport(){
+    if(!importResult?.imported?.length) return;
+    const updated = [...allBooks,...importResult.imported];
+    setBooks(updated); await dbSet(SK.books,updated);
+    setImportText(""); setImportResult(null); setBulkModal(false);
+    alert(importResult.imported.length+" book(s) imported successfully.");
+  }
+
+  const StatusBadge = ({status})=>(
+    <span style={{display:"inline-block",padding:"2px 9px",borderRadius:10,fontSize:10,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.06em",textTransform:"uppercase",color:"#fff",background:STATUS_COLOURS[status]||"var(--text3)"}}>
+      {STATUS_LABELS[status]||status}
+    </span>
+  );
+
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Club Library" subtitle="Borrow books from the RCCA collection"
+        action={isAdmin&&<Row gap={8}><Btn variant="ghost" onClick={()=>setBulkModal(true)}>↑ Bulk Import</Btn><Btn onClick={()=>{setForm({...BLANK});setModal("add");}}>+ Add Book</Btn></Row>}/>
+
+      {/* Tab bar */}
+      <Row gap={0} style={{marginBottom:18,background:"var(--bg3)",borderRadius:8,padding:4,width:"fit-content"}}>
+        {[["catalogue","📚 Catalogue"],
+          isAdmin&&requestedBooks.length?["requests","📬 Requests"+(requestedBooks.length?" ("+requestedBooks.length+")":"")]:["requests","📬 Requests"],
+          isAdmin&&["loans","📋 On Loan"],
+          isAdmin&&overdueBooksAdmin.length?["overdue","⚠ Overdue"+(overdueBooksAdmin.length?" ("+overdueBooksAdmin.length+")":"")]:isAdmin&&["overdue","⚠ Overdue"],
+          !isAdmin&&["myloans","My Loans"],
+        ].filter(Boolean).map(([id,label])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{background:tab===id?"var(--burg)":"none",color:tab===id?"#fff":"var(--text3)",border:"none",borderRadius:6,padding:"7px 16px",fontSize:12,fontFamily:"var(--font-m)",fontWeight:600,cursor:"pointer",transition:"all .15s"}}>{label}</button>
+        ))}
+      </Row>
+
+      {/* ── CATALOGUE TAB ── */}
+      {tab==="catalogue"&&(
+        <div>
+          <Row gap={10} style={{marginBottom:16}} wrap>
+            <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title, author, ISBN…" style={{maxWidth:280}}/>
+            <Select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{width:"auto"}}>
+              <option value="all">All Statuses</option>
+              {Object.keys(STATUS_LABELS).map(s=><option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+            </Select>
+            <Select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{width:"auto"}}>
+              <option value="all">All Categories</option>
+              {all_cats.map(c=><option key={c} value={c}>{c}</option>)}
+            </Select>
+            <span style={{marginLeft:"auto",fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)",alignSelf:"center"}}>{visible.length} book{visible.length!==1?"s":""}</span>
+          </Row>
+
+          {visible.length===0&&<EmptyState icon="📚" text="No books found" sub="Try adjusting your search or filters"/>}
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}}>
+            {visible.map(b=>{
+              const isMyRequest = b.requestedBy===user.id;
+              const isMyLoan = b.borrowedBy===user.id;
+              return (
+                <Card key={b.id} style={{padding:18,display:"flex",flexDirection:"column",gap:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:3,lineHeight:1.3}}>{b.title}</div>
+                      <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}{b.year?" · "+b.year:""}</div>
+                      <Row gap={6} wrap>
+                        <StatusBadge status={b.status}/>
+                        <span style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",padding:"2px 7px",borderRadius:8,fontFamily:"var(--font-m)",fontWeight:600}}>{b.category}</span>
+                      </Row>
+                    </div>
+                    <div style={{fontSize:32,opacity:.5,flexShrink:0}}>📖</div>
+                  </div>
+                  {b.description&&<div style={{fontSize:12,color:"var(--text2)",lineHeight:1.6}}>{b.description.slice(0,120)}{b.description.length>120?"…":""}</div>}
+                  {(b.status==="borrowed"||b.status==="overdue")&&(
+                    <div style={{fontSize:11,color:b.status==="overdue"?"var(--burg)":"var(--text3)",fontFamily:"var(--font-m)",background:b.status==="overdue"?"rgba(192,40,42,.07)":"var(--bg3)",padding:"5px 8px",borderRadius:5}}>
+                      {isAdmin||isMyLoan?<span>Borrowed by: {borrowerName(b.borrowedBy)} · Due: {b.dueDate}</span>:<span>Due back: {b.dueDate}</span>}
+                    </div>
+                  )}
+                  {b.status==="requested"&&(isAdmin||isMyRequest)&&(
+                    <div style={{fontSize:11,color:"#b87a00",fontFamily:"var(--font-m)",background:"rgba(184,122,0,.07)",padding:"5px 8px",borderRadius:5}}>
+                      Requested by: {isAdmin?borrowerName(b.requestedBy):"you"}
+                    </div>
+                  )}
+                  <Row gap={8} justify="flex-end" style={{marginTop:4}}>
+                    {isAdmin&&<>
+                      {b.status==="requested"&&<Btn variant="success" size="sm" onClick={()=>approveRequest(b)}>✓ Mark Collected</Btn>}
+                      {(b.status==="borrowed"||b.status==="overdue")&&<Btn variant="ghost" size="sm" onClick={()=>markReturned(b)}>↩ Mark Returned</Btn>}
+                      <Btn variant="ghost" size="sm" onClick={()=>{setForm({...b});setModal("edit");}}>Edit</Btn>
+                      <Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete \""+b.title+"\"?",fn:()=>deleteBook(b.id)}})}>✕</Btn>
+                    </>}
+                    {!isAdmin&&<>
+                      {b.status==="available"&&<Btn size="sm" onClick={()=>requestBook(b)}>Request to Borrow</Btn>}
+                      {isMyRequest&&b.status==="requested"&&<Btn variant="ghost" size="sm" onClick={()=>cancelRequest(b)}>Cancel Request</Btn>}
+                      {isMyLoan&&<span style={{fontSize:11,fontFamily:"var(--font-m)",color:"var(--text3)"}}>Due: {b.dueDate}</span>}
+                    </>}
+                  </Row>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── REQUESTS TAB (admin) ── */}
+      {tab==="requests"&&isAdmin&&(
+        <div>
+          {requestedBooks.length===0&&<EmptyState icon="📬" text="No pending requests" sub="Members can request books from the catalogue"/>}
+          {requestedBooks.map(b=>(
+            <Card key={b.id} style={{padding:18,marginBottom:12}}>
+              <Row justify="space-between" align="flex-start" gap={12}>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4}}>{b.title}</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginBottom:8}}>{b.author}{b.year?" · "+b.year:""}</div>
+                  <div style={{fontSize:12,color:"var(--text)",background:"var(--bg3)",padding:"6px 10px",borderRadius:6,display:"inline-block"}}>
+                    <span style={{color:"var(--text3)"}}>Requested by: </span><strong>{borrowerName(b.requestedBy)}</strong>
+                  </div>
+                </div>
+                <Row gap={8} style={{flexShrink:0}}>
+                  <Btn variant="success" size="sm" onClick={()=>approveRequest(b)}>✓ Mark Collected</Btn>
+                  <Btn variant="danger" size="sm" onClick={()=>cancelRequest(b)}>✕ Decline</Btn>
+                </Row>
+              </Row>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── ON LOAN TAB (admin) ── */}
+      {tab==="loans"&&isAdmin&&(
+        <div>
+          {allBooks.filter(b=>b.status==="borrowed"||b.status==="overdue").length===0&&<EmptyState icon="📋" text="No books currently on loan"/>}
+          {allBooks.filter(b=>b.status==="borrowed"||b.status==="overdue").sort((a,b)=>a.dueDate?.localeCompare(b.dueDate||"")||0).map(b=>(
+            <Card key={b.id} style={{padding:18,marginBottom:12,borderLeft:"3px solid "+(b.status==="overdue"?"var(--burg)":"var(--border)")}}>
+              <Row justify="space-between" align="center" gap={12}>
+                <div style={{flex:1}}>
+                  <Row gap={8} style={{marginBottom:6}}><StatusBadge status={b.status}/><span style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)"}}>{b.title}</span></Row>
+                  <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12}}>
+                    {[["Borrowed by",borrowerName(b.borrowedBy)],["Borrowed",b.borrowedDate||"—"],["Due back",b.dueDate||"—"]].map(([k,v])=>(
+                      <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:10,textTransform:"uppercase"}}>{k}: </span><span style={{fontWeight:600,color:k==="Due back"&&b.status==="overdue"?"var(--burg)":"var(--text)"}}>{v}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <Btn variant="ghost" size="sm" onClick={()=>markReturned(b)}>↩ Mark Returned</Btn>
+              </Row>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── OVERDUE TAB (admin) ── */}
+      {tab==="overdue"&&isAdmin&&(
+        <div>
+          {overdueBooksAdmin.length===0&&<EmptyState icon="✅" text="No overdue books" sub="All borrowed books are within their loan period"/>}
+          {overdueBooksAdmin.map(b=>{
+            const daysSince = b.dueDate?Math.floor((new Date(today)-new Date(b.dueDate))/(1000*60*60*24)):0;
+            return (
+              <Card key={b.id} style={{padding:18,marginBottom:12,border:"2px solid var(--burg)",background:"rgba(192,40,42,.04)"}}>
+                <Row justify="space-between" align="center" gap={12}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4}}>{b.title}</div>
+                    <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}</div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,fontSize:12}}>
+                      {[["Borrowed by",borrowerName(b.borrowedBy)],["Due",b.dueDate||"—"],["Overdue by",daysSince+" day"+(daysSince!==1?"s":"")]].map(([k,v])=>(
+                        <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:10,textTransform:"uppercase"}}>{k}: </span><span style={{fontWeight:600,color:k==="Overdue by"?"var(--burg)":"var(--text)"}}>{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                  <Btn variant="ghost" size="sm" onClick={()=>markReturned(b)}>↩ Mark Returned</Btn>
+                </Row>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── MY LOANS TAB (member) ── */}
+      {tab==="myloans"&&!isAdmin&&(
+        <div>
+          {myBooks.length===0&&<EmptyState icon="📚" text="No active loans" sub="Browse the catalogue to request a book"/>}
+          {myBooks.map(b=>(
+            <Card key={b.id} style={{padding:18,marginBottom:12,borderLeft:"3px solid "+(b.status==="overdue"?"var(--burg)":b.status==="requested"?"#b87a00":"var(--green)")}}>
+              <Row justify="space-between" align="center" gap={12}>
+                <div style={{flex:1}}>
+                  <Row gap={8} style={{marginBottom:6}}><StatusBadge status={b.status}/><span style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)"}}>{b.title}</span></Row>
+                  <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}</div>
+                  {b.status==="requested"&&<div style={{fontSize:12,color:"#b87a00"}}>Awaiting collection — admin will confirm when ready</div>}
+                  {(b.status==="borrowed"||b.status==="overdue")&&<div style={{fontSize:12,color:b.status==="overdue"?"var(--burg)":"var(--text3)"}}>Due back: {b.dueDate||"—"}</div>}
+                </div>
+                {b.status==="requested"&&<Btn variant="ghost" size="sm" onClick={()=>cancelRequest(b)}>Cancel</Btn>}
+              </Row>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── ADD/EDIT MODAL ── */}
+      {(modal==="add"||modal==="edit")&&<Modal title={modal==="add"?"Add Book":"Edit Book"} onClose={()=>setModal(null)} wide>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="Title" style={{gridColumn:"1/-1"}}><Input value={form.title||""} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Full book title"/></Field>
+          <Field label="Author"><Input value={form.author||""} onChange={e=>setForm({...form,author:e.target.value})} placeholder="Author name"/></Field>
+          <Field label="Category"><Select value={form.category||"Other"} onChange={e=>setForm({...form,category:e.target.value})}>{CATS.map(c=><option key={c}>{c}</option>)}</Select></Field>
+          <Field label="ISBN"><Input value={form.isbn||""} onChange={e=>setForm({...form,isbn:e.target.value})} placeholder="978-…"/></Field>
+          <Field label="Year Published"><Input type="number" value={form.year||""} onChange={e=>setForm({...form,year:e.target.value})} placeholder="e.g. 2001"/></Field>
+          <Field label="Publisher"><Input value={form.publisher||""} onChange={e=>setForm({...form,publisher:e.target.value})}/></Field>
+          <Field label="Copies"><Input type="number" min="1" value={form.copies||1} onChange={e=>setForm({...form,copies:Number(e.target.value)})}/></Field>
+          <Field label="Description" style={{gridColumn:"1/-1"}}><Textarea value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} rows={3} placeholder="Brief description…"/></Field>
+          <Field label="Notes (internal)" style={{gridColumn:"1/-1"}}><Input value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Condition, location, etc."/></Field>
+          {modal==="edit"&&<Field label="Status"><Select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{Object.keys(STATUS_LABELS).map(s=><option key={s} value={s}>{STATUS_LABELS[s]}</option>)}</Select></Field>}
+        </div>
+        <Row gap={8} justify="flex-end" style={{marginTop:16}}>
+          <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+          <Btn onClick={save}>Save</Btn>
+        </Row>
+      </Modal>}
+
+      {/* ── BULK IMPORT MODAL ── */}
+      {bulkModal&&<Modal title="Bulk Import Books" onClose={()=>{setBulkModal(false);setImportText("");setImportResult(null);}} wide>
+        <div style={{marginBottom:12,fontSize:13,color:"var(--text2)",lineHeight:1.6}}>
+          Paste CSV data below. One book per line. Columns:<br/>
+          <code style={{fontSize:11,background:"var(--bg3)",padding:"2px 6px",borderRadius:4,fontFamily:"var(--font-m)"}}>Title, Author, Category, ISBN, Year, Publisher, Description, Copies</code><br/>
+          <span style={{fontSize:11,color:"var(--text3)"}}>First row can be a header — it will be skipped automatically. Category is optional (defaults to "Other").</span>
+        </div>
+        <Textarea value={importText} onChange={e=>setImportText(e.target.value)} rows={8} placeholder={"The Rover Story, Graham Robson, History, 978-1-84584-199-5, 2007, Veloce, Complete story of Rover, 1\nRover P6 Technical Guide, James Taylor, Technical, , 2009, Crowood, , 2"} style={{fontFamily:"var(--font-m)",fontSize:12}}/>
+        {importResult&&(
+          <div style={{marginTop:12}}>
+            {importResult.error&&<div style={{color:"var(--burg)",fontSize:13}}>{importResult.error}</div>}
+            {importResult.imported&&<div style={{fontSize:13,color:"var(--green)",marginBottom:6}}>✓ Ready to import {importResult.imported.length} book{importResult.imported.length!==1?"s":""}</div>}
+            {importResult.errors?.length>0&&<div style={{fontSize:12,color:"#b87a00",marginBottom:6}}>{importResult.errors.length} row{importResult.errors.length!==1?"s":""} skipped: {importResult.errors[0]}</div>}
+            {importResult.imported?.length>0&&(
+              <div style={{maxHeight:160,overflowY:"auto",background:"var(--bg3)",borderRadius:6,padding:10,marginBottom:8}}>
+                {importResult.imported.map((b,i)=>(
+                  <div key={i} style={{fontSize:12,color:"var(--text2)",paddingBottom:4,borderBottom:"1px solid var(--border)",marginBottom:4}}>{b.title} — {b.author} ({b.category})</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <Row gap={8} justify="flex-end" style={{marginTop:12}}>
+          <Btn variant="ghost" onClick={()=>{setBulkModal(false);setImportText("");setImportResult(null);}}>Cancel</Btn>
+          {!importResult&&<Btn variant="ghost" onClick={parseImport}>Preview</Btn>}
+          {importResult?.imported?.length>0&&<Btn onClick={confirmImport}>Import {importResult.imported.length} Book{importResult.imported.length!==1?"s":""}</Btn>}
+          {importResult&&<Btn variant="ghost" onClick={()=>setImportResult(null)}>Edit</Btn>}
+        </Row>
+      </Modal>}
+
+      {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
+    </div>
+  );
+}
 
 const CAT_META = {
   memberType:   {label:"Membership Types",        desc:"Types shown when adding members & in the application form"},
@@ -5488,7 +6262,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(App));
+root.render(React.createElement(ErrorBoundary, null, React.createElement(App)));
 </script>
 </body>
 </html>
