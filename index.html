@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v4.4 -->
+<!-- RCCA v4.5 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3194,37 +3194,49 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
       <div style={{
         minHeight:"88vh", display:"flex", alignItems:"center", justifyContent:"center",
         backgroundImage:`url(${HERO_IMAGE})`,
-        backgroundSize:"cover", backgroundPosition:"center 40%",
-        position:"relative", overflow:"hidden", textAlign:"center", padding:"80px 24px"
+        backgroundSize:"cover", backgroundPosition:"center 35%",
+        position:"relative", overflow:"hidden", textAlign:"center", padding:"60px 24px 80px"
       }}>
         {/* Dark overlay for readability over photo */}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,rgba(60,5,5,.72) 0%,rgba(90,10,10,.55) 50%,rgba(30,5,5,.65) 100%)",pointerEvents:"none"}}/>
+        <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,rgba(20,2,2,.82) 0%,rgba(50,5,5,.65) 45%,rgba(20,2,2,.78) 100%)",pointerEvents:"none"}}/>
         {/* Decorative rings */}
         <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:600,border:"1px solid rgba(255,255,255,.12)",borderRadius:"50%",pointerEvents:"none"}}/>
         <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:400,height:400,border:"1px solid rgba(255,255,255,.15)",borderRadius:"50%",pointerEvents:"none"}}/>
 
         <div style={{position:"relative",zIndex:1,maxWidth:780}} className="fade-up">
-          {/* Emblem */}
-          <div style={{width:120,height:120,margin:"0 auto 28px",overflow:"hidden",filter:"drop-shadow(0 0 24px rgba(0,0,0,.4))"}}>
-            <RccaLogo size={120}/>
-          </div>
-
-          <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"rgba(255,255,255,.7)",letterSpacing:"0.25em",textTransform:"uppercase",marginBottom:12}}>Est. 1964</div>
-          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(34px,5.5vw,64px)",fontWeight:700,color:"var(--gold3)",lineHeight:1.08,margin:"0 0 4px",letterSpacing:"0.04em",textShadow:"0 2px 16px rgba(0,0,0,.7), 0 1px 4px rgba(0,0,0,.9)"}}>
+          {/* Est badge - no logo */}
+          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"rgba(255,255,255,.85)",letterSpacing:"0.3em",textTransform:"uppercase",marginBottom:16,textShadow:"0 1px 8px rgba(0,0,0,.8)"}}>Est. 1964</div>
+          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(34px,5.5vw,64px)",fontWeight:700,color:"#ffffff",lineHeight:1.08,margin:"0 0 4px",letterSpacing:"0.04em",textShadow:"0 3px 20px rgba(0,0,0,.95), 0 1px 6px rgba(0,0,0,1), 2px 2px 0 rgba(80,0,0,.4)"}}>
             Rover Car Club
           </h1>
-          <h2 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(20px,3.5vw,40px)",fontWeight:400,color:"var(--gold)",margin:"0 0 24px",letterSpacing:"0.06em",textShadow:"0 2px 12px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.9)"}}>
+          <h2 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(20px,3.5vw,40px)",fontWeight:400,color:"#f0d080",margin:"0 0 32px",letterSpacing:"0.08em",textShadow:"0 3px 16px rgba(0,0,0,.95), 0 1px 6px rgba(0,0,0,1)"}}>
             of Australia
           </h2>
           <p style={{fontSize:16,color:"var(--text2)",lineHeight:1.7,maxWidth:560,margin:"0 auto 36px"}}>
             {sc.hero.tagline}
           </p>
-          <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>setPage("membership")} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 32px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer",letterSpacing:"0.03em"}}>
-              📋 Apply for Membership
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginTop:8}}>
+            <button onClick={()=>setPage("membership")} style={{
+              background:"var(--burg)",border:"none",borderRadius:50,
+              padding:"16px 48px",color:"#ffffff",
+              fontFamily:"var(--font-b)",fontSize:16,fontWeight:700,
+              cursor:"pointer",letterSpacing:"0.04em",
+              boxShadow:"0 4px 20px rgba(0,0,0,.5), 0 2px 8px rgba(192,40,42,.6)",
+              minWidth:260
+            }}>
+              Apply for Membership
             </button>
-            <button onClick={()=>setPage("about")} style={{background:"none",border:"2px solid var(--gold)",borderRadius:8,padding:"14px 32px",color:"var(--gold3)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
-              {sc.hero.ctaSecondary}
+            <button onClick={()=>setPage("about")} style={{
+              background:"rgba(255,255,255,0.12)",
+              border:"2px solid rgba(255,255,255,0.7)",
+              borderRadius:50,padding:"12px 40px",
+              color:"#ffffff",fontFamily:"var(--font-b)",
+              fontSize:14,fontWeight:600,cursor:"pointer",
+              letterSpacing:"0.04em",
+              backdropFilter:"blur(4px)",
+              minWidth:200
+            }}>
+              About the Club
             </button>
           </div>
         </div>
@@ -5858,6 +5870,11 @@ function App() {
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars}/>}
             {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
+            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs}/>}
+            {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
+            {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
+            {tab==="parts"      &&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
+            {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
           </div>
         </main>
       </div>
@@ -7523,6 +7540,482 @@ function QualitySystemSection({user,qualityDocs,setQualityDocs}) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+
+// ── CLUB ARCHIVE SECTION ─────────────────────────────────────────────────────
+function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
+  const isAdmin = user&&user.role==="admin";
+  const [view,setView]=React.useState("browse");
+  const [search,setSearch]=React.useState("");
+  const [filterType,setFilterType]=React.useState("all");
+  const [selected,setSelected]=React.useState(null);
+  const [showUpload,setShowUpload]=React.useState(false);
+  const [form,setForm]=React.useState({title:"",docType:"Meeting Minutes",year:"",description:"",tags:"",visibility:"members",content:"",submittedBy:""});
+
+  const docTypes=["Meeting Minutes","AGM Minutes","Financial Report","Newsletter","Event Record","Correspondence","Membership Record","Photograph","Event Programme","Historical Document","Other"];
+  const visLabels={admin:"Admin Only",members:"Members",public:"Public"};
+
+  const save=async(docs)=>{setArchiveDocs(docs);await dbSet(SK.archiveDocs,docs);};
+
+  const addDoc=async()=>{
+    if(!form.title.trim())return;
+    const autoTags=[form.docType,form.year].filter(Boolean);
+    const userTags=form.tags.split(",").map(t=>t.trim()).filter(Boolean);
+    const nd={...form,id:uid("AD"),tags:[...autoTags,...userTags],
+      createdAt:new Date().toISOString(),archivedBy:user.name,
+      status:"Pending Review"};
+    await save([...(archiveDocs||[]),nd]);
+    setShowUpload(false);
+    setForm({title:"",docType:"Meeting Minutes",year:"",description:"",tags:"",visibility:"members",content:"",submittedBy:""});
+  };
+
+  const approveDoc=async(id)=>{
+    const updated=(archiveDocs||[]).map(d=>d.id===id?{...d,status:"Archived",approvedBy:user.name,approvedAt:new Date().toISOString()}:d);
+    await save(updated);
+    if(selected&&selected.id===id)setSelected(updated.find(d=>d.id===id));
+  };
+
+  const deleteDoc=async(id)=>{await save((archiveDocs||[]).filter(d=>d.id!==id));setSelected(null);};
+
+  const docs=archiveDocs||[];
+  const years=[...new Set(docs.map(d=>d.year).filter(Boolean))].sort((a,b)=>b-a);
+  const types=[...new Set(docs.map(d=>d.docType).filter(Boolean))];
+
+  const filtered=docs.filter(d=>{
+    if(filterType!=="all"&&d.docType!==filterType)return false;
+    if(search){
+      const q=search.toLowerCase();
+      return (d.title||"").toLowerCase().includes(q)||(d.description||"").toLowerCase().includes(q)||
+        (d.tags||[]).some(t=>t.toLowerCase().includes(q))||(d.content||"").toLowerCase().includes(q)||
+        (d.year||"").includes(q);
+    }
+    return true;
+  });
+
+  const pending=docs.filter(d=>d.status==="Pending Review");
+
+  if(selected){
+    return (
+      <div style={{padding:"24px",maxWidth:800,margin:"0 auto"}}>
+        <button onClick={()=>setSelected(null)} style={{marginBottom:16,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back to Archive</button>
+        <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:16}}>
+            <div>
+              <h2 style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",margin:"0 0 8px"}}>{selected.title}</h2>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <span style={{background:"var(--bg3)",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{selected.docType}</span>
+                {selected.year&&<span style={{background:"var(--burg)",color:"white",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{selected.year}</span>}
+                <span style={{background:selected.status==="Archived"?"var(--green)":"#b06010",color:"white",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{selected.status}</span>
+                <span style={{background:"var(--bg3)",padding:"2px 10px",borderRadius:10,fontSize:11}}>{visLabels[selected.visibility]}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {isAdmin&&selected.status==="Pending Review"&&(
+                <button onClick={()=>approveDoc(selected.id)} style={{padding:"7px 16px",background:"var(--green)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:13}}>✓ Approve & Archive</button>
+              )}
+              {isAdmin&&<button onClick={()=>deleteDoc(selected.id)} style={{padding:"7px 14px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete</button>}
+            </div>
+          </div>
+          {selected.description&&<p style={{color:"var(--text2)",fontSize:14,lineHeight:1.7,marginBottom:16,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>{selected.description}</p>}
+          {selected.content&&<div style={{background:"var(--bg3)",borderRadius:8,padding:16,marginBottom:16,fontSize:13,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{selected.content}</div>}
+          {(selected.tags||[]).length>0&&(
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:12}}>
+              {(selected.tags||[]).map((t,i)=><span key={i} style={{background:"var(--bg3)",padding:"2px 10px",borderRadius:10,fontSize:11,color:"var(--text3)"}}>#{t}</span>)}
+            </div>
+          )}
+          <div style={{marginTop:16,fontSize:12,color:"var(--text3)"}}>
+            Submitted by {selected.archivedBy} · {new Date(selected.createdAt).toLocaleDateString('en-AU')}
+            {selected.approvedBy&&` · Archived by ${selected.approvedBy}`}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:"24px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Club Archive</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Historical records, minutes, newsletters and documents</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {["browse","pending"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontSize:12,fontWeight:600,position:"relative"}}>
+              {v==="browse"?"Browse Archive":"Pending Review"}
+              {v==="pending"&&pending.length>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#dc2626",color:"white",borderRadius:"50%",width:16,height:16,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{pending.length}</span>}
+            </button>
+          ))}
+          <button onClick={()=>setShowUpload(true)} style={{padding:"6px 14px",borderRadius:6,border:"none",background:"var(--burg)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Upload Document</button>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:20}}>
+        {[["Total Documents",docs.length,"var(--burg)"],["Archived",docs.filter(d=>d.status==="Archived").length,"var(--green)"],["Pending Review",pending.length,"#b06010"],["Year Range",years.length>0?`${years[years.length-1]}–${years[0]}`:"—","var(--blue)"]].map(([label,val,col])=>(
+          <div key={label} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 14px",textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:700,color:col}}>{val}</div>
+            <div style={{fontSize:11,color:"var(--text3)",fontWeight:600,marginTop:2}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {view==="pending"&&(
+        <div>
+          {pending.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No documents awaiting review.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {pending.map(d=>(
+              <div key={d.id} style={{background:"#fffbe8",borderRadius:8,border:"1px solid #f0c040",padding:"14px 18px",cursor:"pointer"}} onClick={()=>setSelected(d)}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:4}}>{d.title}</div>
+                <div style={{display:"flex",gap:8,fontSize:12}}>
+                  <span>{d.docType}</span>{d.year&&<span>· {d.year}</span>}
+                  <span style={{color:"var(--text3)"}}>· Submitted by {d.archivedBy} · {new Date(d.createdAt).toLocaleDateString('en-AU')}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view==="browse"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search archive — titles, tags, content, year..." style={{flex:1,minWidth:200,padding:"8px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/>
+            <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{padding:"8px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="all">All Document Types</option>
+              {docTypes.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </div>
+          {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No documents found. Try adjusting your search, or upload a document to get started.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {filtered.filter(d=>d.status==="Archived").map(d=>(
+              <div key={d.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 18px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}} onClick={()=>setSelected(d)}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:4}}>{d.title}</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <span style={{background:"var(--bg3)",padding:"1px 8px",borderRadius:8,fontSize:11}}>{d.docType}</span>
+                    {d.year&&<span style={{background:"var(--burg)",color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{d.year}</span>}
+                    {(d.tags||[]).slice(0,4).map((t,i)=><span key={i} style={{background:"var(--bg3)",padding:"1px 8px",borderRadius:8,fontSize:11,color:"var(--text3)"}}>#{t}</span>)}
+                  </div>
+                </div>
+                <div style={{fontSize:11,color:"var(--text3)",textAlign:"right",flexShrink:0}}>{new Date(d.createdAt).toLocaleDateString('en-AU')}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showUpload&&(
+        <Modal onClose={()=>setShowUpload(false)} title="Upload Archive Document">
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:500}}>
+            <div style={{background:"#e8f0f8",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#1a4a7a"}}>
+              💡 You can also email documents to <b>archive@rcca.com.au</b> as attachments — the subject line becomes the title and the email body becomes the description.
+            </div>
+            {[["Document Title *","title"],["Year (e.g. 1987)","year"],["Tags (comma separated)","tags"],["Submitted by (if on behalf of someone)","submittedBy"]].map(([lbl,key])=>(
+              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
+              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+            ))}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Type</label>
+              <select value={form.docType} onChange={e=>setForm({...form,docType:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                {docTypes.map(t=><option key={t}>{t}</option>)}</select></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
+              <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                <option value="admin">Admin Only</option>
+                <option value="members">Members</option>
+                <option value="public">Public</option>
+              </select></div>
+            </div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Description</label>
+            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Content (paste text or transcription)</label>
+            <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={6} placeholder="Paste the document text here for full-text search..." style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"var(--font-m)"}}/></div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={addDoc} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Submit for Archive Review</button>
+              <button onClick={()=>setShowUpload(false)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── POINTS & AWARDS SECTION ───────────────────────────────────────────────────
+function PointsAwardsSection({user,members,points,setPoints}) {
+  const isAdmin = user&&user.role==="admin";
+  const [view,setView]=React.useState("leaderboard");
+  const [showAward,setShowAward]=React.useState(false);
+  const [form,setForm]=React.useState({memberId:"",category:"Attendance",points:1,reason:"",event:""});
+
+  const cats=["Attendance","Concours","Competitive Event","Club Service","Drive Participation","Show Entry","Special Award","Volunteer"];
+
+  const save=async(pts)=>{setPoints(pts);await dbSet(SK.points,pts);};
+
+  const awardPoints=async()=>{
+    if(!form.memberId||!form.reason.trim())return;
+    const np={...form,id:uid("PT"),awardedBy:user.name,date:new Date().toISOString()};
+    await save([...(points||[]),np]);
+    setShowAward(false);
+    setForm({memberId:"",category:"Attendance",points:1,reason:"",event:""});
+  };
+
+  const pts=points||[];
+  const memberTotals=(members||[]).map(m=>{
+    const mpts=pts.filter(p=>p.memberId===m.id);
+    const total=mpts.reduce((sum,p)=>sum+(parseInt(p.points)||0),0);
+    return {...m,total,entries:mpts};
+  }).filter(m=>m.total>0||isAdmin).sort((a,b)=>b.total-a.total);
+
+  const myPts=pts.filter(p=>p.memberId===user.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const myTotal=myPts.reduce((sum,p)=>sum+(parseInt(p.points)||0),0);
+
+  return (
+    <div style={{padding:"24px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Points & Awards</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Member recognition and club participation scoring</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          {["leaderboard","my points"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize"}}>{v}</button>
+          ))}
+          {isAdmin&&<button onClick={()=>setShowAward(true)} style={{padding:"6px 14px",borderRadius:6,border:"none",background:"var(--burg)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Award Points</button>}
+        </div>
+      </div>
+
+      {/* My points summary */}
+      <div style={{background:"linear-gradient(135deg,var(--burg-xdk),var(--burg-dk))",borderRadius:10,padding:"20px 24px",marginBottom:20,color:"white",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+        <div>
+          <div style={{fontSize:12,opacity:.75,fontFamily:"var(--font-m)",letterSpacing:"0.1em",textTransform:"uppercase",marginBottom:4}}>Your Points</div>
+          <div style={{fontSize:40,fontWeight:700,lineHeight:1}}>{myTotal}</div>
+          <div style={{fontSize:13,opacity:.8,marginTop:4}}>from {myPts.length} award{myPts.length!==1?"s":""}</div>
+        </div>
+        <div style={{textAlign:"right"}}>
+          {memberTotals.findIndex(m=>m.id===user.id)>=0&&(
+            <div style={{fontSize:28,fontWeight:700}}>#{memberTotals.findIndex(m=>m.id===user.id)+1}</div>
+          )}
+          <div style={{fontSize:12,opacity:.75}}>Club ranking</div>
+        </div>
+      </div>
+
+      {view==="leaderboard"&&(
+        <div>
+          <h3 style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--burg)",marginBottom:12}}>Club Leaderboard</h3>
+          {memberTotals.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No points awarded yet. Admins can award points from the button above.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {memberTotals.map((m,i)=>(
+              <div key={m.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:i===0?"#c9922a":i===1?"#aaa":i===2?"#b06010":"var(--bg3)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:i<3?"white":"var(--text3)",fontSize:14,flexShrink:0}}>
+                  {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{m.name}</div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{m.entries.length} award{m.entries.length!==1?"s":""}</div>
+                </div>
+                <div style={{fontWeight:700,fontSize:20,color:"var(--burg)"}}>{m.total}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {view==="my points"&&(
+        <div>
+          <h3 style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--burg)",marginBottom:12}}>Your Points History</h3>
+          {myPts.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No points recorded yet.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {myPts.map(p=>(
+              <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:2}}>{p.reason}</div>
+                  <div style={{fontSize:11,color:"var(--text3)"}}>{p.category}{p.event?` · ${p.event}`:""} · {new Date(p.date).toLocaleDateString('en-AU')} · Awarded by {p.awardedBy}</div>
+                </div>
+                <div style={{fontWeight:700,fontSize:18,color:"var(--burg)",flexShrink:0}}>+{p.points}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showAward&&isAdmin&&(
+        <Modal onClose={()=>setShowAward(false)} title="Award Points to Member">
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:440}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Member</label>
+            <select value={form.memberId} onChange={e=>setForm({...form,memberId:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="">Select member...</option>
+              {(members||[]).filter(m=>m.status==="active").sort((a,b)=>a.name.localeCompare(b.name)).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+            </select></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Category</label>
+              <select value={form.category} onChange={e=>setForm({...form,category:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                {cats.map(c=><option key={c}>{c}</option>)}</select></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Points to Award</label>
+              <input type="number" min="1" max="100" value={form.points} onChange={e=>setForm({...form,points:parseInt(e.target.value)||1})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/></div>
+            </div>
+            {[["Reason *","reason","What is this award for?"],["Event / Occasion","event","e.g. 2026 National Rove"]].map(([lbl,key,ph])=>(
+              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
+              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} placeholder={ph} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+            ))}
+            <div style={{display:"flex",gap:10,marginTop:4}}>
+              <button onClick={awardPoints} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Award Points</button>
+              <button onClick={()=>setShowAward(false)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── PERMISSIONS SECTION ───────────────────────────────────────────────────────
+function PermissionsSection({user,members,setMembers}) {
+  const [selected,setSelected]=React.useState(null);
+  const [search,setSearch]=React.useState("");
+
+  const ALL_PERMISSIONS=[
+    {id:"members",label:"Member Records & Applications",desc:"View, add, edit member records and process applications"},
+    {id:"dues",label:"Dues & Renewals",desc:"Record and manage annual membership dues"},
+    {id:"cars",label:"Vehicle Register & Transfers",desc:"Manage all vehicle records and ownership transfers"},
+    {id:"permits",label:"Club Permit Scheme",desc:"Manage Club Permit enrolment and log books"},
+    {id:"events",label:"Events Management",desc:"Create, edit and manage events and RSVPs"},
+    {id:"meetings",label:"Meetings & Minutes",desc:"Schedule meetings, manage agendas and record minutes"},
+    {id:"tasks",label:"Tasks & Workflow",desc:"Create and assign tasks to committee members"},
+    {id:"qualitysystem",label:"Quality System",desc:"Upload, manage and approve Quality System documents"},
+    {id:"archive",label:"Club Archive",desc:"Review and approve documents for the club archive"},
+    {id:"parts",label:"Parts Inventory & Shop",desc:"Manage spare parts stock and publish to the shop"},
+    {id:"marketplace",label:"Marketplace Moderation",desc:"Moderate and approve member listings"},
+    {id:"library",label:"Library",desc:"Manage book catalogue and loan requests"},
+    {id:"finance",label:"Finance & Reporting",desc:"View financial reports and record expenses"},
+    {id:"news",label:"News & Website Content",desc:"Write and publish news articles and website content"},
+    {id:"import",label:"Bulk Data Import",desc:"Import member and vehicle data in bulk"},
+    {id:"points",label:"Points & Awards",desc:"Award points to members and manage the recognition system"},
+    {id:"suppliers",label:"Suppliers Directory",desc:"Add and manage the club suppliers directory"},
+  ];
+
+  const save=async(updated)=>{setMembers(updated);await dbSet(SK.members,updated);};
+
+  const togglePerm=async(memberId,permId)=>{
+    const updated=(members||[]).map(m=>{
+      if(m.id!==memberId)return m;
+      const perms=m.permissions||[];
+      const has=perms.includes(permId);
+      return {...m,permissions:has?perms.filter(p=>p!==permId):[...perms,permId]};
+    });
+    await save(updated);
+    if(selected&&selected.id===memberId)setSelected(updated.find(m=>m.id===memberId));
+  };
+
+  const setRole=async(memberId,role)=>{
+    const updated=(members||[]).map(m=>m.id===memberId?{...m,role,permissions:role==="admin"?[]:m.permissions||[]}:m);
+    await save(updated);
+    if(selected&&selected.id===memberId)setSelected(updated.find(m=>m.id===memberId));
+  };
+
+  const filteredMembers=(members||[]).filter(m=>m.status==="active"&&m.id!==user.id&&
+    (!search||m.name.toLowerCase().includes(search.toLowerCase())||m.email.toLowerCase().includes(search.toLowerCase())));
+
+  const roleColour={admin:"var(--burg)",restricted:"var(--blue)",member:"var(--text3)"};
+  const roleLabel={admin:"Full Admin",restricted:"Restricted Admin",member:"Member"};
+
+  if(selected){
+    const m=selected;
+    const perms=m.permissions||[];
+    return (
+      <div style={{padding:"24px",maxWidth:800,margin:"0 auto"}}>
+        <button onClick={()=>setSelected(null)} style={{marginBottom:16,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back to Permissions</button>
+        <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>
+            <div style={{width:48,height:48,borderRadius:"50%",background:"var(--burg)",display:"flex",alignItems:"center",justifyContent:"center",color:"white",fontWeight:700,fontSize:18,flexShrink:0}}>{(m.name||"?")[0]}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:16,color:"var(--text)"}}>{m.name}</div>
+              <div style={{fontSize:13,color:"var(--text3)"}}>{m.email}</div>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:600,color:"var(--text3)",display:"block",marginBottom:4}}>Access Level</label>
+              <select value={m.role||"member"} onChange={e=>setRole(m.id,e.target.value)} style={{padding:"7px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,fontWeight:600,color:roleColour[m.role||"member"]}}>
+                <option value="member">Member</option>
+                <option value="restricted">Restricted Admin</option>
+                <option value="admin">Full Admin</option>
+              </select>
+            </div>
+          </div>
+
+          {m.role==="admin"&&<div style={{background:"#fff0f0",border:"1px solid var(--burg)",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"var(--burg)"}}>Full Admin has access to all functions — individual permissions are not applicable.</div>}
+          {m.role==="member"&&<div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"var(--text3)"}}>Standard Member access. Change to Restricted Admin to assign specific functions.</div>}
+
+          {m.role==="restricted"&&(
+            <div>
+              <div style={{fontSize:13,color:"var(--text2)",marginBottom:14}}>Select which admin functions <b>{m.name.split(" ")[0]}</b> can access. Their portal sidebar will show only these sections.</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {ALL_PERMISSIONS.map(p=>{
+                  const has=perms.includes(p.id);
+                  return (
+                    <div key={p.id} onClick={()=>togglePerm(m.id,p.id)} style={{display:"flex",alignItems:"center",gap:14,padding:"12px 16px",borderRadius:8,border:`1px solid ${has?"var(--burg)":"var(--border)"}`,background:has?"#fff8f8":"white",cursor:"pointer",transition:"all .15s"}}>
+                      <div style={{width:22,height:22,borderRadius:4,border:`2px solid ${has?"var(--burg)":"var(--border)"}`,background:has?"var(--burg)":"white",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        {has&&<span style={{color:"white",fontSize:14,fontWeight:700}}>✓</span>}
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:13,color:has?"var(--burg)":"var(--text)"}}>{p.label}</div>
+                        <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>{p.desc}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{marginTop:16,padding:"10px 14px",background:"var(--bg3)",borderRadius:6,fontSize:12,color:"var(--text3)"}}>
+                {perms.length===0?"No functions assigned yet — this member has standard member access only.":`${perms.length} function${perms.length!==1?"s":""} assigned. Changes save automatically.`}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:"24px"}}>
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Permissions</h2>
+        <div style={{fontSize:13,color:"var(--text3)"}}>Manage access levels and admin functions for each member</div>
+      </div>
+
+      {/* Summary */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:20}}>
+        {[["Full Admins",(members||[]).filter(m=>m.role==="admin").length,"var(--burg)"],["Restricted Admins",(members||[]).filter(m=>m.role==="restricted").length,"var(--blue)"],["Members",(members||[]).filter(m=>!m.role||m.role==="member").length,"var(--text3)"]].map(([label,count,col])=>(
+          <div key={label} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"14px 16px",textAlign:"center"}}>
+            <div style={{fontSize:28,fontWeight:700,color:col}}>{count}</div>
+            <div style={{fontSize:12,color:"var(--text3)",fontWeight:600,marginTop:2}}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search members..." style={{width:"100%",padding:"8px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,marginBottom:14,boxSizing:"border-box"}}/>
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {filteredMembers.map(m=>{
+          const role=m.role||"member";
+          const perms=m.permissions||[];
+          return (
+            <div key={m.id} onClick={()=>setSelected(m)} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:40,height:40,borderRadius:"50%",background:role==="admin"?"var(--burg)":role==="restricted"?"var(--blue)":"var(--bg3)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:role==="member"?"var(--text3)":"white",flexShrink:0}}>{(m.name||"?")[0]}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{m.name}</div>
+                <div style={{fontSize:12,color:"var(--text3)"}}>{m.email}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <span style={{background:roleColour[role],color:"white",padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:700}}>{roleLabel[role]}</span>
+                {role==="restricted"&&<div style={{fontSize:11,color:"var(--text3)",marginTop:3}}>{perms.length} function{perms.length!==1?"s":""} assigned</div>}
+              </div>
+            </div>
+          );
+        })}
+        {filteredMembers.length===0&&<div style={{padding:32,textAlign:"center",color:"var(--text3)"}}>No members found.</div>}
+      </div>
     </div>
   );
 }
