@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v5.1 -->
+<!-- RCCA v5.2 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3096,52 +3096,96 @@ function PublicNav({ page, setPage, onLoginClick }) {
     { id:"shop",        label:"Shop" },
     { id:"parts",       label:"Parts" },
   ];
+
+  const navTo = (id) => { setPage(id); setMenuOpen(false); };
+
   return (
     <nav style={{
       position:"sticky", top:0, zIndex:100,
-      background:"rgba(16,6,8,.96)", backdropFilter:"blur(8px)",
+      background:"rgba(16,6,8,.97)", backdropFilter:"blur(8px)",
       borderBottom:"1px solid var(--border2)",
       boxShadow:"0 2px 20px rgba(0,0,0,.5)"
     }}>
-      <div style={{maxWidth:1100, margin:"0 auto", padding:"0 24px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64}}>
+      <div style={{maxWidth:1100, margin:"0 auto", padding:"0 20px",
+        display:"flex", alignItems:"center", justifyContent:"space-between", height:60}}>
+
         {/* Logo */}
-        <button onClick={()=>setPage("home")} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:38,height:38,flexShrink:0}}>
-            <RccaLogo size={38}/>
-          </div>
+        <button onClick={()=>navTo("home")} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          <div style={{width:34,height:34,flexShrink:0}}><RccaLogo size={34}/></div>
           <div style={{textAlign:"left"}}>
-            <div style={{fontFamily:"var(--font-d)",fontSize:14,fontWeight:700,color:"#ffffff",lineHeight:1.1}}>Rover Car Club</div>
-            <div style={{fontFamily:"var(--font-d)",fontSize:11,color:"rgba(255,255,255,.75)",fontStyle:"italic",lineHeight:1.1}}>of Australia</div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"#ffffff",lineHeight:1.1}}>Rover Car Club</div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:10,color:"rgba(255,255,255,.7)",fontStyle:"italic",lineHeight:1.1}}>of Australia</div>
           </div>
         </button>
 
-        {/* Desktop links */}
-        <div style={{display:"flex",alignItems:"center",gap:4}}>
+        {/* Desktop links — hidden on mobile */}
+        <div style={{display:"flex",alignItems:"center",gap:2,flex:1,justifyContent:"center",overflow:"hidden"}}
+          className="desktop-nav">
           {links.map(l=>(
-            <button key={l.id} onClick={()=>setPage(l.id)} style={{
+            <button key={l.id} onClick={()=>navTo(l.id)} style={{
               background:"none", border:"none", cursor:"pointer",
-              padding:"8px 14px", borderRadius:6,
-              color: page===l.id ? "#ffffff" : "rgba(255,255,255,.75)",
-              fontFamily:"var(--font-b)", fontSize:13, fontWeight: page===l.id ? 700 : 400,
-              borderBottom: page===l.id ? "2px solid #ffffff" : "2px solid transparent",
-              transition:"all .15s"
+              padding:"6px 10px", borderRadius:6, whiteSpace:"nowrap",
+              color: page===l.id ? "#ffffff" : "rgba(255,255,255,.72)",
+              fontFamily:"var(--font-b)", fontSize:12, fontWeight: page===l.id ? 700 : 400,
+              borderBottom: page===l.id ? "2px solid var(--gold)" : "2px solid transparent",
             }}>{l.label}</button>
           ))}
-          <div style={{width:1,height:20,background:"var(--border2)",margin:"0 8px"}}/>
+        </div>
+
+        {/* Right side: login + hamburger */}
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          {/* Login button — always visible */}
           <button onClick={onLoginClick} style={{
-            background:"var(--burg)",
-            border:"2px solid var(--burg)",
-            borderRadius:6, padding:"9px 22px",
-            color:"#ffffff", fontFamily:"var(--font-b)", fontSize:14, fontWeight:700,
-            cursor:"pointer", transition:"all .15s", letterSpacing:"0.02em"
-          }}>Members Login</button>
+            background:"var(--burg)", border:"none",
+            borderRadius:6, padding:"8px 16px",
+            color:"#ffffff", fontFamily:"var(--font-b)", fontSize:13, fontWeight:700,
+            cursor:"pointer", whiteSpace:"nowrap"
+          }}>Member Login</button>
+
+          {/* Hamburger — only on mobile */}
+          <button onClick={()=>setMenuOpen(!menuOpen)}
+            className="mobile-menu-btn"
+            style={{
+              background:"none", border:"1px solid rgba(255,255,255,.25)",
+              borderRadius:6, padding:"7px 9px", cursor:"pointer",
+              color:"white", fontSize:16, lineHeight:1, display:"none"
+            }}>
+            {menuOpen ? "✕" : "☰"}
+          </button>
         </div>
       </div>
+
+      {/* Mobile dropdown menu */}
+      {menuOpen && (
+        <div style={{
+          background:"rgba(10,3,5,.98)",
+          borderTop:"1px solid rgba(255,255,255,.1)",
+          padding:"8px 0 16px"
+        }}>
+          {links.map(l=>(
+            <button key={l.id} onClick={()=>navTo(l.id)} style={{
+              display:"block", width:"100%", textAlign:"left",
+              background: page===l.id ? "rgba(192,40,42,.2)" : "none",
+              border:"none", borderLeft: page===l.id ? "3px solid var(--burg)" : "3px solid transparent",
+              padding:"12px 24px", cursor:"pointer",
+              color: page===l.id ? "#ffffff" : "rgba(255,255,255,.8)",
+              fontFamily:"var(--font-b)", fontSize:15, fontWeight: page===l.id ? 700 : 400,
+            }}>{l.label}</button>
+          ))}
+        </div>
+      )}
+
+      <style>{`
+        @media (max-width: 700px) {
+          .desktop-nav { display: none !important; }
+          .mobile-menu-btn { display: block !important; }
+        }
+      `}</style>
     </nav>
   );
 }
 
-// ── Public Footer ─────────────────────────────────────────────────────────────
+
 function PublicFooter({ setPage }) {
   return (
     <footer style={{background:"#1a0c0e",borderTop:"1px solid var(--border2)",padding:"40px 24px 24px"}}>
@@ -5900,7 +5944,7 @@ function App() {
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
       <div style={{
           background:"#1a1a1a",borderBottom:"4px solid #c0282a",
-          padding:"14px 24px",textAlign:"center",position:"sticky",top:0,zIndex:2000
+          padding:"10px 16px",textAlign:"center",position:"sticky",top:0,zIndex:2000
         }}>
           <div style={{
             display:"inline-flex",alignItems:"center",gap:10,flexWrap:"wrap",justifyContent:"center",
