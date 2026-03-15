@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v4.5 -->
+<!-- RCCA v4.6 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3190,51 +3190,53 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
 
   return (
     <div>
-      {/* Hero */}
+      {/* Hero — photo only, no text overlay */}
       <div style={{
-        minHeight:"88vh", display:"flex", alignItems:"center", justifyContent:"center",
+        height:"72vh", minHeight:340, maxHeight:680,
         backgroundImage:`url(${HERO_IMAGE})`,
-        backgroundSize:"cover", backgroundPosition:"center 35%",
-        position:"relative", overflow:"hidden", textAlign:"center", padding:"60px 24px 80px"
+        backgroundSize:"cover", backgroundPosition:"center 38%",
+        position:"relative", overflow:"hidden"
       }}>
-        {/* Dark overlay for readability over photo */}
-        <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,rgba(20,2,2,.82) 0%,rgba(50,5,5,.65) 45%,rgba(20,2,2,.78) 100%)",pointerEvents:"none"}}/>
-        {/* Decorative rings */}
-        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:600,height:600,border:"1px solid rgba(255,255,255,.12)",borderRadius:"50%",pointerEvents:"none"}}/>
-        <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:400,height:400,border:"1px solid rgba(255,255,255,.15)",borderRadius:"50%",pointerEvents:"none"}}/>
+        {/* Subtle bottom fade into the content section below */}
+        <div style={{position:"absolute",bottom:0,left:0,right:0,height:80,
+          background:"linear-gradient(to bottom,transparent,var(--bg))",pointerEvents:"none"}}/>
+      </div>
 
-        <div style={{position:"relative",zIndex:1,maxWidth:780}} className="fade-up">
-          {/* Est badge - no logo */}
-          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"rgba(255,255,255,.85)",letterSpacing:"0.3em",textTransform:"uppercase",marginBottom:16,textShadow:"0 1px 8px rgba(0,0,0,.8)"}}>Est. 1964</div>
-          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(34px,5.5vw,64px)",fontWeight:700,color:"#ffffff",lineHeight:1.08,margin:"0 0 4px",letterSpacing:"0.04em",textShadow:"0 3px 20px rgba(0,0,0,.95), 0 1px 6px rgba(0,0,0,1), 2px 2px 0 rgba(80,0,0,.4)"}}>
+      {/* Hero content — sits cleanly below the photo */}
+      <div style={{
+        background:"var(--bg)",
+        textAlign:"center",
+        padding:"48px 24px 52px",
+        borderBottom:"1px solid var(--border)"
+      }} className="fade-up">
+        <div style={{maxWidth:700,margin:"0 auto"}}>
+          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",letterSpacing:"0.3em",textTransform:"uppercase",marginBottom:14}}>Est. 1964</div>
+          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(32px,5vw,60px)",fontWeight:700,color:"var(--burg-xdk)",lineHeight:1.08,margin:"0 0 4px",letterSpacing:"0.04em"}}>
             Rover Car Club
           </h1>
-          <h2 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(20px,3.5vw,40px)",fontWeight:400,color:"#f0d080",margin:"0 0 32px",letterSpacing:"0.08em",textShadow:"0 3px 16px rgba(0,0,0,.95), 0 1px 6px rgba(0,0,0,1)"}}>
+          <h2 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(18px,3vw,36px)",fontWeight:400,color:"var(--gold)",margin:"0 0 20px",letterSpacing:"0.08em"}}>
             of Australia
           </h2>
-          <p style={{fontSize:16,color:"var(--text2)",lineHeight:1.7,maxWidth:560,margin:"0 auto 36px"}}>
+          <p style={{fontSize:16,color:"var(--text2)",lineHeight:1.75,maxWidth:540,margin:"0 auto 32px"}}>
             {sc.hero.tagline}
           </p>
-          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:14,marginTop:8}}>
+          <div style={{display:"flex",gap:14,justifyContent:"center",flexWrap:"wrap"}}>
             <button onClick={()=>setPage("membership")} style={{
               background:"var(--burg)",border:"none",borderRadius:50,
-              padding:"16px 48px",color:"#ffffff",
-              fontFamily:"var(--font-b)",fontSize:16,fontWeight:700,
+              padding:"15px 44px",color:"white",
+              fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,
               cursor:"pointer",letterSpacing:"0.04em",
-              boxShadow:"0 4px 20px rgba(0,0,0,.5), 0 2px 8px rgba(192,40,42,.6)",
-              minWidth:260
+              boxShadow:"0 4px 16px rgba(192,40,42,.35)"
             }}>
               Apply for Membership
             </button>
             <button onClick={()=>setPage("about")} style={{
-              background:"rgba(255,255,255,0.12)",
-              border:"2px solid rgba(255,255,255,0.7)",
-              borderRadius:50,padding:"12px 40px",
-              color:"#ffffff",fontFamily:"var(--font-b)",
-              fontSize:14,fontWeight:600,cursor:"pointer",
-              letterSpacing:"0.04em",
-              backdropFilter:"blur(4px)",
-              minWidth:200
+              background:"white",
+              border:"2px solid var(--burg)",
+              borderRadius:50,padding:"13px 36px",
+              color:"var(--burg)",fontFamily:"var(--font-b)",
+              fontSize:15,fontWeight:600,cursor:"pointer",
+              letterSpacing:"0.04em"
             }}>
               About the Club
             </button>
