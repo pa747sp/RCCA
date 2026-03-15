@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v5.0 -->
+<!-- RCCA v5.1 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -7142,12 +7142,35 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
   const handleCSVFile=e=>{
     const file=e.target.files[0];
     if(!file)return;
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      setCsvText(ev.target.result);
-      parseCSV(ev.target.result);
-    };
-    reader.readAsText(file);
+    const isExcel=file.name.match(/\.xlsx?$/i);
+    if(isExcel){
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        try{
+          const data=new Uint8Array(ev.target.result);
+          const wb=XLSX.read(data,{type:'array'});
+          const ws=wb.Sheets[wb.SheetNames[0]];
+          const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+          if(!rows.length){setCsvPreview([]);return;}
+          // Normalise keys to lowercase
+          const norm=rows.map(r=>{
+            const o={};
+            Object.keys(r).forEach(k=>o[k.toLowerCase().trim()]=String(r[k]||''));
+            return o;
+          });
+          setCsvPreview(norm.filter(r=>r.name||r['part name']));
+          setCsvText('(Excel file loaded: '+file.name+')');
+        }catch(err){alert('Could not read Excel file. Please save as .xlsx and try again.');}
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader=new FileReader();
+      reader.onload=ev=>{
+        setCsvText(ev.target.result);
+        parseCSV(ev.target.result);
+      };
+      reader.readAsText(file);
+    }
   };
 
   const parseCSV=text=>{
@@ -7423,20 +7446,21 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
         <Modal onClose={()=>{setModal(null);setCsvText('');setCsvPreview([]);}} title="Import Parts from CSV">
           <div style={{display:"flex",flexDirection:"column",gap:14,maxWidth:560}}>
             <div style={{background:"#e8f0f8",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#1a4a7a"}}>
-              <b>Expected CSV columns:</b> name, model, sku, description, condition, qty, max per order, member price, public price, availability, status, min order qty, notes<br/>
+              <b>Accepted formats:</b> Excel (.xlsx) or CSV (.csv)<br/>
+              <b>Expected columns:</b> name, model, sku, description, condition, qty, max per order, member price, public price, availability, status, min order qty, notes<br/>
               <span style={{color:"var(--text3)"}}>Only <b>name</b> is required. Download a template below to get started.</span>
             </div>
             <div>
-              <a href="data:text/csv;charset=utf-8,name,model,sku,description,condition,qty,max per order,member price,public price,availability,status,min order qty,notes%0ARocker cover gasket,P6 2000/2200,RCG-001,Rubber gasket for rocker cover,Good,5,2,12.50,18.00,both,in_stock,0,%0A" download="parts_template.csv"
+              <a href="data:text/csv;charset=utf-8,name,model,sku,description,condition,qty,max per order,member price,public price,availability,status,min order qty,notes%0ARocker cover gasket,P6 2000/2200,RCG-001,Rubber gasket for rocker cover,Good,5,2,12.50,18.00,both,in_stock,0,%0AWater pump,P6 3500,WP-001,Original water pump reconditioned,Good,2,1,45.00,60.00,both,in_stock,0,%0A" download="parts_template.csv"
                 style={{fontSize:12,color:"#1a4a7a",fontWeight:700}}>📥 Download CSV Template</a>
             </div>
             <div>
               <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Upload CSV File</label>
               <div onClick={()=>fileRef.current&&fileRef.current.click()} style={{border:"2px dashed var(--border)",borderRadius:8,padding:20,textAlign:"center",cursor:"pointer",background:"var(--bg3)"}}>
-                <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleCSVFile} style={{display:"none"}}/>
+                <input ref={fileRef} type="file" accept=".csv,.txt,.xls,.xlsx" onChange={handleCSVFile} style={{display:"none"}}/>
                 <div style={{fontSize:20,marginBottom:6}}>📂</div>
                 <div style={{fontSize:13,color:"var(--text2)",fontWeight:600}}>Click to browse or drag and drop</div>
-                <div style={{fontSize:11,color:"var(--text3)"}}>CSV or TXT file</div>
+                <div style={{fontSize:11,color:"var(--text3)"}}>Excel (.xlsx) or CSV (.csv)</div>
               </div>
             </div>
             <div>
