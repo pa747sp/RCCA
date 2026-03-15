@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v4.8 -->
+<!-- RCCA v4.9 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -7071,86 +7071,245 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 <script type="text/babel" data-presets="react">
 
 // ── PARTS INVENTORY SECTION ──────────────────────────────────────────────────
-function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems}) {
+function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("inventory");
   const [modal,setModal]=React.useState(null);
-  const [form,setForm]=React.useState({name:"",model:"",description:"",condition:"Good",qty:1,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:""});
+  const [csvText,setCsvText]=React.useState("");
+  const [csvPreview,setCsvPreview]=React.useState([]);
+  const [form,setForm]=React.useState({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:""});
+  const fileRef=React.useRef(null);
 
-  const saveInv = async(items)=>{setParts(items);await dbSet(SK.partsInventory,items);};
-  const addPart = async()=>{
+  const conditions=["New","Excellent","Good","Fair","Poor","Unknown"];
+  const avail={"both":"Members & Public","members":"Members Only","public":"Public Only"};
+  const statusLabels={in_stock:"In Stock",out_of_stock:"Out of Stock",eoi:"Expression of Interest",coming_soon:"Coming Soon"};
+  const statusColours={in_stock:"var(--green)",out_of_stock:"#dc2626",eoi:"#7c3aed",coming_soon:"#b06010"};
+
+  const saveInv=async(items)=>{setParts(items);await dbSet(SK.partsInventory,items);};
+
+  const addPart=async()=>{
     if(!form.name.trim())return;
-    const np={...form,id:uid("PT"),createdAt:new Date().toISOString()};
-    const updated=[...(parts||[]),np]; await saveInv(updated); setModal(null);
-    setForm({name:"",model:"",description:"",condition:"Good",qty:1,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:""});
+    const np={...form,id:uid("PT"),createdAt:new Date().toISOString(),requests:[],eois:[]};
+    await saveInv([...(parts||[]),np]);
+    setModal(null);
+    setForm({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:""});
   };
-  const deletePart=async(id)=>{await saveInv((parts||[]).filter(p=>p.id!==id));};
+
+  const deletePart=async(id)=>await saveInv((parts||[]).filter(p=>p.id!==id));
+
   const publishToShop=async(part)=>{
-    const existing=(shopItems||[]).find(s=>s.partId===part.id);
-    if(existing){alert("Already in shop");return;}
+    if((shopItems||[]).find(s=>s.partId===part.id)){alert("Already in shop");return;}
     const si={id:uid("SI"),partId:part.id,name:part.name,description:part.description,
       price:part.publicPrice||0,memberPrice:part.memberPrice||0,
       availability:part.availability||"both",category:"parts",
-      model:part.model,condition:part.condition,qty:part.qty,stock:part.qty,image:""};
+      model:part.model,condition:part.condition,qty:part.qty,
+      stock:part.qty,maxPerOrder:part.maxPerOrder||0,
+      status:part.status,image:""};
     const updated=[...(shopItems||[]),si];
     setShopItems(updated);await dbSet(SK.shopItems,updated);
     alert("Published to shop!");
   };
 
-  const conditions=["New","Excellent","Good","Fair","Poor","Unknown"];
-  const avail={"both":"Members & Public","members":"Members Only","public":"Public Only"};
+  // ── Out of stock request ──────────────────────────────────────────────────
+  const requestPart=async(partId)=>{
+    const updated=(parts||[]).map(p=>{
+      if(p.id!==partId)return p;
+      const already=(p.requests||[]).find(r=>r.memberId===user.id);
+      if(already)return p;
+      return {...p,requests:[...(p.requests||[]),{memberId:user.id,memberName:user.name,date:new Date().toISOString()}]};
+    });
+    await saveInv(updated);
+    alert("Request recorded. You will be notified when this part is back in stock.");
+  };
+
+  // ── Expression of interest ────────────────────────────────────────────────
+  const registerEOI=async(partId)=>{
+    const updated=(parts||[]).map(p=>{
+      if(p.id!==partId)return p;
+      const already=(p.eois||[]).find(e=>e.memberId===user.id);
+      if(already)return p;
+      return {...p,eois:[...(p.eois||[]),{memberId:user.id,memberName:user.name,date:new Date().toISOString()}]};
+    });
+    await saveInv(updated);
+    alert("Expression of interest recorded. The club will contact you if this part becomes available.");
+  };
+
+  // ── CSV upload ────────────────────────────────────────────────────────────
+  const handleCSVFile=e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      setCsvText(ev.target.result);
+      parseCSV(ev.target.result);
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCSV=text=>{
+    const lines=text.trim().split('\n').filter(l=>l.trim());
+    if(lines.length<2){setCsvPreview([]);return;}
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    const rows=lines.slice(1).map(line=>{
+      const vals=line.split(',').map(v=>v.trim().replace(/^"|"$/g,''));
+      const obj={};
+      headers.forEach((h,i)=>obj[h]=vals[i]||'');
+      return obj;
+    }).filter(r=>r.name||r['part name']);
+    setCsvPreview(rows);
+  };
+
+  const importCSV=async()=>{
+    if(!csvPreview.length)return;
+    const newParts=csvPreview.map(r=>({
+      id:uid("PT"),
+      name:r.name||r['part name']||'',
+      model:r.model||r['rover model']||'',
+      sku:r.sku||r['part number']||r['part no']||'',
+      description:r.description||'',
+      condition:r.condition||'Good',
+      qty:parseInt(r.qty||r.quantity||r['qty in stock']||0)||0,
+      maxPerOrder:parseInt(r['max per order']||r.maxperorder||0)||0,
+      memberPrice:parseFloat(r['member price']||r.memberprice||0)||0,
+      publicPrice:parseFloat(r['public price']||r.publicprice||r.price||0)||0,
+      costPrice:parseFloat(r['cost price']||r.costprice||0)||0,
+      availability:r.availability||'both',
+      status:r.status||'in_stock',
+      minOrderQty:parseInt(r['min order qty']||0)||0,
+      notes:r.notes||'',
+      category:'parts',
+      createdAt:new Date().toISOString(),
+      requests:[],eois:[]
+    }));
+    await saveInv([...(parts||[]),...newParts]);
+    setModal(null);setCsvText('');setCsvPreview([]);
+    alert(`✓ Imported ${newParts.length} parts`);
+  };
+
+  const pts=parts||[];
+  const inStock=pts.filter(p=>p.status==="in_stock"||(!p.status&&p.qty>0));
+  const outOfStock=pts.filter(p=>p.status==="out_of_stock"||(p.status!=="eoi"&&p.status!=="coming_soon"&&p.qty===0));
+  const eoiParts=pts.filter(p=>p.status==="eoi"||p.status==="coming_soon");
 
   return (
     <div style={{padding:"24px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:8}}>
-        <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:0}}>Parts Inventory</h2>
-        <div style={{display:"flex",gap:8}}>
-          {["inventory","shop"].map(v=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 16px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontWeight:600,textTransform:"capitalize"}}>{v==="inventory"?"Inventory":"Shop Items"}</button>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Parts Inventory</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Manage spare parts stock, pricing and availability</div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {["inventory","shop","requests"].map(v=>(
+            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontWeight:600,fontSize:12,textTransform:"capitalize",position:"relative"}}>
+              {v==="requests"?"Requests & EOI":v==="shop"?"Shop Listings":"Inventory"}
+              {v==="requests"&&pts.reduce((n,p)=>(n+(p.requests||[]).length+(p.eois||[]).length),0)>0&&(
+                <span style={{position:"absolute",top:-5,right:-5,background:"#dc2626",color:"white",borderRadius:"50%",width:15,height:15,fontSize:9,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>
+                  {pts.reduce((n,p)=>(n+(p.requests||[]).length+(p.eois||[]).length),0)}
+                </span>
+              )}
+            </button>
           ))}
-          {isAdmin&&<button onClick={()=>setModal("add")} style={{padding:"6px 16px",borderRadius:6,border:"none",background:"var(--burg)",color:"white",cursor:"pointer",fontWeight:700}}>+ Add Part</button>}
+          {isAdmin&&(
+            <>
+              <button onClick={()=>setModal("import")} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:"white",color:"var(--burg)",cursor:"pointer",fontWeight:600,fontSize:12}}>📥 Import CSV</button>
+              <button onClick={()=>setModal("add")} style={{padding:"6px 14px",borderRadius:6,border:"none",background:"var(--burg)",color:"white",cursor:"pointer",fontWeight:700,fontSize:12}}>+ Add Part</button>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
+        {[["Total Parts",pts.length,"var(--burg)"],["In Stock",inStock.length,"var(--green)"],["Out of Stock",outOfStock.length,"#dc2626"],["EOI / Coming Soon",eoiParts.length,"#7c3aed"]].map(([l,n,c])=>(
+          <div key={l} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 14px",textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:700,color:c}}>{n}</div>
+            <div style={{fontSize:11,color:"var(--text3)",fontWeight:600,marginTop:2}}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── INVENTORY VIEW ─────────────────────────────────────────────── */}
       {view==="inventory"&&(
         <div>
-          {(!parts||parts.length===0)&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No parts in inventory yet.{isAdmin&&" Click + Add Part to get started."}</div>}
+          {pts.length===0&&(
+            <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
+              <div style={{fontSize:36,marginBottom:12}}>🔧</div>
+              <div style={{fontWeight:700,fontSize:15,color:"var(--text)",marginBottom:8}}>No parts in inventory yet</div>
+              <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Add parts individually or use <b>Import CSV</b> to upload a spreadsheet.</div>
+              {isAdmin&&<div style={{display:"flex",gap:10,justifyContent:"center"}}>
+                <button onClick={()=>setModal("import")} style={{padding:"9px 20px",background:"white",border:"2px solid var(--burg)",color:"var(--burg)",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>📥 Import CSV</button>
+                <button onClick={()=>setModal("add")} style={{padding:"9px 20px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Add Part</button>
+              </div>}
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
-            {(parts||[]).map(p=>(
-              <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                  <div>
-                    <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>{p.name}</div>
-                    {p.model&&<div style={{fontSize:12,color:"var(--text3)"}}>{p.model}</div>}
+            {pts.map(p=>{
+              const status=p.status||(p.qty>0?"in_stock":"out_of_stock");
+              const myRequest=(p.requests||[]).find(r=>r.memberId===user.id);
+              const myEOI=(p.eois||[]).find(e=>e.memberId===user.id);
+              return (
+                <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:2}}>{p.name}</div>
+                      {p.model&&<div style={{fontSize:12,color:"var(--text3)"}}>{p.model}</div>}
+                      {p.sku&&<div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>#{p.sku}</div>}
+                    </div>
+                    <span style={{background:statusColours[status]||"#666",color:"white",borderRadius:12,padding:"2px 9px",fontSize:11,fontWeight:700,flexShrink:0,marginLeft:8}}>
+                      {statusLabels[status]||status}
+                    </span>
                   </div>
-                  <span style={{background:p.qty>0?"var(--green)":"#dc2626",color:"white",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>{p.qty>0?`${p.qty} in stock`:"Out of stock"}</span>
-                </div>
-                {p.description&&<div style={{fontSize:12,color:"var(--text2)",marginBottom:8,lineHeight:1.5}}>{p.description}</div>}
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                  <span style={{background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontSize:11}}>{p.condition}</span>
-                  <span style={{background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontSize:11,color:"var(--burg)"}}>{avail[p.availability]||p.availability}</span>
-                </div>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--text3)",marginBottom:10}}>
-                  <span>Member: <b style={{color:"var(--green)"}}>A${p.memberPrice||0}</b></span>
-                  {p.availability!=="members"&&<span>Public: <b>A${p.publicPrice||0}</b></span>}
-                </div>
-                {isAdmin&&(
-                  <div style={{display:"flex",gap:8}}>
-                    <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:12,fontWeight:600}}>Publish to Shop</button>
-                    <button onClick={()=>deletePart(p.id)} style={{padding:"5px 10px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:12}}>✕</button>
+                  {p.description&&<div style={{fontSize:12,color:"var(--text2)",marginBottom:8,lineHeight:1.5}}>{p.description}</div>}
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+                    <span style={{background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontSize:11}}>{p.condition}</span>
+                    <span style={{background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontSize:11,color:"var(--burg)"}}>{avail[p.availability]||p.availability}</span>
+                    {p.qty>0&&<span style={{background:"var(--bg3)",padding:"2px 8px",borderRadius:10,fontSize:11,fontWeight:700}}>{p.qty} in stock</span>}
+                    {p.maxPerOrder>0&&<span style={{background:"#fff4e0",padding:"2px 8px",borderRadius:10,fontSize:11,color:"#b06010"}}>Max {p.maxPerOrder}/order</span>}
+                    {p.minOrderQty>0&&<span style={{background:"#f0e8ff",padding:"2px 8px",borderRadius:10,fontSize:11,color:"#7c3aed"}}>Min order: {p.minOrderQty}</span>}
                   </div>
-                )}
-              </div>
-            ))}
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"var(--text3)",marginBottom:12}}>
+                    {p.memberPrice>0&&<span>Members: <b style={{color:"var(--green)"}}>A${p.memberPrice}</b></span>}
+                    {p.publicPrice>0&&p.availability!=="members"&&<span>Public: <b>A${p.publicPrice}</b></span>}
+                  </div>
+                  {/* Member actions */}
+                  {!isAdmin&&status==="out_of_stock"&&!myRequest&&(
+                    <button onClick={()=>requestPart(p.id)} style={{width:"100%",padding:"7px 0",background:"#1a4a7a",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:6}}>
+                      🔔 Notify Me When Available
+                    </button>
+                  )}
+                  {!isAdmin&&status==="out_of_stock"&&myRequest&&(
+                    <div style={{textAlign:"center",fontSize:12,color:"var(--green)",padding:"6px 0",marginBottom:6}}>✓ You will be notified when back in stock</div>
+                  )}
+                  {!isAdmin&&(status==="eoi"||status==="coming_soon")&&!myEOI&&(
+                    <button onClick={()=>registerEOI(p.id)} style={{width:"100%",padding:"7px 0",background:"#7c3aed",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:6}}>
+                      ✋ Register Interest
+                    </button>
+                  )}
+                  {!isAdmin&&(status==="eoi"||status==="coming_soon")&&myEOI&&(
+                    <div style={{textAlign:"center",fontSize:12,color:"#7c3aed",padding:"6px 0",marginBottom:6}}>✓ Interest registered</div>
+                  )}
+                  {/* Admin actions */}
+                  {isAdmin&&(
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button>
+                      {(p.requests||[]).length>0&&<span style={{padding:"5px 8px",background:"#e8f0f8",color:"#1a4a7a",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.requests||[]).length} request{(p.requests||[]).length!==1?"s":""}</span>}
+                      {(p.eois||[]).length>0&&<span style={{padding:"5px 8px",background:"#f0e8ff",color:"#7c3aed",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.eois||[]).length} EOI</span>}
+                      <button onClick={()=>deletePart(p.id)} style={{padding:"5px 9px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:11}}>✕</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
+      {/* ── SHOP VIEW ──────────────────────────────────────────────────── */}
       {view==="shop"&&(
         <div>
-          <div style={{marginBottom:12,color:"var(--text3)",fontSize:13}}>Parts currently listed in the club shop:</div>
-          {(shopItems||[]).filter(s=>s.partId).length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No parts published to shop yet. Go to Inventory and click "Publish to Shop".</div>}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
+          <div style={{marginBottom:12,fontSize:13,color:"var(--text3)"}}>Parts currently listed in the club shop:</div>
+          {(shopItems||[]).filter(s=>s.partId).length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No parts published to shop yet.</div>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:12}}>
             {(shopItems||[]).filter(s=>s.partId).map(s=>(
               <div key={s.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:14}}>
                 <div style={{fontWeight:700,fontSize:13,marginBottom:4}}>{s.name}</div>
@@ -7159,6 +7318,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
                   <span style={{color:"var(--green)",fontWeight:700}}>Members: A${s.memberPrice||0}</span>
                   {s.availability!=="members"&&<span style={{color:"var(--text2)"}}>Public: A${s.price||0}</span>}
                 </div>
+                {s.maxPerOrder>0&&<div style={{fontSize:11,color:"#b06010",marginTop:4}}>Max {s.maxPerOrder} per order</div>}
                 <span style={{fontSize:11,background:"var(--bg3)",padding:"2px 8px",borderRadius:10,marginTop:6,display:"inline-block"}}>{avail[s.availability]||s.availability}</span>
               </div>
             ))}
@@ -7166,21 +7326,73 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
         </div>
       )}
 
+      {/* ── REQUESTS & EOI VIEW ────────────────────────────────────────── */}
+      {view==="requests"&&(
+        <div>
+          {pts.every(p=>(p.requests||[]).length===0&&(p.eois||[]).length===0)&&(
+            <div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No stock requests or expressions of interest yet.</div>
+          )}
+          {pts.filter(p=>(p.requests||[]).length>0||(p.eois||[]).length>0).map(p=>(
+            <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:12}}>
+              <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:4}}>{p.name}</div>
+              {(p.requests||[]).length>0&&(
+                <div style={{marginBottom:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1a4a7a",marginBottom:6}}>🔔 Back-in-stock requests ({(p.requests||[]).length})</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {(p.requests||[]).map((r,i)=>(
+                      <span key={i} style={{background:"#e8f0f8",padding:"3px 10px",borderRadius:10,fontSize:12,color:"#1a4a7a"}}>{r.memberName} · {new Date(r.date).toLocaleDateString('en-AU')}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(p.eois||[]).length>0&&(
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#7c3aed",marginBottom:6}}>✋ Expressions of interest ({(p.eois||[]).length})</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                    {(p.eois||[]).map((e,i)=>(
+                      <span key={i} style={{background:"#f0e8ff",padding:"3px 10px",borderRadius:10,fontSize:12,color:"#7c3aed"}}>{e.memberName} · {new Date(e.date).toLocaleDateString('en-AU')}</span>
+                    ))}
+                  </div>
+                  {p.minOrderQty>0&&<div style={{fontSize:12,color:"#7c3aed",marginTop:6,fontStyle:"italic"}}>Min order quantity: {p.minOrderQty} units — {(p.eois||[]).length} of {p.minOrderQty} needed</div>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── ADD PART MODAL ─────────────────────────────────────────────── */}
       {modal==="add"&&(
         <Modal onClose={()=>setModal(null)} title="Add Part to Inventory">
-          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:480}}>
-            {[["Part Name *","name","text"],["Rover Model(s)","model","text"],["SKU / Part No.","sku","text"]].map(([lbl,key,type])=>(
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:500}}>
+            {[["Part Name *","name"],["Rover Model(s)","model"],["SKU / Part No.","sku"]].map(([lbl,key])=>(
               <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
-              <input type={type} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
             ))}
             <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Description</label>
-            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={3} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
+            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Condition</label>
               <select value={form.condition} onChange={e=>setForm({...form,condition:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
                 {conditions.map(c=><option key={c}>{c}</option>)}</select></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Status</label>
+              <select value={form.status} onChange={e=>setForm({...form,status:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                <option value="in_stock">In Stock</option>
+                <option value="out_of_stock">Out of Stock</option>
+                <option value="eoi">Expression of Interest</option>
+                <option value="coming_soon">Coming Soon</option>
+              </select></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
               <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Qty in Stock</label>
               <input type="number" min="0" value={form.qty} onChange={e=>setForm({...form,qty:parseInt(e.target.value)||0})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Max per Order</label>
+              <input type="number" min="0" value={form.maxPerOrder} onChange={e=>setForm({...form,maxPerOrder:parseInt(e.target.value)||0})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Min Order Qty</label>
+              <input type="number" min="0" value={form.minOrderQty} onChange={e=>setForm({...form,minOrderQty:parseInt(e.target.value)||0})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/></div>
+            </div>
+            <div style={{background:"#f0e8ff",borderRadius:6,padding:"8px 12px",fontSize:11,color:"#7c3aed"}}>
+              💡 <b>Max per Order</b> limits how many one person can buy. <b>Min Order Qty</b> is the supplier minimum — useful for EOI parts to gauge if there's enough interest to place an order.
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Member Price (A$)</label>
@@ -7190,13 +7402,63 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
             </div>
             <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Availability</label>
             <select value={form.availability} onChange={e=>setForm({...form,availability:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
-              <option value="both">Available to Members & Public (member price lower)</option>
-              <option value="members">Members Only (not visible to public)</option>
+              <option value="both">Members & Public (member price lower)</option>
+              <option value="members">Members Only</option>
               <option value="public">Public (same price for all)</option>
             </select></div>
-            <div style={{display:"flex",gap:10,marginTop:8}}>
+            <div style={{display:"flex",gap:10}}>
               <button onClick={addPart} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Add to Inventory</button>
               <button onClick={()=>setModal(null)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── CSV IMPORT MODAL ───────────────────────────────────────────── */}
+      {modal==="import"&&(
+        <Modal onClose={()=>{setModal(null);setCsvText('');setCsvPreview([]);}} title="Import Parts from CSV">
+          <div style={{display:"flex",flexDirection:"column",gap:14,maxWidth:560}}>
+            <div style={{background:"#e8f0f8",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#1a4a7a"}}>
+              <b>Expected CSV columns:</b> name, model, sku, description, condition, qty, max per order, member price, public price, availability, status, min order qty, notes<br/>
+              <span style={{color:"var(--text3)"}}>Only <b>name</b> is required. Download a template below to get started.</span>
+            </div>
+            <div>
+              <a href="data:text/csv;charset=utf-8,name,model,sku,description,condition,qty,max per order,member price,public price,availability,status,min order qty,notes%0ARocker cover gasket,P6 2000/2200,RCG-001,Rubber gasket for rocker cover,Good,5,2,12.50,18.00,both,in_stock,0,%0A" download="parts_template.csv"
+                style={{fontSize:12,color:"#1a4a7a",fontWeight:700}}>📥 Download CSV Template</a>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Upload CSV File</label>
+              <div onClick={()=>fileRef.current&&fileRef.current.click()} style={{border:"2px dashed var(--border)",borderRadius:8,padding:20,textAlign:"center",cursor:"pointer",background:"var(--bg3)"}}>
+                <input ref={fileRef} type="file" accept=".csv,.txt" onChange={handleCSVFile} style={{display:"none"}}/>
+                <div style={{fontSize:20,marginBottom:6}}>📂</div>
+                <div style={{fontSize:13,color:"var(--text2)",fontWeight:600}}>Click to browse or drag and drop</div>
+                <div style={{fontSize:11,color:"var(--text3)"}}>CSV or TXT file</div>
+              </div>
+            </div>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Or paste CSV text directly</label>
+              <textarea value={csvText} onChange={e=>{setCsvText(e.target.value);parseCSV(e.target.value);}} rows={5} placeholder="Paste CSV content here..." style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box",resize:"vertical",fontFamily:"var(--font-m)"}}/>
+            </div>
+            {csvPreview.length>0&&(
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:8}}>✓ {csvPreview.length} part{csvPreview.length!==1?"s":""} ready to import:</div>
+                <div style={{maxHeight:160,overflowY:"auto",border:"1px solid var(--border)",borderRadius:6}}>
+                  {csvPreview.slice(0,20).map((r,i)=>(
+                    <div key={i} style={{padding:"6px 12px",fontSize:12,borderBottom:"1px solid var(--bg3)",display:"flex",gap:10,alignItems:"center"}}>
+                      <span style={{fontWeight:700,color:"var(--text)",flex:1}}>{r.name||r['part name']}</span>
+                      {(r.model||r['rover model'])&&<span style={{color:"var(--text3)",fontSize:11}}>{r.model||r['rover model']}</span>}
+                      {(r.qty||r.quantity)&&<span style={{background:"var(--bg3)",padding:"1px 7px",borderRadius:8,fontSize:11}}>Qty: {r.qty||r.quantity}</span>}
+                    </div>
+                  ))}
+                  {csvPreview.length>20&&<div style={{padding:"6px 12px",fontSize:11,color:"var(--text3)"}}>...and {csvPreview.length-20} more</div>}
+                </div>
+              </div>
+            )}
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={importCSV} disabled={!csvPreview.length} style={{flex:1,padding:"10px 0",background:csvPreview.length?"var(--burg)":"var(--bg3)",color:csvPreview.length?"white":"var(--text3)",border:"none",borderRadius:6,fontWeight:700,cursor:csvPreview.length?"pointer":"not-allowed"}}>
+                Import {csvPreview.length>0?`${csvPreview.length} Parts`:""}
+              </button>
+              <button onClick={()=>{setModal(null);setCsvText('');setCsvPreview([]);}} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
             </div>
           </div>
         </Modal>
