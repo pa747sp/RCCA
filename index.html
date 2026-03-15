@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v4.7 -->
+<!-- RCCA v4.8 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -3192,9 +3192,9 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
     <div>
       {/* Hero — photo only, no text overlay */}
       <div style={{
-        height:"72vh", minHeight:340, maxHeight:680,
+        height:"85vh", minHeight:480, maxHeight:860,
         backgroundImage:`url(${HERO_IMAGE})`,
-        backgroundSize:"cover", backgroundPosition:"center 38%",
+        backgroundSize:"cover", backgroundPosition:"center 45%",
         position:"relative", overflow:"hidden"
       }}>
 
@@ -7675,7 +7675,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
           <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Club Archive</h2>
           <div style={{fontSize:13,color:"var(--text3)"}}>Historical records, minutes, newsletters and documents</div>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {["browse","pending"].map(v=>(
             <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontSize:12,fontWeight:600,position:"relative"}}>
               {v==="browse"?"Browse Archive":"Pending Review"}
@@ -7722,16 +7722,27 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
               {docTypes.map(t=><option key={t}>{t}</option>)}
             </select>
           </div>
-          {filtered.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No documents found. Try adjusting your search, or upload a document to get started.</div>}
+          {docs.length===0&&(
+            <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
+              <div style={{fontSize:40,marginBottom:12}}>📚</div>
+              <div style={{fontWeight:700,fontSize:16,color:"var(--text)",marginBottom:8}}>The archive is empty</div>
+              <div style={{fontSize:13,color:"var(--text3)",marginBottom:20,maxWidth:380,margin:"0 auto 20px"}}>No documents have been uploaded yet. Use the <b>+ Upload Document</b> button above to add the first record, or email documents to <b>archive@rcca.com.au</b>.</div>
+              <button onClick={()=>setShowUpload(true)} style={{padding:"10px 24px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Upload First Document</button>
+            </div>
+          )}
+          {docs.length>0&&filtered.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No documents match your search. Try different keywords or clear the filter.</div>}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {filtered.filter(d=>d.status==="Archived").map(d=>(
+            {filtered.map(d=>{
+              const statusColour={Archived:"var(--green)","Pending Review":"#b06010"}[d.status]||"#666";
+              return (
               <div key={d.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 18px",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}} onClick={()=>setSelected(d)}>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:4}}>{d.title}</div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                     <span style={{background:"var(--bg3)",padding:"1px 8px",borderRadius:8,fontSize:11}}>{d.docType}</span>
                     {d.year&&<span style={{background:"var(--burg)",color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{d.year}</span>}
-                    {(d.tags||[]).slice(0,4).map((t,i)=><span key={i} style={{background:"var(--bg3)",padding:"1px 8px",borderRadius:8,fontSize:11,color:"var(--text3)"}}>#{t}</span>)}
+                    <span style={{background:statusColour,color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{d.status}</span>
+                    {(d.tags||[]).slice(0,3).map((t,i)=><span key={i} style={{background:"var(--bg3)",padding:"1px 8px",borderRadius:8,fontSize:11,color:"var(--text3)"}}>#{t}</span>)}
                   </div>
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
@@ -7739,7 +7750,8 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
                   <div style={{fontSize:11,color:"var(--text3)"}}>{new Date(d.createdAt).toLocaleDateString('en-AU')}</div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
