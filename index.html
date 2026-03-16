@@ -937,6 +937,7 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
 // ══════════════════════════════════════════════════════════════════════════════
 function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
   const [search,setSearch]=useState(""); const [modal,setModal]=useState(null); const [form,setForm]=useState({});
+  const [showWorkflow,setShowWorkflow]=useState(null);
   const filtered=members.filter(m=>`${m.name} ${m.email} ${m.memberNumber}`.toLowerCase().includes(search.toLowerCase()));
   function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:String(members.length+1).padStart(3,"0")});setModal("add");}
   function openEdit(m){setForm({...m});setModal({edit:m});}
