@@ -492,6 +492,7 @@ const BADGE_STYLES = {
   active:      { bg:"#d4f0e0", text:"#1a6040", border:"#a0d8b8" },
   suspended:   { bg:"#fdecd0", text:"#7a4010", border:"#f0c890" },
   resigned:    { bg:"#ede8e0", text:"#5a4838", border:"#ccc4b8" },
+  deceased:    { bg:"#e8e0f0", text:"#3a1a6a", border:"#c0a8e0" },
   paid:        { bg:"#d4f0e0", text:"#1a6040", border:"#a0d8b8" },
   overdue:     { bg:"#fdd8d8", text:"#8f1a1a", border:"#f0a8a8" },
   upcoming:    { bg:"#d0e8fc", text:"#1a3a6a", border:"#90c0f0" },
@@ -964,8 +965,8 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <StatCard label="Total" value={members.length} icon="◉"/>
         <StatCard label="Active" value={members.filter(m=>m.status==="active").length} colour="var(--green2)" icon="●"/>
-        <StatCard label="Admins" value={members.filter(m=>m.role==="admin").length} colour="var(--gold2)" icon="★"/>
-        <StatCard label="Suspended" value={members.filter(m=>m.status==="suspended").length} colour="var(--red2)" icon="◑"/>
+        <StatCard label="Post Only" value={members.filter(m=>m.noDigital).length} colour="var(--blue2)" icon="✉"/>
+        <StatCard label="Deceased" value={members.filter(m=>m.status==="deceased").length} colour="var(--text3)" icon="◌"/>
       </div>
       <Row gap={10} style={{marginBottom:14}}><Input placeholder="Search members…" value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:320}}/></Row>
       <Card style={{overflow:"hidden"}}>
@@ -988,7 +989,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
                 <td style={{padding:"9px 12px"}}><Badge status={m.role}/></td>
                 <td style={{padding:"9px 12px"}}>{d?<Badge status={d.paid?"paid":"overdue"} label={d.paid?"PAID":"OVERDUE"}/>:"—"}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",color:"var(--text2)"}}>{mCars(m.id)}</td>
-                <td style={{padding:"9px 12px"}}><Badge status={m.status}/></td>
+                <td style={{padding:"9px 12px"}}><Badge status={m.status}/>{m.noDigital&&<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>✉ POST</span>}</td>
                 <td style={{padding:"9px 12px"}}>
                   <Row gap={5} wrap>
                     <Btn variant="ghost" size="sm" onClick={()=>openEdit(m)}>Edit</Btn>
@@ -1027,7 +1028,8 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
             <Field label="Role" half><Select value={form.role||"member"} onChange={e=>setForm({...form,role:e.target.value})}><option value="member">Member</option><option value="admin">Admin</option></Select></Field>
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-            <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned"].map(s=><option key={s}>{s}</option>)}</Select></Field>
+            <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
+            <Field label="Digital Access" half><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field>
             <Field label="Join Date" half><Input type="date" value={form.joined||""} onChange={e=>setForm({...form,joined:e.target.value})}/></Field>
           </Row>
           <Field label="Bio"><Textarea value={form.bio||""} onChange={e=>setForm({...form,bio:e.target.value})} placeholder="Member bio…"/></Field>
@@ -1274,7 +1276,7 @@ function DuesSection({ members, dues, setDues }) {
   const [selYr,setSelYr]=useState(yr); const [modal,setModal]=useState(null); const [form,setForm]=useState({});
   const [showReminder,setShowReminder]=useState(null);
   const years=Array.from({length:5},(_,i)=>yr-i);
-  const enriched=members.filter(m=>m.status!=="resigned").map(m=>({member:m,due:dues.find(d=>d.memberId===m.id&&d.year===selYr)||null}));
+  const enriched=members.filter(m=>m.status!=="resigned"&&m.status!=="deceased").map(m=>({member:m,due:dues.find(d=>d.memberId===m.id&&d.year===selYr)||null}));
   const paid=enriched.filter(e=>e.due?.paid).length;
   const unpaid=enriched.filter(e=>!e.due?.paid).length;
   const collected=enriched.filter(e=>e.due?.paid).reduce((s,e)=>s+(e.due?.amount||0),0);
