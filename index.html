@@ -8024,9 +8024,9 @@ Return ONLY the JSON object. No preamble, no explanation, no markdown fences.`;
 ${textContent}`});
       }
 
-      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+      const resp=await fetch("/.netlify/functions/scan",{
         method:"POST",
-        headers:{"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           model:"claude-sonnet-4-20250514",
           max_tokens:1000,
