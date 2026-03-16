@@ -939,7 +939,43 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
 function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
   const [search,setSearch]=useState(""); const [modal,setModal]=useState(null); const [form,setForm]=useState({});
   const [showWorkflow,setShowWorkflow]=useState(null);
-  const filtered=members.filter(m=>`${m.name} ${m.email} ${m.memberNumber}`.toLowerCase().includes(search.toLowerCase()));
+  const [showFilters,setShowFilters]=useState(false);
+  const [filters,setFilters]=useState({status:[],memberType:[],state:[],role:[],duesStatus:[],noDigital:false,hasEmail:false,hasPhone:false,joinedFrom:"",joinedTo:""});
+
+  const setFilter=(key,val)=>setFilters(f=>({...f,[key]:val}));
+  const toggleArrFilter=(key,val)=>setFilters(f=>({...f,[key]:f[key].includes(val)?f[key].filter(x=>x!==val):[...f[key],val]}));
+  const activeFilterCount=[
+    filters.status.length,filters.memberType.length,filters.state.length,
+    filters.role.length,filters.duesStatus.length,
+    filters.noDigital?1:0,filters.hasEmail?1:0,filters.hasPhone?1:0,
+    filters.joinedFrom?1:0,filters.joinedTo?1:0
+  ].reduce((a,b)=>a+b,0);
+  const clearFilters=()=>setFilters({status:[],memberType:[],state:[],role:[],duesStatus:[],noDigital:false,hasEmail:false,hasPhone:false,joinedFrom:"",joinedTo:""});
+
+  const allStates=[...new Set(members.map(m=>m.state).filter(Boolean))].sort();
+  const allTypes=[...new Set(members.map(m=>m.memberType).filter(Boolean))].sort();
+
+  const mDues=id=>dues.find(d=>d.memberId===id&&d.year===yr);
+  const mCars=id=>cars.filter(c=>c.ownerId===id&&c.status==="active").length;
+  const filtered=members.filter(m=>{
+    const txt=`${m.name} ${m.email} ${m.memberNumber} ${m.phone||""} ${m.state||""} ${m.memberType||""}`.toLowerCase();
+    if(search&&!txt.includes(search.toLowerCase()))return false;
+    if(filters.status.length&&!filters.status.includes(m.status))return false;
+    if(filters.memberType.length&&!filters.memberType.includes(m.memberType))return false;
+    if(filters.state.length&&!filters.state.includes(m.state))return false;
+    if(filters.role.length&&!filters.role.includes(m.role))return false;
+    if(filters.noDigital&&!m.noDigital)return false;
+    if(filters.hasEmail&&!m.email)return false;
+    if(filters.hasPhone&&!m.phone)return false;
+    if(filters.joinedFrom&&m.joined<filters.joinedFrom)return false;
+    if(filters.joinedTo&&m.joined>filters.joinedTo)return false;
+    if(filters.duesStatus.length){
+      const d=mDues(m.id);
+      const ds=d?(d.paid?"paid":"overdue"):"none";
+      if(!filters.duesStatus.includes(ds))return false;
+    }
+    return true;
+  });
   function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:String(members.length+1).padStart(3,"0")});setModal("add");}
   function openEdit(m){setForm({...m});setModal({edit:m});}
   async function handleSave(){
@@ -956,8 +992,6 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
   }
   async function toggleStatus(m,status){const u=members.map(x=>x.id===m.id?{...x,status}:x);setMembers(u);await dbSet(SK.members,u);setModal(null);}
   async function toggleRole(m){const u=members.map(x=>x.id===m.id?{...x,role:m.role==="admin"?"member":"admin"}:x);setMembers(u);await dbSet(SK.members,u);}
-  const mDues=id=>dues.find(d=>d.memberId===id&&d.year===yr);
-  const mCars=id=>cars.filter(c=>c.ownerId===id&&c.status==="active").length;
   return (
     <div className="fade-up">
       <SectionHeader title="Members" subtitle={`${members.filter(m=>m.status==="active").length} active · ${members.length} total registered`}
@@ -968,7 +1002,91 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
         <StatCard label="Post Only" value={members.filter(m=>m.noDigital).length} colour="var(--blue2)" icon="✉"/>
         <StatCard label="Deceased" value={members.filter(m=>m.status==="deceased").length} colour="var(--text3)" icon="◌"/>
       </div>
-      <Row gap={10} style={{marginBottom:14}}><Input placeholder="Search members…" value={search} onChange={e=>setSearch(e.target.value)} style={{maxWidth:320}}/></Row>
+      {/* Search + Filter bar */}
+      <div style={{marginBottom:14}}>
+        <Row gap={10} style={{marginBottom:8}}>
+          <Input placeholder="Search members — name, email, phone, member no…" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1}}/>
+          <button onClick={()=>setShowFilters(f=>!f)} style={{padding:"7px 14px",borderRadius:6,border:"1px solid var(--border)",background:showFilters?"var(--burg)":"white",color:showFilters?"white":"var(--text2)",cursor:"pointer",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+            ⚙ Filters {activeFilterCount>0&&<span style={{background:showFilters?"rgba(255,255,255,.3)":"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{activeFilterCount}</span>}
+          </button>
+          {activeFilterCount>0&&<button onClick={clearFilters} style={{padding:"7px 12px",borderRadius:6,border:"1px solid var(--border)",background:"white",color:"var(--text3)",cursor:"pointer",fontSize:12}}>✕ Clear</button>}
+        </Row>
+        {showFilters&&(
+          <div style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"16px 18px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:16}}>
+            {/* Status */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Status</div>
+              {["active","suspended","resigned","deceased"].map(s=>(
+                <label key={s} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={filters.status.includes(s)} onChange={()=>toggleArrFilter("status",s)} style={{accentColor:"var(--burg)"}}/>{s.charAt(0).toUpperCase()+s.slice(1)}
+                </label>
+              ))}
+            </div>
+            {/* Member Type */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Member Type</div>
+              {allTypes.length?allTypes.map(t=>(
+                <label key={t} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={filters.memberType.includes(t)} onChange={()=>toggleArrFilter("memberType",t)} style={{accentColor:"var(--burg)"}}/>{t}
+                </label>
+              )):<div style={{fontSize:12,color:"var(--text3)"}}>No types found</div>}
+            </div>
+            {/* Role */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Role</div>
+              {["admin","member"].map(r=>(
+                <label key={r} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={filters.role.includes(r)} onChange={()=>toggleArrFilter("role",r)} style={{accentColor:"var(--burg)"}}/>{r.charAt(0).toUpperCase()+r.slice(1)}
+                </label>
+              ))}
+            </div>
+            {/* State */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>State</div>
+              {allStates.length?allStates.map(s=>(
+                <label key={s} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={filters.state.includes(s)} onChange={()=>toggleArrFilter("state",s)} style={{accentColor:"var(--burg)"}}/>{s}
+                </label>
+              )):<div style={{fontSize:12,color:"var(--text3)"}}>No states found</div>}
+            </div>
+            {/* Dues Status */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Dues Status</div>
+              {[["paid","Paid"],["overdue","Overdue"],["none","No record"]].map(([val,lbl])=>(
+                <label key={val} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={filters.duesStatus.includes(val)} onChange={()=>toggleArrFilter("duesStatus",val)} style={{accentColor:"var(--burg)"}}/>{lbl}
+                </label>
+              ))}
+            </div>
+            {/* Contact & Digital */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Contact & Access</div>
+              <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                <input type="checkbox" checked={filters.hasEmail} onChange={e=>setFilter("hasEmail",e.target.checked)} style={{accentColor:"var(--burg)"}}/>Has email address
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                <input type="checkbox" checked={filters.hasPhone} onChange={e=>setFilter("hasPhone",e.target.checked)} style={{accentColor:"var(--burg)"}}/>Has phone number
+              </label>
+              <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                <input type="checkbox" checked={filters.noDigital} onChange={e=>setFilter("noDigital",e.target.checked)} style={{accentColor:"var(--burg)"}}/>Post newsletter only
+              </label>
+            </div>
+            {/* Join Date range */}
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Join Date Range</div>
+              <div style={{marginBottom:6}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>From</div>
+                <input type="date" value={filters.joinedFrom} onChange={e=>setFilter("joinedFrom",e.target.value)} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>To</div>
+                <input type="date" value={filters.joinedTo} onChange={e=>setFilter("joinedTo",e.target.value)} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+            </div>
+          </div>
+        )}
+        {(activeFilterCount>0||search)&&<div style={{fontSize:12,color:"var(--text3)",marginTop:6}}>Showing {filtered.length} of {members.length} members</div>}
+      </div>
       <Card style={{overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12.5}}>
           <thead><tr style={{background:"var(--bg3)",borderBottom:"1px solid var(--border)"}}>
