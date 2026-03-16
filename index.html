@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA v5.2 -->
+<!-- RCCA v5.5 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -99,6 +99,8 @@ const SK = {
   qualityDocs:"rcca:qualityDocs", archiveDocs:"rcca:archiveDocs",
   emailDrafts:"rcca:emailDrafts", points:"rcca:points", forum:"rcca:forum",
   suppliers:"rcca:suppliers",
+  pages:"rcca:pages",
+  gallery:"rcca:gallery",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -1032,6 +1034,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
         </Modal>
       )}
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
+      {showWorkflow&&<EventWorkflowModal event={showWorkflow} tasks={tasks} setTasks={setTasks} members={members} user={user} onClose={()=>setShowWorkflow(null)}/>}
     </div>
   );
 }
@@ -1778,6 +1781,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({});
   const [view,setView]=useState(null);
+  const [showWorkflow,setShowWorkflow]=useState(null);
   const [rsvpForm,setRsvpForm]=useState({guests:0,dietary:"None",requirements:""});
   const [confirmation,setConfirmation]=useState(null);
   const sorted=[...events].sort((a,b)=>a.date.localeCompare(b.date));
@@ -1859,6 +1863,13 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
                   : <Btn style={{width:"100%"}} onClick={()=>openRsvp(ev)} disabled={full}>{full?"Event Full":"Register for this Event"}</Btn>
                 }
               </div>}
+              {isAdmin&&ev.status==="upcoming"&&(
+                <div onClick={e=>e.stopPropagation()} style={{padding:"0 0 4px",borderTop:"1px solid var(--border2)",marginTop:8,paddingTop:10}}>
+                  <button onClick={()=>setShowWorkflow(ev)} style={{width:"100%",padding:"6px 0",background:"none",border:"1px solid var(--burg)",borderRadius:5,color:"var(--burg)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                    ⚙ Event Workflow & Risk Plan
+                  </button>
+                </div>
+              )}
             </div>
           </Card>);
         })}
@@ -3084,8 +3095,9 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 </script>
 
 <script type="text/babel" data-presets="react">
-function PublicNav({ page, setPage, onLoginClick }) {
+function PublicNav({ page, setPage, onLoginClick, pages }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const customPublicPages=(typeof pages!=="undefined"?pages||[]:[]).filter(p=>p.visibility==="public");
   const links = [
     { id:"home",        label:"Home" },
     { id:"about",       label:"About" },
@@ -3095,6 +3107,8 @@ function PublicNav({ page, setPage, onLoginClick }) {
     { id:"marketplace", label:"Marketplace" },
     { id:"shop",        label:"Shop" },
     { id:"parts",       label:"Parts" },
+    { id:"gallery",      label:"Gallery" },
+    ...customPublicPages.map(p=>({id:p.slug,label:p.title})),
   ];
 
   const navTo = (id) => { setPage(id); setMenuOpen(false); };
@@ -4096,43 +4110,68 @@ function PublicMarketplace({ listings, setListings, members, user, onLoginClick 
 }
 
 function PublicShop({ shopItems, onLoginClick }) {
-  const available = shopItems.filter(i=>i.stock>0||i.stock===undefined);
+  const available = shopItems.filter(i=>i.status==="active"&&(i.stock>0||i.stock===undefined));
+  const getEmoji=name=>{
+    const n=name.toLowerCase();
+    if(n.includes("polo")||n.includes("shirt"))return"👕";
+    if(n.includes("cap")||n.includes("hat"))return"🧢";
+    if(n.includes("badge")||n.includes("grill"))return"🏅";
+    if(n.includes("book")||n.includes("manual"))return"📖";
+    if(n.includes("bag")||n.includes("tote"))return"👜";
+    if(n.includes("gasket")||n.includes("pump")||n.includes("engine")||n.includes("part"))return"🔧";
+    return"🛍";
+  };
   return (
     <div>
       <div style={{background:"linear-gradient(160deg,var(--burg-xdk),var(--burg))",padding:"72px 24px 52px",textAlign:"center"}}>
-        <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"rgba(255,255,255,.75)",textTransform:"uppercase",letterSpacing:"0.2em",marginBottom:12}}>Official Merchandise</div>
+        <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"rgba(255,255,255,.75)",textTransform:"uppercase",letterSpacing:"0.2em",marginBottom:12}}>Official Merchandise & Spare Parts</div>
         <h1 style={{fontFamily:"var(--font-d)",fontSize:48,color:"#ffffff",fontWeight:700,margin:"0 0 16px"}}>Club Shop</h1>
         <p style={{fontSize:15,color:"rgba(255,255,255,.85)",maxWidth:520,margin:"0 auto",lineHeight:1.7}}>
-          Official RCCA merchandise — polos, caps, badges and more. Log in to purchase.
+          Official RCCA merchandise and spare parts. Members enjoy exclusive pricing and access to member-only items.
         </p>
       </div>
       <div style={{maxWidth:1100,margin:"0 auto",padding:"52px 24px"}}>
+        {available.length===0&&<div style={{textAlign:"center",padding:40,color:"var(--text3)"}}>No items available in the shop yet.</div>}
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:20,marginBottom:40}}>
-          {available.map(item=>(
-            <div key={item.id} style={{background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,.06)"}}>
+          {available.map(item=>{
+            const membersOnly=item.availability==="members";
+            return(
+            <div key={item.id} style={{background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,overflow:"hidden",boxShadow:"0 2px 10px rgba(0,0,0,.06)",position:"relative"}}>
+              {membersOnly&&(
+                <div style={{position:"absolute",top:10,right:10,background:"var(--burg)",color:"white",fontSize:9,fontWeight:700,padding:"3px 8px",borderRadius:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em"}}>Members Only</div>
+              )}
               <div style={{height:140,background:"linear-gradient(135deg,var(--bg3),var(--bg4))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:56}}>
-                {item.name.toLowerCase().includes("polo")||item.name.toLowerCase().includes("shirt")?"👕":
-                 item.name.toLowerCase().includes("cap")||item.name.toLowerCase().includes("hat")?"🧢":
-                 item.name.toLowerCase().includes("badge")||item.name.toLowerCase().includes("grill")?"🏅":
-                 item.name.toLowerCase().includes("book")||item.name.toLowerCase().includes("manual")?"📖":
-                 item.name.toLowerCase().includes("bag")||item.name.toLowerCase().includes("tote")?"👜":"🛍"}
+                {getEmoji(item.name)}
               </div>
               <div style={{padding:18}}>
                 <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4,lineHeight:1.3}}>{item.name}</div>
+                {item.model&&<div style={{fontSize:11,color:"var(--text3)",marginBottom:4}}>{item.model}</div>}
                 <div style={{fontSize:12.5,color:"var(--text3)",marginBottom:12,lineHeight:1.5}}>{item.description?.slice(0,80)}{item.description?.length>80?"…":""}</div>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--burg)"}}>A${item.price}</span>
-                  <button onClick={onLoginClick} style={{background:"var(--burg)",border:"none",borderRadius:6,padding:"8px 16px",color:"#ffffff",fontFamily:"var(--font-b)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                    Buy Now
-                  </button>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div>
+                    {item.memberPrice>0&&(
+                      <div style={{fontSize:11,color:"var(--green)",fontWeight:700,marginBottom:2}}>Members: A${item.memberPrice}</div>
+                    )}
+                    <span style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--burg)"}}>A${item.price||item.memberPrice}</span>
+                  </div>
+                  {membersOnly?(
+                    <button onClick={onLoginClick} style={{background:"var(--burg)",border:"none",borderRadius:6,padding:"8px 14px",color:"#ffffff",fontFamily:"var(--font-b)",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                      Sign In to Buy
+                    </button>
+                  ):(
+                    <button onClick={onLoginClick} style={{background:"var(--burg)",border:"none",borderRadius:6,padding:"8px 16px",color:"#ffffff",fontFamily:"var(--font-b)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      Buy Now
+                    </button>
+                  )}
                 </div>
-                {item.stock!==undefined&&item.stock<=5&&item.stock>0&&<div style={{fontSize:11,color:"#b85000",fontFamily:"var(--font-m)",marginTop:8}}>⚠ Only {item.stock} left</div>}
+                {item.memberPrice>0&&<div style={{fontSize:11,color:"var(--text4)",marginTop:4,fontStyle:"italic"}}>Sign in for member pricing.</div>}
+                {item.stock!==undefined&&item.stock<=5&&item.stock>0&&<div style={{fontSize:11,color:"#b85000",fontFamily:"var(--font-m)",marginTop:4}}>⚠ Only {item.stock} left</div>}
               </div>
             </div>
-          ))}
+          );})}
         </div>
         <div style={{textAlign:"center",padding:24,background:"var(--bg3)",borderRadius:10,border:"1px solid var(--border)"}}>
-          <div style={{fontSize:13,color:"var(--text3)",marginBottom:4}}>Members login required to purchase.</div>
+          <div style={{fontSize:13,color:"var(--text3)",marginBottom:4}}>Member-only items and pricing require a club login.</div>
           <div style={{fontSize:12,color:"var(--text4)"}}>For enquiries contact <span style={{color:"var(--burg)"}}>merchandise@rcca.com.au</span></div>
         </div>
       </div>
@@ -5714,22 +5753,25 @@ function App() {
   const [points,setPoints]=useState([]);
   const [forum,setForum]=useState([]);
   const [suppliers,setSuppliers]=useState([]);
+  const [pages,setPages]=useState([]);
+  const [gallery,setGallery]=useState([]);
   const [showApplicationForm,setShowApplicationForm]=useState(false);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
       setCars(toArr(c).length?c:SEED_CARS); setTransfers(toArr(tr)); setMeetings(toArr(mt).length?mt:SEED_MEETINGS);
       setEvents(toArr(ev).length?ev:SEED_EVENTS); setTasks(toArr(tk).length?tk:SEED_TASKS); setDues(toArr(d).length?d:SEED_DUES);
       setRsvps(toArr(r)); setListings(toArr(li).length?li:SEED_LISTINGS); setMessages(toArr(msg));
-      setShopItems(toArr(si).length?si:SEED_SHOP); setOrders(toArr(or)); setNews(toArr(nw).length?nw:SEED_NEWS);
+      const fixedSi=toArr(si).length?si.map(s=>s.partId&&s.status!=="active"?{...s,status:"active"}:s):SEED_SHOP;
+      setShopItems(fixedSi); setOrders(toArr(or)); setNews(toArr(nw).length?nw:SEED_NEWS);
       setSiteContent(sc||DEFAULT_SITE_CONTENT);
       setApplications(toArr(ap));
       setExpenses(toArr(ex));
@@ -5745,6 +5787,8 @@ function App() {
       setPoints(Array.isArray(pts)?pts:[]);
       setForum(Array.isArray(fr)?fr:[]);
       setSuppliers(Array.isArray(sup)?sup:[]);
+      setPages(Array.isArray(pgs)?pgs:[]);
+      setGallery(Array.isArray(gal)?gal:[]);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -5773,7 +5817,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -5803,6 +5847,8 @@ function App() {
     { divider: true, label: "Website" },
     { id:"site",         label:"Site Content",     icon:"🌐" },
     { id:"news",         label:"News",             icon:"📰" },
+    { id:"pages",        label:"Custom Pages",     icon:"📄" },
+    { id:"gallery",      label:"Photo Gallery",    icon:"📷" },
     { divider: true, label: "Club Records" },
     { id:"qualitysystem",label:"Quality System",   icon:"📋" },
     { id:"archive",      label:"Club Archive",     icon:"📚" },
@@ -5906,6 +5952,8 @@ function App() {
             {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
             {tab==="tasks"      &&<TasksSection {...sp}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
+            {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
+            {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
@@ -5917,7 +5965,7 @@ function App() {
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars}/>}
             {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
-            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs}/>}
+            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
             {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
@@ -5964,7 +6012,7 @@ function App() {
             <span style={{fontSize:22}}>⚠️</span>
           </div>
         </div>
-        <PublicNav page={publicPage} setPage={(p)=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)}/>
+        <PublicNav page={publicPage} setPage={(p)=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)} pages={pages}/>
       <div className="fade-in" key={publicPage+selectedArticle}>
         {publicPage==="home"   &&<PublicHome news={news} events={events} setPage={p=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
         {publicPage==="about"  &&<PublicAbout onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
@@ -5974,6 +6022,9 @@ function App() {
         {publicPage==="marketplace" &&<PublicMarketplace listings={listings} setListings={setListings} members={members} user={user} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="shop"        &&<PublicShop shopItems={shopItems} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="parts"       &&<PublicParts parts={parts} user={user} onLoginClick={()=>setShowLogin(true)}/>}
+        {publicPage==="gallery"     &&<PublicGallery gallery={gallery} user={user}/>}
+        {(pages||[]).filter(p=>p.visibility==="public").find(p=>p.slug===publicPage)&&
+          <PublicCustomPage page={(pages||[]).find(p=>p.slug===publicPage)}/>}
       </div>
       <PublicFooter setPage={p=>{setPublicPage(p);setSelectedArticle(null);}}/>
     </div>
@@ -7147,16 +7198,20 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
   const deletePart=async(id)=>await saveInv((parts||[]).filter(p=>p.id!==id));
 
   const publishToShop=async(part)=>{
-    if((shopItems||[]).find(s=>s.partId===part.id)){alert("Already in shop");return;}
+    if((shopItems||[]).find(s=>s.partId===part.id))return;
     const si={id:uid("SI"),partId:part.id,name:part.name,description:part.description,
       price:part.publicPrice||0,memberPrice:part.memberPrice||0,
       availability:part.availability||"both",category:"parts",
       model:part.model,condition:part.condition,qty:part.qty,
       stock:part.qty,maxPerOrder:part.maxPerOrder||0,
-      status:part.status,image:""};
+      status:"active",image:""};
     const updated=[...(shopItems||[]),si];
     setShopItems(updated);await dbSet(SK.shopItems,updated);
-    alert("Published to shop!");
+  };
+
+  const removeFromShop=async(partId)=>{
+    const updated=(shopItems||[]).filter(s=>s.partId!==partId);
+    setShopItems(updated);await dbSet(SK.shopItems,updated);
   };
 
   // ── Out of stock request ──────────────────────────────────────────────────
@@ -7361,14 +7416,21 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
                     <div style={{textAlign:"center",fontSize:12,color:"#7c3aed",padding:"6px 0",marginBottom:6}}>✓ Interest registered</div>
                   )}
                   {/* Admin actions */}
-                  {isAdmin&&(
+                  {isAdmin&&(()=>{const inShop=!!(shopItems||[]).find(s=>s.partId===p.id);return(
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button>
+                      {inShop?(
+                        <>
+                          <span style={{flex:1,padding:"5px 0",background:"#e8f5ee",color:"var(--green)",border:"1px solid var(--green)",borderRadius:5,fontSize:11,fontWeight:700,textAlign:"center"}}>✓ In Shop</span>
+                          <button onClick={()=>removeFromShop(p.id)} style={{flex:1,padding:"5px 0",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Remove from Shop</button>
+                        </>
+                      ):(
+                        <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button>
+                      )}
                       {(p.requests||[]).length>0&&<span style={{padding:"5px 8px",background:"#e8f0f8",color:"#1a4a7a",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.requests||[]).length} request{(p.requests||[]).length!==1?"s":""}</span>}
                       {(p.eois||[]).length>0&&<span style={{padding:"5px 8px",background:"#f0e8ff",color:"#7c3aed",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.eois||[]).length} EOI</span>}
                       <button onClick={()=>deletePart(p.id)} style={{padding:"5px 9px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:11}}>✕</button>
                     </div>
-                  )}
+                  );})()}
                 </div>
               );
             })}
@@ -7438,11 +7500,15 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
         <Modal onClose={()=>setModal(null)} title="Add Part to Inventory">
           <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:500}}>
             {[["Part Name *","name"],["Rover Model(s)","model"],["SKU / Part No.","sku"]].map(([lbl,key])=>(
-              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
-              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>
+                {lbl}{aiDone&&form[key]&&(key==="title"||key==="year"||key==="tags")&&<span style={{fontWeight:400,fontSize:10,color:"#7c3aed",marginLeft:6}}>✨ AI suggested</span>}
+              </label>
+              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:aiDone&&form[key]&&(key==="title"||key==="year"||key==="tags")?"1px solid #7c3aed":"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
             ))}
-            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Description</label>
-            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>
+              Description {aiDone&&form.description&&<span style={{fontWeight:400,fontSize:10,color:"#7c3aed",marginLeft:6}}>✨ AI suggested</span>}
+              </label>
+            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:aiDone&&form.description?"1px solid #7c3aed":"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
               <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Condition</label>
               <select value={form.condition} onChange={e=>setForm({...form,condition:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
@@ -7881,7 +7947,7 @@ function QualitySystemSection({user,qualityDocs,setQualityDocs}) {
 
 
 // ── CLUB ARCHIVE SECTION ─────────────────────────────────────────────────────
-function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
+function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("browse");
   const [search,setSearch]=React.useState("");
@@ -7890,6 +7956,8 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
   const [showUpload,setShowUpload]=React.useState(false);
   const [form,setForm]=React.useState({title:"",docType:"Meeting Minutes",year:"",description:"",tags:"",visibility:"members",content:"",submittedBy:"",fileName:"",fileData:"",fileType:""});
   const fileRef=React.useRef(null);
+  const [aiScanning,setAiScanning]=React.useState(false);
+  const [aiDone,setAiDone]=React.useState(false);
 
   const docTypes=["Meeting Minutes","AGM Minutes","Financial Report","Newsletter","Event Record","Correspondence","Membership Record","Photograph","Event Programme","Historical Document","Other"];
   const visLabels={admin:"Admin Only",members:"Members",public:"Public"};
@@ -7911,6 +7979,95 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
     reader.readAsDataURL(file);
   };
 
+  const scanWithAI=async()=>{
+    if(!form.fileData&&!form.content){alert("Please upload a file or paste some text first.");return;}
+    setAiScanning(true);setAiDone(false);
+    try{
+      // Build message content based on file type
+      const msgs=[];
+      const isImage=form.fileType&&form.fileType.startsWith('image/');
+      const isPDF=form.fileType==='application/pdf';
+      const isText=!isImage&&!isPDF;
+
+      const systemPrompt=`You are an archivist for the Rover Car Club of Australia (RCCA), a Victorian car club founded in 1964 specialising in Rover vehicles. Analyse the provided document and return ONLY a JSON object with these fields:
+{
+  "title": "concise descriptive title for this document",
+  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Other",
+  "year": "4-digit year if determinable, else empty string",
+  "description": "2-3 sentence summary of what this document contains",
+  "tags": "comma-separated list of relevant tags (e.g. model names like P6 SD1, topics like club permits AGM finances, people's surnames if prominent)",
+  "people": "comma-separated list of names mentioned if any",
+  "rovers": "comma-separated list of Rover models mentioned if any"
+}
+Return ONLY the JSON object. No preamble, no explanation, no markdown fences.`;
+
+      if(form.fileData&&(isImage||isPDF)){
+        // Send as vision/document
+        const base64=form.fileData.split(',')[1];
+        const mediaType=form.fileType;
+        if(isImage){
+          msgs.push({role:"user",content:[
+            {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
+            {type:"text",text:"Please analyse this document image and return the JSON as instructed."}
+          ]});
+        } else {
+          msgs.push({role:"user",content:[
+            {type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},
+            {type:"text",text:"Please analyse this PDF document and return the JSON as instructed."}
+          ]});
+        }
+      } else {
+        // Send text content (txt, docx content, or pasted text)
+        const textContent=form.content||(form.fileName?`Filename: ${form.fileName}`:"");
+        msgs.push({role:"user",content:`Please analyse this document text and return the JSON as instructed.
+
+${textContent}`});
+      }
+
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","x-api-key":"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","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:1000,
+          system:systemPrompt,
+          messages:msgs
+        })
+      });
+      const data=await resp.json();
+      if(data.error){throw new Error(data.error.message||"API error");}
+      const text=data.content&&data.content[0]&&data.content[0].text;
+      if(!text)throw new Error("No response from AI");
+
+      // Parse JSON response
+      const clean=text.replace(/```json|```/g,"").trim();
+      const result=JSON.parse(clean);
+
+      // Build tags from all tag sources
+      const allTags=[
+        ...(result.tags||"").split(",").map(t=>t.trim()).filter(Boolean),
+        ...(result.rovers||"").split(",").map(t=>t.trim()).filter(Boolean),
+      ].filter(Boolean).join(", ");
+
+      // Pre-fill form with AI suggestions
+      setForm(f=>({
+        ...f,
+        title:result.title||f.title,
+        docType:result.docType||f.docType,
+        year:result.year||f.year,
+        description:result.description||f.description,
+        tags:allTags||f.tags,
+        content:f.content||(result.people?`People mentioned: ${result.people}`:""),
+      }));
+      setAiDone(true);
+    } catch(err){
+      console.error("AI scan error:",err);
+      alert("AI scanning encountered an error: "+err.message+". You can still fill in the details manually.");
+    } finally {
+      setAiScanning(false);
+    }
+  };
+
   const handleDrop=e=>{
     e.preventDefault();
     const file=e.dataTransfer.files[0];
@@ -7925,7 +8082,18 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
       createdAt:new Date().toISOString(),archivedBy:user.name,
       status:"Pending Review"};
     await save([...(archiveDocs||[]),nd]);
+    // Award 1 point to the submitting member under Archivist category
+    if(points!==undefined&&setPoints!==undefined){
+      const newPt={id:uid("PT"),memberId:user.id,memberName:user.name,
+        category:"Archivist",points:1,
+        reason:`Submitted archive document: ${form.title}`,
+        awardedBy:"System",date:new Date().toISOString()};
+      const updatedPts=[...(points||[]),newPt];
+      setPoints(updatedPts);
+      try{await dbSet(SK.points,updatedPts);}catch(e){}
+    }
     setShowUpload(false);
+    setAiDone(false);setAiScanning(false);
     setForm({title:"",docType:"Meeting Minutes",year:"",description:"",tags:"",visibility:"members",content:"",submittedBy:"",fileName:"",fileData:"",fileType:""});
   };
 
@@ -8143,6 +8311,34 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs}) {
                 )}
               </div>
             </div>
+
+            {/* AI Scan Button */}
+            {(form.fileData||form.content||form.fileName)&&(
+              <div>
+                <button onClick={scanWithAI} disabled={aiScanning} style={{
+                  width:"100%",padding:"10px 0",borderRadius:6,border:"none",
+                  background:aiDone?"var(--green)":aiScanning?"var(--bg3)":"linear-gradient(135deg,#5a1a8a,#7c3aed)",
+                  color:aiScanning?"var(--text3)":"white",
+                  fontWeight:700,fontSize:13,cursor:aiScanning?"not-allowed":"pointer",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                  transition:"all .2s"
+                }}>
+                  {aiScanning?(
+                    <>
+                      <span style={{display:"inline-block",width:14,height:14,border:"2px solid var(--text3)",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+                      Reading document...
+                    </>
+                  ):aiDone?(
+                    <>✓ AI scan complete — form pre-filled below</>
+                  ):(
+                    <>✨ Scan with AI — auto-fill form</>
+                  )}
+                </button>
+                {aiDone&&<div style={{fontSize:11,color:"var(--green)",textAlign:"center",marginTop:4}}>Review the suggestions below and edit anything that needs correcting before submitting.</div>}
+                {aiScanning&&<div style={{fontSize:11,color:"var(--text3)",textAlign:"center",marginTop:4}}>Claude is reading the document — this usually takes 5–15 seconds...</div>}
+              </div>
+            )}
+
             <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Content <span style={{fontWeight:400,color:"var(--text3)"}}>(optional — paste or type text for full-text search)</span></label>
             <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={4} placeholder="Paste the document text here to make it searchable..." style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"var(--font-m)"}}/></div>
             <div style={{display:"flex",gap:10}}>
@@ -8163,7 +8359,7 @@ function PointsAwardsSection({user,members,points,setPoints}) {
   const [showAward,setShowAward]=React.useState(false);
   const [form,setForm]=React.useState({memberId:"",category:"Attendance",points:1,reason:"",event:""});
 
-  const cats=["Attendance","Concours","Competitive Event","Club Service","Drive Participation","Show Entry","Special Award","Volunteer"];
+  const cats=["Attendance","Concours","Competitive Event","Club Service","Drive Participation","Show Entry","Special Award","Volunteer","Archivist"];
 
   const save=async(pts)=>{setPoints(pts);await dbSet(SK.points,pts);};
 
@@ -8836,6 +9032,620 @@ function PublicParts({parts,user,onLoginClick}) {
         )}
       </div>
     </div>
+  );
+}
+
+
+// ── CUSTOM PAGES SECTION (admin) ─────────────────────────────────────────────
+function CustomPagesSection({user,pages,setPages}) {
+  const [selected,setSelected]=React.useState(null);
+  const [showForm,setShowForm]=React.useState(false);
+  const [editing,setEditing]=React.useState(null);
+  const [form,setForm]=React.useState({title:"",slug:"",visibility:"public",content:"",description:""});
+
+  const save=async(updated)=>{setPages(updated);await dbSet(SK.pages,updated);};
+
+  const slugify=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+
+  const addPage=async()=>{
+    if(!form.title.trim())return;
+    const slug=form.slug||slugify(form.title);
+    if((pages||[]).find(p=>p.slug===slug&&(!editing||p.id!==editing.id))){
+      alert("A page with that URL already exists. Please choose a different title.");return;
+    }
+    if(editing){
+      const updated=(pages||[]).map(p=>p.id===editing.id?{...p,...form,slug,updatedAt:new Date().toISOString()}:p);
+      await save(updated);
+    } else {
+      const np={...form,slug,id:uid("PG"),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:user.name};
+      await save([...(pages||[]),np]);
+    }
+    setShowForm(false);setEditing(null);
+    setForm({title:"",slug:"",visibility:"public",content:"",description:""});
+  };
+
+  const deletePage=async(id)=>{
+    if(!window.confirm("Delete this page?"))return;
+    await save((pages||[]).filter(p=>p.id!==id));
+    setSelected(null);
+  };
+
+  const startEdit=p=>{
+    setForm({title:p.title,slug:p.slug,visibility:p.visibility,content:p.content||"",description:p.description||""});
+    setEditing(p);setShowForm(true);
+  };
+
+  const visLabels={public:"Public",members:"Members Only",admin:"Admin Only"};
+  const visColours={public:"var(--green)",members:"var(--blue)",admin:"var(--burg)"};
+  const pg=pages||[];
+
+  if(selected){
+    return (
+      <div style={{padding:"24px",maxWidth:860,margin:"0 auto"}}>
+        <button onClick={()=>setSelected(null)} style={{marginBottom:16,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back to Pages</button>
+        <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:16}}>
+            <div>
+              <h2 style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",margin:"0 0 6px"}}>{selected.title}</h2>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                <span style={{background:visColours[selected.visibility]||"#666",color:"white",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{visLabels[selected.visibility]}</span>
+                <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{selected.slug}</span>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>startEdit(selected)} style={{padding:"7px 16px",background:"var(--blue)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:600,fontSize:13}}>Edit Page</button>
+              <button onClick={()=>deletePage(selected.id)} style={{padding:"7px 14px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete</button>
+            </div>
+          </div>
+          {selected.description&&<p style={{color:"var(--text3)",fontSize:13,fontStyle:"italic",marginBottom:16,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>{selected.description}</p>}
+          <div style={{fontSize:14,lineHeight:1.85,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{selected.content||<span style={{color:"var(--text3)"}}>No content yet. Click Edit Page to add content.</span>}</div>
+          <div style={{marginTop:16,fontSize:11,color:"var(--text3)"}}>Created by {selected.createdBy} · {new Date(selected.createdAt).toLocaleDateString('en-AU')} · Last updated {new Date(selected.updatedAt).toLocaleDateString('en-AU')}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:"24px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Custom Pages</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Add custom pages to the public website or member portal</div>
+        </div>
+        <button onClick={()=>{setEditing(null);setForm({title:"",slug:"",visibility:"public",content:"",description:""});setShowForm(true);}}
+          style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>+ New Page</button>
+      </div>
+
+      {pg.length===0&&(
+        <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
+          <div style={{fontSize:36,marginBottom:12}}>📄</div>
+          <div style={{fontWeight:700,fontSize:15,color:"var(--text)",marginBottom:8}}>No custom pages yet</div>
+          <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Add pages like Club History, Committee, Technical Tips, or anything specific to your club.</div>
+          <button onClick={()=>{setShowForm(true);}} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Create First Page</button>
+        </div>
+      )}
+
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {pg.map(p=>(
+          <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}
+            onClick={()=>setSelected(p)}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:3}}>{p.title}</div>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <span style={{background:visColours[p.visibility]||"#666",color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{visLabels[p.visibility]}</span>
+                <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{p.slug}</span>
+                {p.description&&<span style={{fontSize:12,color:"var(--text3)",fontStyle:"italic"}}>{p.description}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              <button onClick={e=>{e.stopPropagation();startEdit(p);}} style={{padding:"5px 12px",background:"var(--bg3)",border:"none",borderRadius:5,cursor:"pointer",fontSize:12,fontWeight:600}}>Edit</button>
+              <button onClick={e=>{e.stopPropagation();deletePage(p.id);}} style={{padding:"5px 10px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:12}}>✕</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {showForm&&(
+        <Modal onClose={()=>{setShowForm(false);setEditing(null);}} title={editing?"Edit Page":"Create New Page"}>
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:540}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Page Title *</label>
+              <input value={form.title} onChange={e=>setForm({...form,title:e.target.value,slug:editing?form.slug:slugify(e.target.value)})}
+                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>URL Slug</label>
+              <input value={form.slug} onChange={e=>setForm({...form,slug:slugify(e.target.value)})} placeholder="auto-generated"
+                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",fontFamily:"var(--font-m)"}}/></div>
+            </div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
+            <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="public">Public — visible to anyone on the website</option>
+              <option value="members">Members Only — visible to logged-in members</option>
+              <option value="admin">Admin Only — visible to admins only</option>
+            </select></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Short Description <span style={{fontWeight:400,color:"var(--text3)"}}>(shown in page list)</span></label>
+            <input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="e.g. The history of the club since 1964"
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Page Content</label>
+            <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={12}
+              placeholder="Write your page content here. Use blank lines to separate paragraphs."
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",lineHeight:1.7}}/></div>
+            <div style={{background:"#e8f0f8",borderRadius:6,padding:"8px 12px",fontSize:11,color:"#1a4a7a"}}>
+              💡 Public pages will appear in the website navigation automatically. Members-only pages appear in the members portal sidebar.
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={addPage} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>{editing?"Save Changes":"Create Page"}</button>
+              <button onClick={()=>{setShowForm(false);setEditing(null);}} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── PUBLIC CUSTOM PAGE RENDERER ───────────────────────────────────────────────
+function PublicCustomPage({page}) {
+  if(!page) return null;
+  return (
+    <div style={{maxWidth:860,margin:"0 auto",padding:"48px 24px"}}>
+      <h1 style={{fontFamily:"var(--font-d)",fontSize:"clamp(24px,4vw,38px)",fontWeight:700,color:"var(--burg)",marginBottom:8}}>{page.title}</h1>
+      {page.description&&<p style={{fontSize:15,color:"var(--text3)",fontStyle:"italic",marginBottom:28,paddingBottom:24,borderBottom:"1px solid var(--border)"}}>{page.description}</p>}
+      <div style={{fontSize:15,lineHeight:1.9,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{page.content}</div>
+    </div>
+  );
+}
+
+
+// ── PHOTO GALLERY SECTION ────────────────────────────────────────────────────
+function GallerySection({user,gallery,setGallery}) {
+  const isAdmin=user&&user.role==="admin";
+  const [view,setView]=React.useState("albums");
+  const [selectedAlbum,setSelectedAlbum]=React.useState(null);
+  const [lightbox,setLightbox]=React.useState(null);
+  const [showAlbumForm,setShowAlbumForm]=React.useState(false);
+  const [albumForm,setAlbumForm]=React.useState({title:"",description:"",date:"",visibility:"public"});
+  const fileRef=React.useRef(null);
+
+  const albums=gallery||[];
+  const save=async(g)=>{setGallery(g);await dbSet(SK.gallery,g);};
+
+  const addAlbum=async()=>{
+    if(!albumForm.title.trim())return;
+    const na={...albumForm,id:uid("AL"),photos:[],createdAt:new Date().toISOString(),createdBy:user.name};
+    await save([...albums,na]);
+    setShowAlbumForm(false);
+    setAlbumForm({title:"",description:"",date:"",visibility:"public"});
+  };
+
+  const deleteAlbum=async(id)=>{
+    if(!window.confirm("Delete this album and all its photos?"))return;
+    await save(albums.filter(a=>a.id!==id));
+    setSelectedAlbum(null);
+  };
+
+  const addPhotos=async(albumId,files)=>{
+    const newPhotos=await Promise.all(Array.from(files).map(file=>new Promise(res=>{
+      const reader=new FileReader();
+      reader.onload=ev=>res({id:uid("PH"),data:ev.target.result,name:file.name,
+        caption:"",uploadedAt:new Date().toISOString(),uploadedBy:user.name});
+      reader.readAsDataURL(file);
+    })));
+    const updated=albums.map(a=>a.id===albumId?{...a,photos:[...(a.photos||[]),...newPhotos]}:a);
+    await save(updated);
+    setSelectedAlbum(updated.find(a=>a.id===albumId));
+  };
+
+  const updateCaption=async(albumId,photoId,caption)=>{
+    const updated=albums.map(a=>a.id===albumId?{...a,photos:(a.photos||[]).map(p=>p.id===photoId?{...p,caption}:p)}:a);
+    await save(updated);
+    setSelectedAlbum(updated.find(a=>a.id===albumId));
+  };
+
+  const deletePhoto=async(albumId,photoId)=>{
+    const updated=albums.map(a=>a.id===albumId?{...a,photos:(a.photos||[]).filter(p=>p.id!==photoId)}:a);
+    await save(updated);
+    setSelectedAlbum(updated.find(a=>a.id===albumId));
+    if(lightbox&&lightbox.photoId===photoId)setLightbox(null);
+  };
+
+  const visLabels={public:"Public",members:"Members Only",admin:"Admin Only"};
+  const visColours={public:"var(--green)",members:"var(--blue)",admin:"var(--burg)"};
+
+  // Lightbox
+  if(lightbox){
+    const album=albums.find(a=>a.id===lightbox.albumId);
+    const photos=album?.photos||[];
+    const idx=photos.findIndex(p=>p.id===lightbox.photoId);
+    const photo=photos[idx];
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.95)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center"}}
+        onClick={()=>setLightbox(null)}>
+        <button onClick={()=>setLightbox(null)} style={{position:"absolute",top:20,right:24,background:"none",border:"none",color:"white",fontSize:28,cursor:"pointer",zIndex:9001}}>✕</button>
+        {idx>0&&<button onClick={e=>{e.stopPropagation();setLightbox({albumId:lightbox.albumId,photoId:photos[idx-1].id});}}
+          style={{position:"absolute",left:16,background:"rgba(255,255,255,.15)",border:"none",color:"white",fontSize:28,cursor:"pointer",padding:"12px 18px",borderRadius:8,zIndex:9001}}>‹</button>}
+        {idx<photos.length-1&&<button onClick={e=>{e.stopPropagation();setLightbox({albumId:lightbox.albumId,photoId:photos[idx+1].id});}}
+          style={{position:"absolute",right:16,background:"rgba(255,255,255,.15)",border:"none",color:"white",fontSize:28,cursor:"pointer",padding:"12px 18px",borderRadius:8,zIndex:9001}}>›</button>}
+        <div onClick={e=>e.stopPropagation()} style={{maxWidth:"90vw",maxHeight:"90vh",textAlign:"center"}}>
+          <img src={photo?.data} alt={photo?.caption||photo?.name} style={{maxWidth:"100%",maxHeight:"80vh",objectFit:"contain",borderRadius:4}}/>
+          {photo?.caption&&<div style={{color:"rgba(255,255,255,.85)",marginTop:12,fontSize:14}}>{photo.caption}</div>}
+          <div style={{color:"rgba(255,255,255,.4)",marginTop:4,fontSize:11}}>{idx+1} of {photos.length}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Album detail view
+  if(selectedAlbum){
+    const album=albums.find(a=>a.id===selectedAlbum.id)||selectedAlbum;
+    const photos=album.photos||[];
+    return (
+      <div style={{padding:"24px"}}>
+        <button onClick={()=>setSelectedAlbum(null)} style={{marginBottom:16,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back to Albums</button>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:20}}>
+          <div>
+            <h2 style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",margin:"0 0 4px"}}>{album.title}</h2>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              {album.date&&<span style={{fontSize:12,color:"var(--text3)"}}>{new Date(album.date).toLocaleDateString('en-AU')}</span>}
+              <span style={{background:visColours[album.visibility]||"var(--green)",color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{visLabels[album.visibility]}</span>
+              <span style={{fontSize:12,color:"var(--text3)"}}>{photos.length} photo{photos.length!==1?"s":""}</span>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            {isAdmin&&(
+              <>
+                <button onClick={()=>fileRef.current&&fileRef.current.click()} style={{padding:"7px 16px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:13}}>+ Add Photos</button>
+                <input ref={fileRef} type="file" multiple accept="image/*" onChange={e=>addPhotos(album.id,e.target.files)} style={{display:"none"}}/>
+                <button onClick={()=>deleteAlbum(album.id)} style={{padding:"7px 14px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete Album</button>
+              </>
+            )}
+          </div>
+        </div>
+        {album.description&&<p style={{color:"var(--text2)",fontSize:14,marginBottom:20}}>{album.description}</p>}
+        {photos.length===0&&(
+          <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
+            <div style={{fontSize:36,marginBottom:12}}>📷</div>
+            <div style={{fontWeight:700,fontSize:15,marginBottom:8}}>No photos yet</div>
+            {isAdmin&&<button onClick={()=>fileRef.current&&fileRef.current.click()} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Add Photos</button>}
+          </div>
+        )}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:10}}>
+          {photos.map((p,i)=>(
+            <div key={p.id} style={{position:"relative",borderRadius:8,overflow:"hidden",aspectRatio:"1",cursor:"pointer",background:"var(--bg3)"}}
+              onClick={()=>setLightbox({albumId:album.id,photoId:p.id})}>
+              <img src={p.data} alt={p.caption||p.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+              {p.caption&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,.6)",color:"white",fontSize:11,padding:"4px 8px",lineHeight:1.3}}>{p.caption}</div>}
+              {isAdmin&&<button onClick={e=>{e.stopPropagation();deletePhoto(album.id,p.id);}}
+                style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.6)",color:"white",border:"none",borderRadius:"50%",width:22,height:22,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Albums list
+  return (
+    <div style={{padding:"24px"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Photo Gallery</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Event photos, members cars, and club history</div>
+        </div>
+        {isAdmin&&<button onClick={()=>setShowAlbumForm(true)} style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>+ New Album</button>}
+      </div>
+      {albums.length===0&&(
+        <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📸</div>
+          <div style={{fontWeight:700,fontSize:15,marginBottom:8}}>No albums yet</div>
+          <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Create albums for events, shows, drives, and members' cars.</div>
+          {isAdmin&&<button onClick={()=>setShowAlbumForm(true)} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Create First Album</button>}
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:16}}>
+        {albums.map(a=>(
+          <div key={a.id} onClick={()=>setSelectedAlbum(a)} style={{background:"white",borderRadius:10,border:"1px solid var(--border)",overflow:"hidden",cursor:"pointer",boxShadow:"0 1px 6px rgba(0,0,0,.06)"}}>
+            <div style={{aspectRatio:"16/9",background:"var(--bg3)",position:"relative",overflow:"hidden"}}>
+              {(a.photos||[]).length>0
+                ?<img src={a.photos[0].data} alt={a.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                :<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:32}}>📷</div>
+              }
+              <span style={{position:"absolute",bottom:6,right:8,background:"rgba(0,0,0,.6)",color:"white",fontSize:11,padding:"2px 8px",borderRadius:10}}>{(a.photos||[]).length} photo{(a.photos||[]).length!==1?"s":""}</span>
+            </div>
+            <div style={{padding:"12px 14px"}}>
+              <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:3}}>{a.title}</div>
+              <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                {a.date&&<span style={{fontSize:11,color:"var(--text3)"}}>{new Date(a.date).toLocaleDateString('en-AU')}</span>}
+                <span style={{background:visColours[a.visibility]||"var(--green)",color:"white",padding:"1px 7px",borderRadius:8,fontSize:10,fontWeight:600}}>{visLabels[a.visibility]}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {showAlbumForm&&(
+        <Modal onClose={()=>setShowAlbumForm(false)} title="Create New Album">
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:460}}>
+            {[["Album Title *","title"],["Date","date"],["Description","description"]].map(([lbl,key])=>(
+              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
+              {key==="description"
+                ?<textarea value={albumForm[key]} onChange={e=>setAlbumForm({...albumForm,[key]:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/>
+                :<input type={key==="date"?"date":"text"} value={albumForm[key]} onChange={e=>setAlbumForm({...albumForm,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/>
+              }</div>
+            ))}
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
+            <select value={albumForm.visibility} onChange={e=>setAlbumForm({...albumForm,visibility:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="public">Public — visible on the public website</option>
+              <option value="members">Members Only — visible in the portal</option>
+              <option value="admin">Admin Only</option>
+            </select></div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={addAlbum} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Create Album</button>
+              <button onClick={()=>setShowAlbumForm(false)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── PUBLIC GALLERY PAGE ────────────────────────────────────────────────────────
+function PublicGallery({gallery,user}) {
+  const [selectedAlbum,setSelectedAlbum]=React.useState(null);
+  const [lightbox,setLightbox]=React.useState(null);
+  const albums=(gallery||[]).filter(a=>a.visibility==="public"||(user&&a.visibility==="members"));
+
+  if(lightbox){
+    const album=albums.find(a=>a.id===lightbox.albumId);
+    const photos=album?.photos||[];
+    const idx=photos.findIndex(p=>p.id===lightbox.photoId);
+    const photo=photos[idx];
+    return (
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.96)",zIndex:9000,display:"flex",alignItems:"center",justifyContent:"center"}}
+        onClick={()=>setLightbox(null)}>
+        <button onClick={()=>setLightbox(null)} style={{position:"absolute",top:20,right:24,background:"none",border:"none",color:"white",fontSize:28,cursor:"pointer",zIndex:9001}}>✕</button>
+        {idx>0&&<button onClick={e=>{e.stopPropagation();setLightbox({albumId:lightbox.albumId,photoId:photos[idx-1].id});}}
+          style={{position:"absolute",left:16,background:"rgba(255,255,255,.12)",border:"none",color:"white",fontSize:32,cursor:"pointer",padding:"12px 20px",borderRadius:8,zIndex:9001}}>‹</button>}
+        {idx<photos.length-1&&<button onClick={e=>{e.stopPropagation();setLightbox({albumId:lightbox.albumId,photoId:photos[idx+1].id});}}
+          style={{position:"absolute",right:16,background:"rgba(255,255,255,.12)",border:"none",color:"white",fontSize:32,cursor:"pointer",padding:"12px 20px",borderRadius:8,zIndex:9001}}>›</button>}
+        <div onClick={e=>e.stopPropagation()} style={{maxWidth:"90vw",maxHeight:"90vh",textAlign:"center"}}>
+          <img src={photo?.data} alt={photo?.caption||photo?.name} style={{maxWidth:"100%",maxHeight:"82vh",objectFit:"contain",borderRadius:4}}/>
+          {photo?.caption&&<div style={{color:"rgba(255,255,255,.85)",marginTop:10,fontSize:14}}>{photo.caption}</div>}
+          <div style={{color:"rgba(255,255,255,.35)",marginTop:4,fontSize:11}}>{idx+1} of {photos.length}</div>
+        </div>
+      </div>
+    );
+  }
+
+  if(selectedAlbum){
+    const album=albums.find(a=>a.id===selectedAlbum.id)||selectedAlbum;
+    const photos=album.photos||[];
+    return (
+      <div style={{maxWidth:1000,margin:"0 auto",padding:"40px 24px"}}>
+        <button onClick={()=>setSelectedAlbum(null)} style={{marginBottom:20,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"7px 16px",cursor:"pointer",fontSize:13}}>← Back to Gallery</button>
+        <h2 style={{fontFamily:"var(--font-d)",fontSize:26,color:"var(--burg)",marginBottom:4}}>{album.title}</h2>
+        {album.date&&<div style={{fontSize:13,color:"var(--text3)",marginBottom:album.description?8:20}}>{new Date(album.date).toLocaleDateString('en-AU')}</div>}
+        {album.description&&<p style={{fontSize:14,color:"var(--text2)",marginBottom:24}}>{album.description}</p>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+          {photos.map(p=>(
+            <div key={p.id} onClick={()=>setLightbox({albumId:album.id,photoId:p.id})}
+              style={{aspectRatio:"1",borderRadius:6,overflow:"hidden",cursor:"pointer",background:"var(--bg3)"}}>
+              <img src={p.data} alt={p.caption||p.name} style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform .2s"}}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{background:"linear-gradient(135deg,var(--burg-xdk),var(--burg-dk))",padding:"48px 24px",textAlign:"center"}}>
+        <h1 style={{fontFamily:"var(--font-d)",fontSize:"clamp(26px,4vw,40px)",fontWeight:700,color:"white",margin:"0 0 10px"}}>Photo Gallery</h1>
+        <p style={{fontSize:15,color:"rgba(255,255,255,.8)",margin:0}}>{albums.reduce((n,a)=>(n+(a.photos||[]).length),0)} photos across {albums.length} album{albums.length!==1?"s":""}</p>
+      </div>
+      <div style={{maxWidth:1000,margin:"0 auto",padding:"32px 24px"}}>
+        {albums.length===0&&<div style={{textAlign:"center",padding:"60px 24px",color:"var(--text3)"}}>No photos yet. Check back soon.</div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:18}}>
+          {albums.map(a=>(
+            <div key={a.id} onClick={()=>setSelectedAlbum(a)} style={{borderRadius:10,overflow:"hidden",cursor:"pointer",boxShadow:"0 2px 10px rgba(0,0,0,.08)",background:"white"}}>
+              <div style={{aspectRatio:"16/9",background:"var(--bg3)",overflow:"hidden"}}>
+                {(a.photos||[]).length>0
+                  ?<img src={a.photos[0].data} alt={a.title} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  :<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100%",fontSize:36}}>📷</div>
+                }
+              </div>
+              <div style={{padding:"12px 16px"}}>
+                <div style={{fontWeight:700,fontSize:15,color:"var(--text)",marginBottom:2}}>{a.title}</div>
+                <div style={{fontSize:12,color:"var(--text3)"}}>{a.date?new Date(a.date).toLocaleDateString('en-AU'):""} · {(a.photos||[]).length} photo{(a.photos||[]).length!==1?"s":""}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── EVENT WORKFLOW TOOL ───────────────────────────────────────────────────────
+const EVENT_TASK_TEMPLATES={
+  show:["Book and confirm venue","Send member notification and call for entries","Arrange trophy and award order","Organise volunteer marshals","Prepare entry and judging forms","Arrange catering or refreshments","Post-event newsletter writeup","Photograph the event","Risk management plan completed"],
+  drive:["Plan and map the route","Book lunch/stop venue","Send route notes to members","Arrange tail-end Charlie","Brief on permit and safety requirements","Post-event report and photos","Risk management plan completed"],
+  social:["Book venue","Send invitations and confirm RSVP deadline","Confirm catering and dietary requirements","Arrange name tags or welcome pack","Post photos and recap to news","Risk management plan completed"],
+  competition:["Confirm entry requirements","Publish event rules","Arrange judging panel","Prepare scoresheets","Arrange trophies and prizes","Post-event results and photos"],
+  charity:["Confirm charity partner and requirements","Promote event to members","Arrange collection materials","Risk management plan completed","Post results and amount raised"],
+};
+
+const RISK_TEMPLATES={
+  show:["Vehicle movement in public area","Crowd management and pedestrian safety","Sun/heat exposure for participants","Electrical equipment failure","Theft or damage to exhibited vehicles","Medical emergency on site"],
+  drive:["Vehicle breakdown on route","Participant injury or collision","Lost or separated driver","Adverse weather conditions","Medical emergency","Fuel failure in remote location"],
+  social:["Food allergy or dietary reaction","Alcohol-related incident","Venue emergency or evacuation","Slip/trip/fall at venue","Medical emergency"],
+  competition:["Participant injury","Equipment failure","Adverse weather","Medical emergency on site"],
+  charity:["Public liability incident","Weather cancellation","Medical emergency","Collection security"],
+};
+
+function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
+  const tmpl=(EVENT_TASK_TEMPLATES[event.type]||EVENT_TASK_TEMPLATES.show).map((t,i)=>({
+    id:`wf-${i}`,text:t,checked:false,assignee:"",due:"",isRisk:t.toLowerCase().includes("risk")
+  }));
+  const [wfTasks,setWfTasks]=React.useState(tmpl);
+  const [activeTab,setActiveTab]=React.useState("tasks");
+  const today=new Date().toISOString().split("T")[0];
+
+  // Risk register
+  const riskTmpl=(RISK_TEMPLATES[event.type]||RISK_TEMPLATES.show).map((r,i)=>({
+    id:`rk-${i}`,risk:r,likelihood:"Low",consequence:"Low",mitigation:"",responsible:"",residual:"Low"
+  }));
+  const [risks,setRisks]=React.useState(riskTmpl);
+
+  const riskLevel=(l,c)=>{
+    const m={Low:1,Medium:2,High:3};
+    const score=(m[l]||1)*(m[c]||1);
+    if(score>=6)return"High";if(score>=3)return"Medium";return"Low";
+  };
+  const riskColour={Low:"var(--green)",Medium:"#b06010",High:"#dc2626"};
+
+  const createTasks=async()=>{
+    const selected=wfTasks.filter(t=>t.checked&&!t.isRisk);
+    if(!selected.length){alert("Please tick at least one task.");return;}
+    const newTasks=selected.map(t=>({
+      id:uid("TK"),title:`${event.title}: ${t.text}`,
+      assignee:t.assignee||"",due:t.due||"",
+      priority:"Medium",status:"todo",
+      createdAt:new Date().toISOString(),
+      eventId:event.id,workflow:true,
+      riskPlan:risks
+    }));
+    const updated=[...(tasks||[]),...newTasks];
+    setTasks(updated);await dbSet(SK.tasks,updated);
+    alert(`✓ ${newTasks.length} tasks created and added to Tasks section.`);
+    onClose();
+  };
+
+  return (
+    <Modal onClose={onClose} title={`Event Workflow — ${event.title}`}>
+      <div style={{maxWidth:580}}>
+        <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"2px solid var(--border)"}}>
+          {["tasks","risks"].map(t=>(
+            <button key={t} onClick={()=>setActiveTab(t)} style={{padding:"8px 20px",background:"none",border:"none",
+              borderBottom:activeTab===t?"2px solid var(--burg)":"2px solid transparent",
+              marginBottom:-2,color:activeTab===t?"var(--burg)":"var(--text3)",
+              fontWeight:activeTab===t?700:400,cursor:"pointer",fontSize:13,textTransform:"capitalize"}}>
+              {t==="tasks"?"Task Checklist":"Risk Assessment"}
+            </button>
+          ))}
+        </div>
+
+        {activeTab==="tasks"&&(
+          <div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Tick tasks to create, assign to a member, and set a due date.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:380,overflowY:"auto"}}>
+              {wfTasks.map(t=>(
+                <div key={t.id} style={{background:t.checked?"var(--bg3)":"white",borderRadius:6,border:`1px solid ${t.checked?"var(--burg)":"var(--border)"}`,padding:"10px 12px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:t.checked?8:0}}>
+                    <input type="checkbox" checked={t.checked} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,checked:e.target.checked}:w))} style={{width:16,height:16,cursor:"pointer"}}/>
+                    <span style={{fontSize:13,fontWeight:t.checked?700:400,color:t.checked?"var(--burg)":"var(--text)"}}>{t.text}</span>
+                  </div>
+                  {t.checked&&(
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginLeft:26}}>
+                      <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Assign to</label>
+                      <select value={t.assignee} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,assignee:e.target.value}:w))}
+                        style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}>
+                        <option value="">Unassigned</option>
+                        {(members||[]).filter(m=>m.status==="active").map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                      </select></div>
+                      <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Due date</label>
+                      <input type="date" value={t.due} min={today} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,due:e.target.value}:w))}
+                        style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}/></div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:14,display:"flex",gap:10}}>
+              <button onClick={createTasks} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>
+                Create {wfTasks.filter(t=>t.checked&&!t.isRisk).length} Task{wfTasks.filter(t=>t.checked&&!t.isRisk).length!==1?"s":""}
+              </button>
+              <button onClick={onClose} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {activeTab==="risks"&&(
+          <div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Complete the risk register for this event. This can be exported as a formal Risk Management Plan.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:400,overflowY:"auto"}}>
+              {risks.map((r,i)=>(
+                <div key={r.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 14px"}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:8}}>{r.risk}</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+                    {[["Likelihood","likelihood"],["Consequence","consequence"]].map(([lbl,key])=>(
+                      <div key={key}>
+                        <label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>{lbl}</label>
+                        <select value={r[key]} onChange={e=>{const nv=e.target.value;setRisks(risks.map((rk,j)=>j===i?{...rk,[key]:nv,residual:riskLevel(key==="likelihood"?nv:rk.likelihood,key==="consequence"?nv:rk.consequence)}:rk));}}
+                          style={{width:"100%",padding:"4px 7px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}>
+                          {["Low","Medium","High"].map(v=><option key={v}>{v}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                    <div>
+                      <label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Risk Level</label>
+                      <div style={{padding:"4px 8px",borderRadius:5,background:riskColour[riskLevel(r.likelihood,r.consequence)],color:"white",fontSize:12,fontWeight:700,textAlign:"center"}}>
+                        {riskLevel(r.likelihood,r.consequence)}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Mitigation measure</label>
+                    <input value={r.mitigation} onChange={e=>setRisks(risks.map((rk,j)=>j===i?{...rk,mitigation:e.target.value}:rk))}
+                      placeholder="What will be done..."
+                      style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/></div>
+                    <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Responsible person</label>
+                    <select value={r.responsible} onChange={e=>setRisks(risks.map((rk,j)=>j===i?{...rk,responsible:e.target.value}:rk))}
+                      style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}>
+                      <option value="">Select...</option>
+                      {(members||[]).filter(m=>m.status==="active").map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
+                    </select></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:14,display:"flex",gap:10}}>
+              <button onClick={()=>{
+                const riskData=risks.map(r=>({...r,level:riskLevel(r.likelihood,r.consequence)}));
+                const win=window.open('','_blank');
+                win.document.write(`<html><head><title>Risk Management Plan — ${event.title}</title>
+                <style>body{font-family:Arial,sans-serif;padding:32px;max-width:800px;margin:0 auto}
+                h1{color:#8f1a1c}h2{color:#5c0c0e;border-bottom:2px solid #c0282a;padding-bottom:6px}
+                table{width:100%;border-collapse:collapse;margin:16px 0}
+                th{background:#5c0c0e;color:white;padding:8px 10px;text-align:left;font-size:13px}
+                td{padding:7px 10px;border-bottom:1px solid #ddd;font-size:12px;vertical-align:top}
+                tr:nth-child(even){background:#f8f5f0}
+                .low{color:#1e6840;font-weight:700}.medium{color:#b06010;font-weight:700}.high{color:#dc2626;font-weight:700}
+                @media print{button{display:none}}</style></head><body>
+                <h1>Risk Management Plan</h1>
+                <h2>${event.title}</h2>
+                <p><strong>Event Date:</strong> ${event.date||"TBC"} &nbsp; <strong>Location:</strong> ${event.location||"TBC"}<br/>
+                <strong>Event Type:</strong> ${event.type} &nbsp; <strong>Prepared:</strong> ${new Date().toLocaleDateString('en-AU')}</p>
+                <h2>Risk Register</h2>
+                <table><tr><th>Risk</th><th>Likelihood</th><th>Consequence</th><th>Level</th><th>Mitigation</th><th>Responsible</th></tr>
+                ${riskData.map(r=>`<tr><td>${r.risk}</td><td>${r.likelihood}</td><td>${r.consequence}</td>
+                <td class="${r.level.toLowerCase()}">${r.level}</td><td>${r.mitigation||"—"}</td><td>${r.responsible||"—"}</td></tr>`).join("")}
+                </table>
+                <p style="margin-top:40px;border-top:1px solid #ddd;padding-top:16px;font-size:12px;color:#666">
+                Approved by: _________________________ &nbsp; Date: _____________</p>
+                <button onclick="window.print()" style="padding:10px 24px;background:#c0282a;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;margin-top:12px">Print / Save PDF</button>
+                </body></html>`);
+                win.document.close();
+              }} style={{flex:1,padding:"10px 0",background:"#1a4a7a",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>
+                📄 Export Risk Management Plan PDF
+              </button>
+              <button onClick={onClose} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Done</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 
