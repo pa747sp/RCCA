@@ -1226,8 +1226,26 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   var fState=useState({}); var form=fState[0]; var setForm=fState[1];
   var spState=useState({}); var showPhotos=spState[0]; var setShowPhotos=spState[1];
   var vis=isAdmin?cars:cars.filter(function(c){return c.ownerId===user.id;});
+  var sfState=useState(false); var showFilters=sfState[0]; var setShowFilters=sfState[1];
+  var flState=useState({status:[],make:[],model:[],owner:[],hasPermit:false,yearFrom:"",yearTo:"",regSearch:""});
+  var vFilters=flState[0]; var setVFilters=flState[1];
+  var setVFilter=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=v;return n;});};
+  var toggleVArr=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=f[k].includes(v)?f[k].filter(function(x){return x!==v;}):[...f[k],v];return n;});};
+  var allMakes=[...new Set(vis.map(function(c){return c.make;}).filter(Boolean))].sort();
+  var allModels=[...new Set(vis.map(function(c){return c.model;}).filter(Boolean))].sort();
+  var activeVC=[vFilters.status.length,vFilters.make.length,vFilters.model.length,vFilters.owner.length,vFilters.hasPermit?1:0,vFilters.yearFrom?1:0,vFilters.yearTo?1:0,vFilters.regSearch?1:0].reduce(function(a,b){return a+b;},0);
+  var clearVFilters=function(){setVFilters({status:[],make:[],model:[],owner:[],hasPermit:false,yearFrom:"",yearTo:"",regSearch:""});};
   var filtered=vis.filter(function(c){
-    return (c.reg+" "+c.make+" "+c.model+" "+c.year).toLowerCase().includes(search.toLowerCase())&&(fs==="all"||c.status===fs);
+    var txt=(c.reg+" "+c.make+" "+c.model+" "+c.year).toLowerCase();
+    if(search&&!txt.includes(search.toLowerCase()))return false;
+    if(vFilters.regSearch&&!(c.reg||"").toLowerCase().includes(vFilters.regSearch.toLowerCase()))return false;
+    if(vFilters.status.length&&!vFilters.status.includes(c.status))return false;
+    if(vFilters.make.length&&!vFilters.make.includes(c.make))return false;
+    if(vFilters.model.length&&!vFilters.model.includes(c.model))return false;
+    if(vFilters.hasPermit&&!c.onPermit)return false;
+    if(vFilters.yearFrom&&Number(c.year)<Number(vFilters.yearFrom))return false;
+    if(vFilters.yearTo&&Number(c.year)>Number(vFilters.yearTo))return false;
+    return true;
   });
   function ownerName(id){var m=members.find(function(m){return m.id===id;});return m?m.name:"Unknown";}
   function openAdd(){setForm({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:isAdmin?members[0]?.id:user.id,status:"active",registered:today,notes:""});setModal("add");}
@@ -1258,15 +1276,63 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
         <StatCard label="Sold" value={cars.filter(function(c){return c.status==="sold";}).length} colour="var(--blue2)"/>
         <StatCard label="Destroyed" value={cars.filter(function(c){return c.status==="destroyed";}).length} colour="var(--red2)"/>
       </div>}
-      <Row gap={10} style={{marginBottom:16,flexWrap:"wrap"}}>
-        <Input placeholder="Search vehicles" value={search} onChange={function(e){setSearch(e.target.value);}} style={{maxWidth:280}}/>
-        <Select value={fs} onChange={function(e){setFs(e.target.value);}} style={{width:"auto"}}>
-          <option value="all">All</option>
-          <option value="active">Active</option>
-          <option value="sold">Sold</option>
-          <option value="destroyed">Destroyed</option>
-        </Select>
-      </Row>
+      <div style={{marginBottom:16}}>
+        <Row gap={10} style={{marginBottom:8}}>
+          <Input placeholder="Search vehicles — rego, make, model, year…" value={search} onChange={function(e){setSearch(e.target.value);}} style={{flex:1}}/>
+          <button onClick={function(){setShowFilters(function(f){return !f;});}} style={{padding:"7px 14px",borderRadius:6,border:"1px solid var(--border)",background:showFilters?"var(--burg)":"white",color:showFilters?"white":"var(--text2)",cursor:"pointer",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+            {"⚙ Filters"}{activeVC>0&&<span style={{background:showFilters?"rgba(255,255,255,.3)":"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{activeVC}</span>}
+          </button>
+          {activeVC>0&&<button onClick={clearVFilters} style={{padding:"7px 12px",borderRadius:6,border:"1px solid var(--border)",background:"white",color:"var(--text3)",cursor:"pointer",fontSize:12}}>{"✕ Clear"}</button>}
+        </Row>
+        {showFilters&&(
+          <div style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"16px 18px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:16}}>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Status</div>
+              {["active","sold","destroyed"].map(function(s){return(
+                <label key={s} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={vFilters.status.includes(s)} onChange={function(){toggleVArr("status",s);}} style={{accentColor:"var(--burg)"}}/>{s.charAt(0).toUpperCase()+s.slice(1)}
+                </label>
+              );})}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Make</div>
+              {allMakes.map(function(m){return(
+                <label key={m} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={vFilters.make.includes(m)} onChange={function(){toggleVArr("make",m);}} style={{accentColor:"var(--burg)"}}/>{m}
+                </label>
+              );})}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Model</div>
+              {allModels.slice(0,10).map(function(m){return(
+                <label key={m} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={vFilters.model.includes(m)} onChange={function(){toggleVArr("model",m);}} style={{accentColor:"var(--burg)"}}/>{m}
+                </label>
+              );})}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Year Range</div>
+              <div style={{marginBottom:6}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>From</div>
+                <input type="number" placeholder="e.g. 1960" value={vFilters.yearFrom} onChange={function(e){setVFilter("yearFrom",e.target.value);}} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>To</div>
+                <input type="number" placeholder="e.g. 1986" value={vFilters.yearTo} onChange={function(e){setVFilter("yearTo",e.target.value);}} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Other</div>
+              <label style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,cursor:"pointer",fontSize:12}}>
+                <input type="checkbox" checked={vFilters.hasPermit} onChange={function(e){setVFilter("hasPermit",e.target.checked);}} style={{accentColor:"var(--burg)"}}/>On permit scheme
+              </label>
+              <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>Search rego</div>
+              <input value={vFilters.regSearch} onChange={function(e){setVFilter("regSearch",e.target.value);}} placeholder="e.g. ABC-123" style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+            </div>
+          </div>
+        )}
+        {(activeVC>0||search)&&<div style={{fontSize:12,color:"var(--text3)",marginTop:6}}>Showing {filtered.length} of {vis.length} vehicles</div>}
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(290px,1fr))",gap:14}}>
         {filtered.length===0&&<div style={{gridColumn:"1/-1"}}><EmptyState icon="car" text="No vehicles found"/></div>}
         {filtered.map(function(c){
@@ -7039,19 +7105,46 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
   // Permit year resets on permit anniversary - use calendar year for simplicity
   const thisYear = new Date().getFullYear();
 
-  // Cars on permit scheme - either all (admin) or just mine (member)
-  const permitCars = (cars||[]).filter(c=>c.onPermit);
-  const myCars = cars.filter(c=>c.ownerId===user.id);
-  const myPermitCars = myCars.filter(c=>c.onPermit);
-
-  const carLabel = c=>c.year+" "+c.make+" "+c.model+(c.reg?" ("+c.reg+")":"");
-  const ownerOf = c=>members.find(m=>m.id===c.ownerId);
-
-  // Days used this year for a car
   const daysUsed = carId=>{
     const logs = (tripLogs||[]).filter(t=>t.carId===carId&&t.date.startsWith(thisYear+""));
     return logs.length;
   };
+  const expiryStatus = c=>{
+    if(!c.permitExpiry)return "unknown";
+    const days=Math.round((new Date(c.permitExpiry)-new Date())/(1000*60*60*24));
+    if(days<0)return "expired";
+    if(days<=60)return "soon";
+    return "ok";
+  };
+  const carLabel = c=>c.year+" "+c.make+" "+c.model+(c.reg?" ("+c.reg+")":"");
+  const ownerOf = c=>members.find(m=>m.id===c.ownerId);
+
+      // Search + filter state for permits
+  const [permitSearch,setPermitSearch]=useState("");
+  const [showPFilters,setShowPFilters]=useState(false);
+  const [pFilters,setPFilters]=useState({expiryStatus:[],permitType:[],owner:[],daysUsedMin:"",daysUsedMax:""});
+  const setPFilter=(k,v)=>setPFilters(f=>({...f,[k]:v}));
+  const togglePArr=(k,v)=>setPFilters(f=>({...f,[k]:f[k].includes(v)?f[k].filter(x=>x!==v):[...f[k],v]}));
+  const activePFC=[pFilters.expiryStatus.length,pFilters.permitType.length,pFilters.owner.length,pFilters.daysUsedMin?1:0,pFilters.daysUsedMax?1:0].reduce((a,b)=>a+b,0);
+  const clearPFilters=()=>setPFilters({expiryStatus:[],permitType:[],owner:[],daysUsedMin:"",daysUsedMax:""});
+
+  // Cars on permit scheme - either all (admin) or just mine (member)
+  const allPermitCars = (cars||[]).filter(c=>c.onPermit);
+  const permitCars = allPermitCars.filter(c=>{
+    const txt=(c.year+" "+c.make+" "+c.model+" "+(c.reg||"")+" "+(ownerOf(c)?.name||"")).toLowerCase();
+    if(permitSearch&&!txt.includes(permitSearch.toLowerCase()))return false;
+    if(pFilters.expiryStatus.length&&!pFilters.expiryStatus.includes(expiryStatus(c)))return false;
+    if(pFilters.permitType.length&&!pFilters.permitType.includes(c.permitDays===45?"45":"90"))return false;
+    if(pFilters.owner.length&&!pFilters.owner.includes(c.ownerId))return false;
+    if(pFilters.daysUsedMin&&daysUsed(c.id)<Number(pFilters.daysUsedMin))return false;
+    if(pFilters.daysUsedMax&&daysUsed(c.id)>Number(pFilters.daysUsedMax))return false;
+    return true;
+  });
+  const myCars = cars.filter(c=>c.ownerId===user.id);
+  const myPermitCars = myCars.filter(c=>c.onPermit);
+
+
+  // Days used this year for a car
   const tripsForCar = carId=>(tripLogs||[]).filter(t=>t.carId===carId).sort((a,b)=>b.date.localeCompare(a.date));
 
   // Days remaining
@@ -7080,23 +7173,59 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
     setCars(u); await dbSet(SK.cars,u);
   }
 
-  const expiryStatus = c=>{
-    if(!c.permitExpiry)return "unknown";
-    const days=Math.round((new Date(c.permitExpiry)-new Date())/(1000*60*60*24));
-    if(days<0)return "expired";
-    if(days<=60)return "soon";
-    return "ok";
-  };
   const expiryColour = s=>({expired:"var(--red2)",soon:"#b45309",ok:"var(--green)",unknown:"var(--text3)"}[s]);
 
   return (
     <div className="fade-up">
-      <SectionHeader title="Club Permits" subtitle={isAdmin?`${permitCars.length} vehicles on scheme`:"VicRoads Club Permit Scheme"}/>
+      <SectionHeader title="Club Permits" subtitle={isAdmin?`${permitCars.length} of ${allPermitCars.length} vehicles on scheme`:"VicRoads Club Permit Scheme"}/>
 
       {/* Info banner */}
-      <div style={{background:"linear-gradient(90deg,#f0f4ff,#e8f5ee)",border:"1px solid #c5d8f0",borderRadius:8,padding:"12px 16px",marginBottom:20,fontSize:13,color:"var(--text2)"}}>
+      <div style={{background:"linear-gradient(90deg,#f0f4ff,#e8f5ee)",border:"1px solid #c5d8f0",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"var(--text2)"}}>
         <span style={{fontWeight:700}}>Victoria Club Permit Scheme</span> — Vehicles 25+ years old may be driven up to <strong>45 or 90 days per year</strong> on public roads. RCCA is an approved club with VicRoads. A logbook must be maintained. Contact the Club Permit Officer for new applications.
       </div>
+
+      {/* Permit search + filter */}
+      {isAdmin&&<div style={{marginBottom:16}}>
+        <Row gap={10} style={{marginBottom:8}}>
+          <Input placeholder="Search permits — owner, make, model, rego…" value={permitSearch} onChange={e=>setPermitSearch(e.target.value)} style={{flex:1}}/>
+          <button onClick={()=>setShowPFilters(f=>!f)} style={{padding:"7px 14px",borderRadius:6,border:"1px solid var(--border)",background:showPFilters?"var(--burg)":"white",color:showPFilters?"white":"var(--text2)",cursor:"pointer",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>
+            ⚙ Filters {activePFC>0&&<span style={{background:showPFilters?"rgba(255,255,255,.3)":"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{activePFC}</span>}
+          </button>
+          {activePFC>0&&<button onClick={clearPFilters} style={{padding:"7px 12px",borderRadius:6,border:"1px solid var(--border)",background:"white",color:"var(--text3)",cursor:"pointer",fontSize:12}}>✕ Clear</button>}
+        </Row>
+        {showPFilters&&(
+          <div style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"16px 18px",display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:16,marginBottom:8}}>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Expiry Status</div>
+              {[["ok","Current"],["soon","Expiring soon"],["expired","Expired"],["unknown","No expiry set"]].map(([val,lbl])=>(
+                <label key={val} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={pFilters.expiryStatus.includes(val)} onChange={()=>togglePArr("expiryStatus",val)} style={{accentColor:"var(--burg)"}}/>{lbl}
+                </label>
+              ))}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Permit Type</div>
+              {[["90","90 days/year"],["45","45 days/year"]].map(([val,lbl])=>(
+                <label key={val} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5,cursor:"pointer",fontSize:12}}>
+                  <input type="checkbox" checked={pFilters.permitType.includes(val)} onChange={()=>togglePArr("permitType",val)} style={{accentColor:"var(--burg)"}}/>{lbl}
+                </label>
+              ))}
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Days Used This Year</div>
+              <div style={{marginBottom:6}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>Min days</div>
+                <input type="number" value={pFilters.daysUsedMin} onChange={e=>setPFilter("daysUsedMin",e.target.value)} placeholder="0" style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:3}}>Max days</div>
+                <input type="number" value={pFilters.daysUsedMax} onChange={e=>setPFilter("daysUsedMax",e.target.value)} placeholder="90" style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+              </div>
+            </div>
+          </div>
+        )}
+        {(activePFC>0||permitSearch)&&<div style={{fontSize:12,color:"var(--text3)",marginTop:4}}>Showing {permitCars.length} of {allPermitCars.length} permit vehicles</div>}
+      </div>}
 
       {isAdmin?(
         <div>
@@ -8075,6 +8204,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
   const [filterType,setFilterType]=React.useState("all");
   const [selected,setSelected]=React.useState(null);
   const [showUpload,setShowUpload]=React.useState(false);
+  const [editMode,setEditMode]=React.useState(false);
   const [form,setForm]=React.useState({title:"",docType:"Meeting Minutes",year:"",description:"",tags:"",visibility:"members",content:"",submittedBy:"",fileName:"",fileData:"",fileType:""});
   const fileRef=React.useRef(null);
   const [aiScanning,setAiScanning]=React.useState(false);
@@ -8084,6 +8214,32 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
   const visLabels={admin:"Admin Only",members:"Members",public:"Public"};
 
   const save=async(docs)=>{setArchiveDocs(docs);await dbSet(SK.archiveDocs,docs);};
+
+  const openEdit=(doc)=>{
+    setForm({
+      title:doc.title||"",docType:doc.docType||"Meeting Minutes",year:doc.year||"",
+      description:doc.description||"",tags:(doc.tags||[]).join(", "),
+      visibility:doc.visibility||"members",content:doc.content||"",
+      submittedBy:doc.submittedBy||"",fileName:doc.fileName||"",
+      fileData:doc.fileData||"",fileType:doc.fileType||""
+    });
+    setAiDone(false);setEditMode(true);
+  };
+
+  const saveEdit=async(id)=>{
+    if(!form.title.trim())return alert("Title is required.");
+    const updated=(archiveDocs||[]).map(d=>d.id===id?{...d,
+      title:form.title,docType:form.docType,year:form.year,
+      description:form.description,
+      tags:form.tags?form.tags.split(",").map(t=>t.trim()).filter(Boolean):[],
+      visibility:form.visibility,content:form.content,
+      submittedBy:form.submittedBy,
+      ...(form.fileData&&form.fileData!==d.fileData?{fileName:form.fileName,fileData:form.fileData,fileType:form.fileType}:{})
+    }:d);
+    await save(updated);
+    setSelected(updated.find(d=>d.id===id));
+    setEditMode(false);
+  };
 
   const handleFile=e=>{
     const file=e.target.files[0];
@@ -8262,6 +8418,7 @@ ${textContent}`});
               {isAdmin&&selected.status==="Pending Review"&&(
                 <button onClick={()=>approveDoc(selected.id)} style={{padding:"7px 16px",background:"var(--green)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:13}}>✓ Approve & Archive</button>
               )}
+              {isAdmin&&<button onClick={()=>openEdit(selected)} style={{padding:"7px 14px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontSize:13,fontWeight:600}}>✎ Edit</button>}
               {isAdmin&&<button onClick={()=>deleteDoc(selected.id)} style={{padding:"7px 14px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete</button>}
             </div>
           </div>
@@ -8378,6 +8535,36 @@ ${textContent}`});
             })}
           </div>
         </div>
+      )}
+
+      {editMode&&selected&&(
+        <Modal onClose={()=>setEditMode(false)} title={`Edit — ${selected.title}`}>
+          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:500}}>
+            {[["Document Title *","title"],["Year (e.g. 1987)","year"],["Tags (comma separated)","tags"],["Submitted by (if on behalf of someone)","submittedBy"]].map(([lbl,key])=>(
+              <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>{lbl}</label>
+              <input value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+            ))}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Type</label>
+              <select value={form.docType} onChange={e=>setForm({...form,docType:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                {docTypes.map(t=><option key={t}>{t}</option>)}</select></div>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
+              <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+                <option value="admin">Admin Only</option>
+                <option value="members">Members</option>
+                <option value="public">Public</option>
+              </select></div>
+            </div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Description</label>
+            <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Content <span style={{fontWeight:400,color:"var(--text3)"}}>(optional — for full-text search)</span></label>
+            <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={4} placeholder="Paste the document text here to make it searchable..." style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"var(--font-m)"}}/></div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>saveEdit(selected.id)} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Save Changes</button>
+              <button onClick={()=>setEditMode(false)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {showUpload&&(
