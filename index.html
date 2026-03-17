@@ -1977,10 +1977,15 @@ function EventDetailPage({event,user,members,cars,rsvps,setRsvps,checkins,setChe
   const [recordNotes,setRecordNotes]=useState("");
   const [generating,setGenerating]=useState(false);
 
-  // Lock body scroll while page is open
+  // Lock scroll on main container while page is open
   useEffect(()=>{
+    const main=document.querySelector("main");
+    if(main){ main._prevOverflow=main.style.overflowY; main.style.overflowY="hidden"; }
     document.body.style.overflow="hidden";
-    return ()=>{ document.body.style.overflow=""; };
+    return ()=>{
+      if(main){ main.style.overflowY=main._prevOverflow||"auto"; }
+      document.body.style.overflow="";
+    };
   },[]);
 
   const isPast=event.date<today;
