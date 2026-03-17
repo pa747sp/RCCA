@@ -6269,6 +6269,7 @@ function App() {
   // Public site state
   const [publicPage,setPublicPage]=useState("home");
   const [showLogin,setShowLogin]=useState(false);
+  const [showApplicationForm,setShowApplicationForm]=useState(false);
   const [selectedArticle,setSelectedArticle]=useState(null);
   // Data
   const [members,setMembers]=useState([]);
@@ -6572,7 +6573,7 @@ function App() {
         {publicPage==="parts"       &&<PublicParts parts={parts} user={user} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="gallery"     &&<PublicGallery gallery={gallery} user={user}/>}
         {(pages||[]).filter(p=>p.visibility==="public").find(p=>p.slug===publicPage)&&
-          <PublicCustomPage page={(pages||[]).find(p=>p.slug===publicPage)}/>}
+          <PublicCustomPage page={(pages||[]).find(p=>p.slug===publicPage)} pages={pages||[]}/>}
       </div>
       <PublicFooter setPage={p=>{setPublicPage(p);setSelectedArticle(null);}}/>
     </div>
@@ -9709,144 +9710,301 @@ function PublicParts({parts,user,onLoginClick}) {
 // ── CUSTOM PAGES SECTION (admin) ─────────────────────────────────────────────
 function CustomPagesSection({user,pages,setPages}) {
   const [selected,setSelected]=React.useState(null);
-  const [showForm,setShowForm]=React.useState(false);
   const [editing,setEditing]=React.useState(null);
-  const [form,setForm]=React.useState({title:"",slug:"",visibility:"public",content:"",description:""});
+  const [form,setForm]=React.useState({title:"",slug:"",visibility:"public",description:"",parentId:"",blocks:[]});
 
   const save=async(updated)=>{setPages(updated);await dbSet(SK.pages,updated);};
-
   const slugify=t=>t.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const pg=pages||[];
 
-  const addPage=async()=>{
-    if(!form.title.trim())return;
+  // Build tree structure
+  const roots=pg.filter(p=>!p.parentId);
+  const children=id=>pg.filter(p=>p.parentId===id);
+  const grandchildren=id=>pg.filter(p=>{
+    const parent=pg.find(x=>x.id===p.parentId);
+    return parent&&parent.parentId===id;
+  });
+  const depth=p=>{
+    if(!p.parentId)return 0;
+    const par=pg.find(x=>x.id===p.parentId);
+    if(!par||!par.parentId)return 1;
+    return 2;
+  };
+  const breadcrumb=p=>{
+    const parts=[p.title];
+    let cur=p;
+    while(cur.parentId){cur=pg.find(x=>x.id===cur.parentId)||{};if(cur.title)parts.unshift(cur.title);}
+    return parts.join(" › ");
+  };
+
+  const savePage=async()=>{
+    if(!form.title.trim())return alert("Title required.");
     const slug=form.slug||slugify(form.title);
-    if((pages||[]).find(p=>p.slug===slug&&(!editing||p.id!==editing.id))){
-      alert("A page with that URL already exists. Please choose a different title.");return;
-    }
+    if(pg.find(p=>p.slug===slug&&(!editing||p.id!==editing.id))){alert("URL slug already exists.");return;}
     if(editing){
-      const updated=(pages||[]).map(p=>p.id===editing.id?{...p,...form,slug,updatedAt:new Date().toISOString()}:p);
-      await save(updated);
+      const updated=pg.map(p=>p.id===editing.id?{...p,...form,slug,updatedAt:new Date().toISOString()}:p);
+      await save(updated);setSelected(updated.find(p=>p.id===editing.id));
     } else {
-      const np={...form,slug,id:uid("PG"),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:user.name};
-      await save([...(pages||[]),np]);
+      const np={...form,slug,id:uid("PG"),blocks:form.blocks||[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:user.name};
+      await save([...pg,np]);
     }
-    setShowForm(false);setEditing(null);
-    setForm({title:"",slug:"",visibility:"public",content:"",description:""});
+    setEditing(null);
   };
 
   const deletePage=async(id)=>{
-    if(!window.confirm("Delete this page?"))return;
-    await save((pages||[]).filter(p=>p.id!==id));
-    setSelected(null);
+    if(!window.confirm("Delete this page and all child pages?"))return;
+    const idsToDelete=new Set([id]);
+    pg.forEach(p=>{if(p.parentId===id)idsToDelete.add(p.id);});
+    pg.forEach(p=>{if(idsToDelete.has(p.parentId))idsToDelete.add(p.id);});
+    await save(pg.filter(p=>!idsToDelete.has(p.id)));
+    setSelected(null);setEditing(null);
   };
 
   const startEdit=p=>{
-    setForm({title:p.title,slug:p.slug,visibility:p.visibility,content:p.content||"",description:p.description||""});
-    setEditing(p);setShowForm(true);
+    setForm({title:p.title,slug:p.slug,visibility:p.visibility,description:p.description||"",parentId:p.parentId||"",blocks:p.blocks||[]});
+    setEditing(p);
+  };
+
+  const startNew=(parentId="")=>{
+    setForm({title:"",slug:"",visibility:"public",description:"",parentId,blocks:[]});
+    setEditing({isNew:true});
   };
 
   const visLabels={public:"Public",members:"Members Only",admin:"Admin Only"};
   const visColours={public:"var(--green)",members:"var(--blue)",admin:"var(--burg)"};
-  const pg=pages||[];
 
-  if(selected){
+  // Block editor
+  const addBlock=(type)=>{
+    const block={id:uid("BK"),type,content:"",level:2,src:"",fileName:"",fileData:"",alt:"",caption:"",style:"info",leftContent:"",rightContent:""};
+    setForm(f=>({...f,blocks:[...f.blocks,block]}));
+  };
+  const updateBlock=(id,updates)=>setForm(f=>({...f,blocks:f.blocks.map(b=>b.id===id?{...b,...updates}:b)}));
+  const removeBlock=(id)=>setForm(f=>({...f,blocks:f.blocks.filter(b=>b.id!==id)}));
+  const moveBlock=(id,dir)=>{
+    setForm(f=>{
+      const idx=f.blocks.findIndex(b=>b.id===id);
+      if(idx<0)return f;
+      const nb=[...f.blocks];
+      const swap=dir===-1?idx-1:idx+1;
+      if(swap<0||swap>=nb.length)return f;
+      [nb[idx],nb[swap]]=[nb[swap],nb[idx]];
+      return {...f,blocks:nb};
+    });
+  };
+
+  const handleImageFile=(blockId,e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>updateBlock(blockId,{src:ev.target.result,alt:file.name});
+    reader.readAsDataURL(file);
+  };
+  const handleAttachFile=(blockId,e)=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>updateBlock(blockId,{fileData:ev.target.result,fileName:file.name,content:file.name});
+    reader.readAsDataURL(file);
+  };
+
+  const blockTypes=[
+    {type:"heading",icon:"H",label:"Heading"},
+    {type:"paragraph",icon:"¶",label:"Paragraph"},
+    {type:"divider",icon:"—",label:"Divider"},
+    {type:"image",icon:"🖼",label:"Image"},
+    {type:"file",icon:"📎",label:"File"},
+    {type:"callout",icon:"💡",label:"Callout"},
+    {type:"twocol",icon:"⊟",label:"Two Column"},
+  ];
+
+  const renderBlockEditor=(block)=>(
+    <div key={block.id} style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:12,marginBottom:10,position:"relative"}}>
+      <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
+        <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",flex:1}}>{block.type}</span>
+        <button onClick={()=>moveBlock(block.id,-1)} style={{padding:"2px 8px",background:"var(--bg3)",border:"none",borderRadius:4,cursor:"pointer",fontSize:12}}>↑</button>
+        <button onClick={()=>moveBlock(block.id,1)} style={{padding:"2px 8px",background:"var(--bg3)",border:"none",borderRadius:4,cursor:"pointer",fontSize:12}}>↓</button>
+        <button onClick={()=>removeBlock(block.id)} style={{padding:"2px 8px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:4,cursor:"pointer",fontSize:12}}>✕</button>
+      </div>
+      {block.type==="heading"&&(
+        <div style={{display:"flex",gap:8}}>
+          <select value={block.level||2} onChange={e=>updateBlock(block.id,{level:Number(e.target.value)})} style={{padding:"6px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,width:70}}>
+            <option value={1}>H1</option><option value={2}>H2</option><option value={3}>H3</option>
+          </select>
+          <input value={block.content} onChange={e=>updateBlock(block.id,{content:e.target.value})} placeholder="Heading text…" style={{flex:1,padding:"6px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:14,fontFamily:"var(--font-d)",fontWeight:700}}/>
+        </div>
+      )}
+      {block.type==="paragraph"&&(
+        <textarea value={block.content} onChange={e=>updateBlock(block.id,{content:e.target.value})} rows={4} placeholder="Paragraph text…" style={{width:"100%",padding:"8px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,lineHeight:1.7,boxSizing:"border-box",resize:"vertical"}}/>
+      )}
+      {block.type==="divider"&&(
+        <div style={{textAlign:"center",color:"var(--text3)",fontSize:12}}>— horizontal divider —</div>
+      )}
+      {block.type==="image"&&(
+        <div>
+          <input type="file" accept="image/*" onChange={e=>handleImageFile(block.id,e)} style={{marginBottom:8,fontSize:12}}/>
+          {block.src&&<img src={block.src} alt={block.alt} style={{maxWidth:"100%",maxHeight:200,borderRadius:6,marginBottom:8,display:"block"}}/>}
+          <input value={block.caption||""} onChange={e=>updateBlock(block.id,{caption:e.target.value})} placeholder="Caption (optional)" style={{width:"100%",padding:"6px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+        </div>
+      )}
+      {block.type==="file"&&(
+        <div>
+          <input type="file" onChange={e=>handleAttachFile(block.id,e)} style={{marginBottom:8,fontSize:12}}/>
+          <input value={block.content||""} onChange={e=>updateBlock(block.id,{content:e.target.value})} placeholder="Link label (e.g. Download Constitution PDF)" style={{width:"100%",padding:"6px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box"}}/>
+          {block.fileName&&<div style={{fontSize:11,color:"var(--green)",marginTop:4}}>✓ {block.fileName}</div>}
+        </div>
+      )}
+      {block.type==="callout"&&(
+        <div>
+          <select value={block.style||"info"} onChange={e=>updateBlock(block.id,{style:e.target.value})} style={{padding:"6px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,marginBottom:8}}>
+            <option value="info">ℹ Info (blue)</option><option value="warning">⚠ Warning (amber)</option><option value="success">✓ Success (green)</option><option value="tip">💡 Tip (purple)</option>
+          </select>
+          <textarea value={block.content} onChange={e=>updateBlock(block.id,{content:e.target.value})} rows={3} placeholder="Callout text…" style={{width:"100%",padding:"8px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,lineHeight:1.7,boxSizing:"border-box",resize:"vertical"}}/>
+        </div>
+      )}
+      {block.type==="twocol"&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:4}}>Left column</div>
+            <textarea value={block.leftContent||""} onChange={e=>updateBlock(block.id,{leftContent:e.target.value})} rows={4} placeholder="Left column text…" style={{width:"100%",padding:"8px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,lineHeight:1.7,boxSizing:"border-box",resize:"vertical"}}/>
+          </div>
+          <div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:4}}>Right column</div>
+            <textarea value={block.rightContent||""} onChange={e=>updateBlock(block.id,{rightContent:e.target.value})} rows={4} placeholder="Right column text…" style={{width:"100%",padding:"8px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,lineHeight:1.7,boxSizing:"border-box",resize:"vertical"}}/>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Page editor view
+  if(editing){
     return (
-      <div style={{padding:"24px",maxWidth:860,margin:"0 auto"}}>
-        <button onClick={()=>setSelected(null)} style={{marginBottom:16,background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back to Pages</button>
-        <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.07)"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12,marginBottom:16}}>
-            <div>
-              <h2 style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",margin:"0 0 6px"}}>{selected.title}</h2>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{background:visColours[selected.visibility]||"#666",color:"white",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{visLabels[selected.visibility]}</span>
-                <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{selected.slug}</span>
-              </div>
+      <div style={{padding:"24px",maxWidth:780,margin:"0 auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+          <button onClick={()=>setEditing(null)} style={{background:"none",border:"1px solid var(--border)",borderRadius:6,padding:"6px 14px",cursor:"pointer",fontSize:13}}>← Back</button>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",margin:0}}>{editing.isNew?"New Page":"Edit Page"}</h2>
+          <button onClick={savePage} style={{marginLeft:"auto",padding:"8px 20px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>
+            {editing.isNew?"Create Page":"Save Changes"}
+          </button>
+        </div>
+
+        {/* Page settings */}
+        <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:12}}>Page Settings</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Page Title *</label>
+            <input value={form.title} onChange={e=>setForm({...form,title:e.target.value,slug:editing.isNew?slugify(e.target.value):form.slug})}
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>URL Slug</label>
+            <input value={form.slug} onChange={e=>setForm({...form,slug:slugify(e.target.value)})}
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,fontFamily:"var(--font-m)",boxSizing:"border-box"}}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Parent Page</label>
+            <select value={form.parentId||""} onChange={e=>setForm({...form,parentId:e.target.value})}
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="">— Top level (no parent)</option>
+              {pg.filter(p=>!editing||p.id!==editing.id).filter(p=>depth(p)<2).map(p=>(
+                <option key={p.id} value={p.id}>{breadcrumb(p)}</option>
+              ))}
+            </select></div>
+            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
+            <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
+              <option value="public">Public</option><option value="members">Members Only</option><option value="admin">Admin Only</option>
+            </select></div>
+          </div>
+          <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Short Description</label>
+          <input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Shown in page listings"
+            style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+        </div>
+
+        {/* Block editor */}
+        <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:12}}>Page Content</div>
+          {form.blocks.map(block=>renderBlockEditor(block))}
+          {form.blocks.length===0&&(
+            <div style={{padding:"24px",textAlign:"center",background:"var(--bg3)",borderRadius:8,color:"var(--text3)",fontSize:13,marginBottom:12}}>
+              No blocks yet — add content blocks below
             </div>
-            <div style={{display:"flex",gap:8}}>
-              <button onClick={()=>startEdit(selected)} style={{padding:"7px 16px",background:"var(--blue)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:600,fontSize:13}}>Edit Page</button>
-              <button onClick={()=>deletePage(selected.id)} style={{padding:"7px 14px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete</button>
+          )}
+          <div style={{borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontWeight:600}}>ADD BLOCK</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {blockTypes.map(({type,icon,label})=>(
+                <button key={type} onClick={()=>addBlock(type)} style={{padding:"6px 12px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+                  <span>{icon}</span>{label}
+                </button>
+              ))}
             </div>
           </div>
-          {selected.description&&<p style={{color:"var(--text3)",fontSize:13,fontStyle:"italic",marginBottom:16,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>{selected.description}</p>}
-          <div style={{fontSize:14,lineHeight:1.85,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{selected.content||<span style={{color:"var(--text3)"}}>No content yet. Click Edit Page to add content.</span>}</div>
-          <div style={{marginTop:16,fontSize:11,color:"var(--text3)"}}>Created by {selected.createdBy} · {new Date(selected.createdAt).toLocaleDateString('en-AU')} · Last updated {new Date(selected.updatedAt).toLocaleDateString('en-AU')}</div>
+        </div>
+
+        <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+          {!editing.isNew&&<button onClick={()=>deletePage(editing.id)} style={{padding:"8px 16px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Delete Page</button>}
+          <button onClick={()=>setEditing(null)} style={{padding:"8px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Cancel</button>
+          <button onClick={savePage} style={{padding:"8px 20px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>
+            {editing.isNew?"Create Page":"Save Changes"}
+          </button>
         </div>
       </div>
     );
   }
+
+  // Page list view
+  const renderPageTree=(pageList,indent=0)=>pageList.map(p=>(
+    <React.Fragment key={p.id}>
+      <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginLeft:indent*24,marginBottom:6,cursor:"pointer"}}
+        onClick={()=>setSelected(p)}>
+        <div style={{flex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            {indent>0&&<span style={{color:"var(--text4)",fontSize:13}}>{"└─".slice(0,indent*2)}</span>}
+            <span style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{p.title}</span>
+            <span style={{background:visColours[p.visibility]||"#666",color:"white",padding:"1px 8px",borderRadius:8,fontSize:10,fontWeight:600}}>{visLabels[p.visibility]}</span>
+            <span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{p.slug}</span>
+          </div>
+          {p.description&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2,marginLeft:indent>0?16:0}}>{p.description}</div>}
+        </div>
+        <div style={{display:"flex",gap:6,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+          <button onClick={()=>startNew(p.id)} style={{padding:"4px 10px",background:"var(--bg3)",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>+ Child</button>
+          <button onClick={()=>startEdit(p)} style={{padding:"4px 10px",background:"var(--bg3)",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Edit</button>
+          <button onClick={()=>deletePage(p.id)} style={{padding:"4px 8px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:11}}>✕</button>
+        </div>
+      </div>
+      {renderPageTree(children(p.id),indent+1)}
+    </React.Fragment>
+  ));
 
   return (
     <div style={{padding:"24px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
           <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Custom Pages</h2>
-          <div style={{fontSize:13,color:"var(--text3)"}}>Add custom pages to the public website or member portal</div>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Build pages for the public website or member portal</div>
         </div>
-        <button onClick={()=>{setEditing(null);setForm({title:"",slug:"",visibility:"public",content:"",description:""});setShowForm(true);}}
-          style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>+ New Page</button>
+        <button onClick={()=>startNew()} style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>+ New Page</button>
       </div>
 
-      {pg.length===0&&(
+      {pg.length===0?(
         <div style={{padding:"40px 24px",textAlign:"center",background:"white",borderRadius:10,border:"2px dashed var(--border)"}}>
           <div style={{fontSize:36,marginBottom:12}}>📄</div>
           <div style={{fontWeight:700,fontSize:15,color:"var(--text)",marginBottom:8}}>No custom pages yet</div>
           <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Add pages like Club History, Committee, Technical Tips, or anything specific to your club.</div>
-          <button onClick={()=>{setShowForm(true);}} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Create First Page</button>
+          <button onClick={()=>startNew()} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer",fontSize:13}}>+ Create First Page</button>
         </div>
+      ):(
+        <div>{renderPageTree(roots)}</div>
       )}
 
-      <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {pg.map(p=>(
-          <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,cursor:"pointer"}}
-            onClick={()=>setSelected(p)}>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:3}}>{p.title}</div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <span style={{background:visColours[p.visibility]||"#666",color:"white",padding:"1px 8px",borderRadius:8,fontSize:11,fontWeight:600}}>{visLabels[p.visibility]}</span>
-                <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{p.slug}</span>
-                {p.description&&<span style={{fontSize:12,color:"var(--text3)",fontStyle:"italic"}}>{p.description}</span>}
-              </div>
-            </div>
-            <div style={{display:"flex",gap:8,flexShrink:0}}>
-              <button onClick={e=>{e.stopPropagation();startEdit(p);}} style={{padding:"5px 12px",background:"var(--bg3)",border:"none",borderRadius:5,cursor:"pointer",fontSize:12,fontWeight:600}}>Edit</button>
-              <button onClick={e=>{e.stopPropagation();deletePage(p.id);}} style={{padding:"5px 10px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:12}}>✕</button>
-            </div>
+      {selected&&(
+        <Modal onClose={()=>setSelected(null)} title={breadcrumb(selected)} wide>
+          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+            <span style={{background:visColours[selected.visibility]||"#666",color:"white",padding:"2px 10px",borderRadius:10,fontSize:11,fontWeight:600}}>{visLabels[selected.visibility]}</span>
+            <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>/{selected.slug}</span>
           </div>
-        ))}
-      </div>
-
-      {showForm&&(
-        <Modal onClose={()=>{setShowForm(false);setEditing(null);}} title={editing?"Edit Page":"Create New Page"}>
-          <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:540}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Page Title *</label>
-              <input value={form.title} onChange={e=>setForm({...form,title:e.target.value,slug:editing?form.slug:slugify(e.target.value)})}
-                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
-              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>URL Slug</label>
-              <input value={form.slug} onChange={e=>setForm({...form,slug:slugify(e.target.value)})} placeholder="auto-generated"
-                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",fontFamily:"var(--font-m)"}}/></div>
-            </div>
-            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility</label>
-            <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})}
-              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
-              <option value="public">Public — visible to anyone on the website</option>
-              <option value="members">Members Only — visible to logged-in members</option>
-              <option value="admin">Admin Only — visible to admins only</option>
-            </select></div>
-            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Short Description <span style={{fontWeight:400,color:"var(--text3)"}}>(shown in page list)</span></label>
-            <input value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="e.g. The history of the club since 1964"
-              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
-            <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Page Content</label>
-            <textarea value={form.content} onChange={e=>setForm({...form,content:e.target.value})} rows={12}
-              placeholder="Write your page content here. Use blank lines to separate paragraphs."
-              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",lineHeight:1.7}}/></div>
-            <div style={{background:"#e8f0f8",borderRadius:6,padding:"8px 12px",fontSize:11,color:"#1a4a7a"}}>
-              💡 Public pages will appear in the website navigation automatically. Members-only pages appear in the members portal sidebar.
-            </div>
-            <div style={{display:"flex",gap:10}}>
-              <button onClick={addPage} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>{editing?"Save Changes":"Create Page"}</button>
-              <button onClick={()=>{setShowForm(false);setEditing(null);}} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
-            </div>
+          {selected.description&&<p style={{color:"var(--text3)",fontSize:13,fontStyle:"italic",marginBottom:16,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>{selected.description}</p>}
+          <BlockRenderer blocks={selected.blocks||[]} content={selected.content}/>
+          <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid var(--border)",display:"flex",gap:8,justifyContent:"flex-end"}}>
+            <button onClick={()=>{setSelected(null);startEdit(selected);}} style={{padding:"7px 16px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:600,fontSize:13}}>Edit Page</button>
+            <button onClick={()=>setSelected(null)} style={{padding:"7px 14px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Close</button>
           </div>
         </Modal>
       )}
@@ -9854,17 +10012,100 @@ function CustomPagesSection({user,pages,setPages}) {
   );
 }
 
+// ── BLOCK RENDERER (shared by admin preview and public site) ──────────────────
+function BlockRenderer({blocks,content}) {
+  // Legacy plain text support
+  if((!blocks||blocks.length===0)&&content){
+    return <div style={{fontSize:15,lineHeight:1.9,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{content}</div>;
+  }
+  const calloutStyles={
+    info:{bg:"#e8f0f8",border:"#90c0f0",color:"#1a3a6a",icon:"ℹ"},
+    warning:{bg:"#fff4e0",border:"#f0c890",color:"#7a4010",icon:"⚠"},
+    success:{bg:"#e8f5ee",border:"#a0d8b8",color:"#1a6040",icon:"✓"},
+    tip:{bg:"#f0e8ff",border:"#c0a8e0",color:"#3a1a6a",icon:"💡"},
+  };
+  return (
+    <div>
+      {(blocks||[]).map(block=>{
+        if(block.type==="heading"){
+          const sizes={1:"clamp(22px,3vw,32px)",2:"clamp(17px,2.5vw,24px)",3:"clamp(14px,2vw,18px)"};
+          const Tag=`h${block.level||2}`;
+          return <Tag key={block.id} style={{fontFamily:"var(--font-d)",fontSize:sizes[block.level||2],fontWeight:700,color:"var(--burg)",margin:"24px 0 10px",lineHeight:1.3}}>{block.content}</Tag>;
+        }
+        if(block.type==="paragraph"){
+          return <p key={block.id} style={{fontSize:15,lineHeight:1.9,color:"var(--text2)",marginBottom:16,whiteSpace:"pre-wrap"}}>{block.content}</p>;
+        }
+        if(block.type==="divider"){
+          return <hr key={block.id} style={{border:"none",borderTop:"2px solid var(--border)",margin:"28px 0"}}/>;
+        }
+        if(block.type==="image"&&block.src){
+          return(
+            <figure key={block.id} style={{margin:"20px 0",textAlign:"center"}}>
+              <img src={block.src} alt={block.alt||""} style={{maxWidth:"100%",borderRadius:8,boxShadow:"0 2px 12px rgba(0,0,0,.1)"}}/>
+              {block.caption&&<figcaption style={{fontSize:12,color:"var(--text3)",marginTop:8,fontStyle:"italic"}}>{block.caption}</figcaption>}
+            </figure>
+          );
+        }
+        if(block.type==="file"&&block.fileData){
+          return(
+            <div key={block.id} style={{margin:"16px 0"}}>
+              <a href={block.fileData} download={block.fileName||"download"}
+                style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 18px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,color:"var(--text)",textDecoration:"none",fontSize:13,fontWeight:600}}>
+                📎 {block.content||block.fileName||"Download file"}
+              </a>
+            </div>
+          );
+        }
+        if(block.type==="callout"){
+          const cs=calloutStyles[block.style||"info"];
+          return(
+            <div key={block.id} style={{background:cs.bg,border:`1px solid ${cs.border}`,borderRadius:8,padding:"14px 18px",margin:"16px 0",display:"flex",gap:12,alignItems:"flex-start"}}>
+              <span style={{fontSize:18,flexShrink:0}}>{cs.icon}</span>
+              <div style={{fontSize:14,color:cs.color,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{block.content}</div>
+            </div>
+          );
+        }
+        if(block.type==="twocol"){
+          return(
+            <div key={block.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:24,margin:"16px 0"}}>
+              <div style={{fontSize:14,lineHeight:1.8,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{block.leftContent}</div>
+              <div style={{fontSize:14,lineHeight:1.8,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{block.rightContent}</div>
+            </div>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
 // ── PUBLIC CUSTOM PAGE RENDERER ───────────────────────────────────────────────
-function PublicCustomPage({page}) {
+function PublicCustomPage({page,pages}) {
   if(!page) return null;
+  const pg=pages||[];
+  const children=pg.filter(p=>p.parentId===page.id);
   return (
     <div style={{maxWidth:860,margin:"0 auto",padding:"48px 24px"}}>
       <h1 style={{fontFamily:"var(--font-d)",fontSize:"clamp(24px,4vw,38px)",fontWeight:700,color:"var(--burg)",marginBottom:8}}>{page.title}</h1>
       {page.description&&<p style={{fontSize:15,color:"var(--text3)",fontStyle:"italic",marginBottom:28,paddingBottom:24,borderBottom:"1px solid var(--border)"}}>{page.description}</p>}
-      <div style={{fontSize:15,lineHeight:1.9,color:"var(--text2)",whiteSpace:"pre-wrap"}}>{page.content}</div>
+      <BlockRenderer blocks={page.blocks||[]} content={page.content}/>
+      {children.length>0&&(
+        <div style={{marginTop:40,paddingTop:32,borderTop:"1px solid var(--border)"}}>
+          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:16}}>Related Pages</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {children.map(c=>(
+              <div key={c.id} style={{background:"var(--bg3)",borderRadius:8,padding:"12px 16px"}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--burg)",marginBottom:2}}>{c.title}</div>
+                {c.description&&<div style={{fontSize:13,color:"var(--text3)"}}>{c.description}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 
 // ── PHOTO GALLERY SECTION ────────────────────────────────────────────────────
