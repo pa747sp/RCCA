@@ -1177,7 +1177,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
-            <Field label="Digital Access" half><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field>
+            <Field label="Digital Access" half><HelpTip text="Members marked as Post Newsletter will appear on the postal list for those without email or portal access. They are excluded from bulk emails and SMS." position="right"/><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field>
             <Field label="Join Date" half><Input type="date" value={form.joined||""} onChange={e=>setForm({...form,joined:e.target.value})}/></Field>
           </Row>
           <Field label="Bio"><Textarea value={form.bio||""} onChange={e=>setForm({...form,bio:e.target.value})} placeholder="Member bio…"/></Field>
@@ -2237,7 +2237,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
               <div>
                 <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
                   <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
-                    <div style={{fontWeight:700,fontSize:15,color:"var(--text)",flex:1}}>Check In a Member</div>
+                    <div style={{fontWeight:700,fontSize:15,color:"var(--text)",flex:1}}>Check In a Member</div><HelpTip text="Search for a member by name or number, tap their name, then select their vehicle. Permit vehicles automatically log a trip. You can also add walk-in guests below." position="left"/>
                     
                   </div>
                   <input
@@ -2394,7 +2394,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
                 }
               </div>
               <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Notes for Next Time </label>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Notes for Next Time <HelpTip text="Saved with the event record in the archive. Future organisers can refer back when planning the same type of event. Include what worked well, what to watch out for, supplier contacts, timing tips etc." position="top"/></label>
                 <textarea value={recordNotes} onChange={e=>setRecordNotes(e.target.value)} rows={5} placeholder="What went well? What to improve? Tips for the next organiser…" style={{width:"100%",padding:"10px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
               </div>
             </div>
