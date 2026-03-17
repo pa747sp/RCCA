@@ -1180,7 +1180,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
             <div style={{position:"relative",width:"calc(50% - 6px)",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
                 <label style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em"}}>Digital Access</label>
-                <HelpTip text="Members marked as Post Newsletter will appear on the postal list for those without email or portal access. They are excluded from bulk emails and SMS." position="right"/>
+                <HelpTip text="Members marked as Post Newsletter will appear on the postal list for those without email or portal access. They are excluded from bulk emails and SMS." position="bottom"/>
               </div>
               <Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select>
             </div>
