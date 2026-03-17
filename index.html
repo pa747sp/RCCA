@@ -2243,7 +2243,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
               <div>
                 <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
                   <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
-                    <div style={{fontWeight:700,fontSize:15,color:"var(--text)",flex:1}}>Check In a Member</div><HelpTip text="Search for a member by name or number, tap their name, then select their vehicle. Permit vehicles automatically log a trip. You can also add walk-in guests below." position="left"/>
+                    <div style={{fontWeight:700,fontSize:15,color:"var(--text)",flex:1,display:"flex",alignItems:"center",gap:6}}>Check In a Member <HelpTip text="Search for a member by name or number, tap their name, then select their vehicle. Permit vehicles automatically log a trip. Add walk-in guests below." position="bottom"/></div><HelpTip text="Search for a member by name or number, tap their name, then select their vehicle. Permit vehicles automatically log a trip. You can also add walk-in guests below." position="left"/>
                     
                   </div>
                   <input
@@ -7638,7 +7638,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 
       {/* Info banner */}
       <div style={{background:"linear-gradient(90deg,#f0f4ff,#e8f5ee)",border:"1px solid #c5d8f0",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"var(--text2)",display:"flex",alignItems:"flex-start",gap:8}}>
-        <div style={{flex:1}}><span style={{fontWeight:700}}>Victoria Club Permit Scheme</span> — Vehicles 25+ years old may be driven up to <strong>45 or 90 days per year</strong> on public roads. RCCA is an approved club with VicRoads. A logbook must be maintained. Contact the Club Permit Officer for new applications.</div>
+        <div style={{flex:1}}><span style={{fontWeight:700}}>Victoria Club Permit Scheme</span> — Vehicles 25+ years old may be driven up to <strong>45 or 90 days per year</strong> on public roads. RCCA is an approved club with VicRoads. A logbook must be maintained. Contact the Club Permit Officer for new applications. <HelpTip text="When you check a permit vehicle in at an event, the trip is automatically logged here. Each trip counts toward the annual day limit. Members can also add trips manually." position="bottom"/></div>
         
       </div>
 
@@ -8133,7 +8133,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
                           <button onClick={()=>removeFromShop(p.id)} style={{flex:1,padding:"5px 0",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Remove from Shop</button>
                         </>
                       ):(
-                        <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button>
+                        <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button><HelpTip text="Publishing makes this part visible in the public Club Shop. Members see the member price, public sees the standard price. Remove from shop at any time." position="top"/>
                         
                       )}
                       {(p.requests||[]).length>0&&<span style={{padding:"5px 8px",background:"#e8f0f8",color:"#1a4a7a",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.requests||[]).length} request{(p.requests||[]).length!==1?"s":""}</span>}
@@ -9084,7 +9084,10 @@ ${textContent}`});
             {/* AI Scan Button */}
             {(form.fileData||form.content||form.fileName)&&(
               <div>
-
+                <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:6,fontSize:12,color:"var(--text3)"}}>
+                  Let AI read the document and pre-fill the form
+                  <HelpTip text="Claude AI reads the uploaded file and suggests values for title, year, document type, tags and description. Review and edit all suggestions before submitting. Each scan costs a few cents from the club Anthropic account." position="bottom"/>
+                </div>
                 <button onClick={scanWithAI} disabled={aiScanning} style={{
                   width:"100%",padding:"10px 0",borderRadius:6,border:"none",
                   background:aiDone?"var(--green)":aiScanning?"var(--bg3)":"linear-gradient(135deg,#5a1a8a,#7c3aed)",
