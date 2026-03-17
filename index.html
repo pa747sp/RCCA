@@ -9740,8 +9740,10 @@ function CustomPagesSection({user,pages,setPages}) {
   const savePage=async()=>{
     if(!form.title.trim())return alert("Title required.");
     const slug=form.slug||slugify(form.title);
-    if(pg.find(p=>p.slug===slug&&(!editing||p.id!==editing.id))){alert("URL slug already exists.");return;}
-    if(editing){
+    if(pg.find(p=>p.slug===slug&&(!editing||editing.isNew||p.id!==editing.id))){
+      if(pg.find(p=>p.slug===slug&&(editing?.isNew||!editing||p.id!==editing.id))){alert("URL slug already exists.");return;}
+    }
+    if(editing&&!editing.isNew){
       const updated=pg.map(p=>p.id===editing.id?{...p,...form,slug,updatedAt:new Date().toISOString()}:p);
       await save(updated);setSelected(updated.find(p=>p.id===editing.id));
     } else {
@@ -9749,6 +9751,7 @@ function CustomPagesSection({user,pages,setPages}) {
       await save([...pg,np]);
     }
     setEditing(null);
+    setForm({title:"",slug:"",visibility:"public",description:"",parentId:"",blocks:[]});
   };
 
   const deletePage=async(id)=>{
