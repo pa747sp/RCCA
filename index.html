@@ -3645,7 +3645,7 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 function PublicNav({ page, setPage, onLoginClick, pages }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const allPublic=(typeof pages!=="undefined"?pages||[]).filter(p=>p.visibility==="public");
+  const allPublic=(typeof pages!=="undefined"?pages||[]:[]).filter(p=>p.visibility==="public");
   const rootPages=allPublic.filter(p=>!p.parentId);
   const childPages=id=>allPublic.filter(p=>p.parentId===id);
 
