@@ -84,6 +84,8 @@ ST.textContent = `
   .slide-r  { animation: slideRight .28s ease both; }
   .hover-lift { transition: transform .2s, box-shadow .2s; }
   .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.6); }
+  body.event-page-open > * > * > main { overflow: hidden !important; }
+  body.event-page-open > * > * > nav { overflow: hidden !important; }
 `;
 document.head.appendChild(ST);
 
@@ -1976,16 +1978,12 @@ function EventDetailPage({event,user,members,cars,rsvps,setRsvps,checkins,setChe
   const [guestCount,setGuestCount]=useState(1);
   const [recordNotes,setRecordNotes]=useState("");
   const [generating,setGenerating]=useState(false);
+  const [showWorkflow,setShowWorkflow]=useState(false);
 
   // Lock scroll on main container while page is open
   useEffect(()=>{
-    const main=document.querySelector("main");
-    if(main){ main._prevOverflow=main.style.overflowY; main.style.overflowY="hidden"; }
-    document.body.style.overflow="hidden";
-    return ()=>{
-      if(main){ main.style.overflowY=main._prevOverflow||"auto"; }
-      document.body.style.overflow="";
-    };
+    document.body.classList.add("event-page-open");
+    return ()=>{ document.body.classList.remove("event-page-open"); };
   },[]);
 
   const isPast=event.date<today;
@@ -2122,6 +2120,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
           {isAdmin&&isPast&&tabBtn("record","Event Record")}
         </div>
       </div>
+      {showWorkflow&&<EventWorkflowModal event={event} tasks={tasks} setTasks={setTasks} members={members} user={user} onClose={()=>setShowWorkflow(false)}/>}
 
       <div style={{maxWidth:800,margin:"0 auto",padding:"20px"}}>
 
@@ -2138,6 +2137,10 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
               ))}
             </div>
             {event.description&&<div style={{background:"var(--bg3)",borderRadius:8,padding:14,fontSize:14,color:"var(--text2)",lineHeight:1.7,marginBottom:16}}>{event.description}</div>}
+            {/* Workflow button for admin */}
+            {isAdmin&&<button onClick={()=>setShowWorkflow(true)} style={{width:"100%",padding:"10px",background:"none",border:"2px solid var(--burg)",borderRadius:8,color:"var(--burg)",fontSize:13,fontWeight:700,cursor:"pointer",marginBottom:12}}>
+              ⚙ Event Workflow & Risk Plan
+            </button>}
             {/* Member RSVP actions */}
             <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16}}>
               {myRsvp?.status==="attending"
@@ -2574,6 +2577,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
         <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSave}>Save Event</Btn></Row>
       </Modal>}
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
+      {showWorkflow&&<EventWorkflowModal event={showWorkflow} tasks={tasks} setTasks={setTasks} members={members} user={user} onClose={()=>setShowWorkflow(null)}/>}
     </div>
   );
 }
