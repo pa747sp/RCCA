@@ -1177,7 +1177,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
-            <Field label="Digital Access" half><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field><HelpTip text="Members marked as 'Post Newsletter' will appear on the postal list — useful for members who don't use email or the portal. They are excluded from bulk emails and SMS." position="right"/>
+            <Field label="Digital Access" half><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field>
             <Field label="Join Date" half><Input type="date" value={form.joined||""} onChange={e=>setForm({...form,joined:e.target.value})}/></Field>
           </Row>
           <Field label="Bio"><Textarea value={form.bio||""} onChange={e=>setForm({...form,bio:e.target.value})} placeholder="Member bio…"/></Field>
@@ -2238,7 +2238,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
                 <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
                   <div style={{display:"flex",alignItems:"center",marginBottom:12}}>
                     <div style={{fontWeight:700,fontSize:15,color:"var(--text)",flex:1}}>Check In a Member</div>
-                    <HelpTip text="Search for a member by name or number, then tap their name to select a vehicle. If they have a club permit vehicle, the trip will be automatically logged. You can also add walk-in guests below." position="left"/>
+                    
                   </div>
                   <input
                     value={ciSearch} onChange={e=>setCiSearch(e.target.value)}
@@ -2394,7 +2394,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
                 }
               </div>
               <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Notes for Next Time <HelpTip text="These notes are saved with the event record in the archive. Future organisers can refer back to them when planning the same type of event. Include things like what worked well, what to watch out for, supplier contacts, timing tips etc." position="top"/></label>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Notes for Next Time </label>
                 <textarea value={recordNotes} onChange={e=>setRecordNotes(e.target.value)} rows={5} placeholder="What went well? What to improve? Tips for the next organiser…" style={{width:"100%",padding:"10px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
               </div>
             </div>
@@ -3669,23 +3669,6 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 </script>
 
 <script type="text/babel" data-presets="react">
-// ── HELPTIP (redeclared for Script2 scope) ────────────────────────────────────
-function HelpTip({text,position="top"}) {
-  const [show,setShow]=React.useState(false);
-  const pos={
-    top:{bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"},
-    right:{left:"calc(100% + 6px)",top:"50%",transform:"translateY(-50%)"},
-    left:{right:"calc(100% + 6px)",top:"50%",transform:"translateY(-50%)"},
-    bottom:{top:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"},
-  }[position]||{bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"};
-  return (
-    <span style={{position:"relative",display:"inline-flex",alignItems:"center",verticalAlign:"middle",marginLeft:4}}>
-      <button onClick={e=>{e.stopPropagation();setShow(s=>!s);}} onBlur={()=>setShow(false)}
-        style={{width:16,height:16,borderRadius:"50%",background:"var(--blue)",color:"white",border:"none",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"var(--font-m)",lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0}}>?</button>
-      {show&&<div style={{position:"absolute",...pos,background:"#1a1210",color:"white",fontSize:12,lineHeight:1.6,padding:"8px 12px",borderRadius:6,width:220,zIndex:1000,boxShadow:"0 4px 16px rgba(0,0,0,.4)",fontWeight:400,fontFamily:"var(--font-b)",pointerEvents:"none"}}>{text}</div>}
-    </span>
-  );
-}
 function PublicNav({ page, setPage, onLoginClick, pages }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -7650,7 +7633,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
       {/* Info banner */}
       <div style={{background:"linear-gradient(90deg,#f0f4ff,#e8f5ee)",border:"1px solid #c5d8f0",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"var(--text2)",display:"flex",alignItems:"flex-start",gap:8}}>
         <div style={{flex:1}}><span style={{fontWeight:700}}>Victoria Club Permit Scheme</span> — Vehicles 25+ years old may be driven up to <strong>45 or 90 days per year</strong> on public roads. RCCA is an approved club with VicRoads. A logbook must be maintained. Contact the Club Permit Officer for new applications.</div>
-        <HelpTip text="The Club Permit Scheme allows historic vehicles to be driven on public roads for a limited number of days per year. Each trip must be recorded in a logbook. When you check a permit vehicle in at an event, the trip is automatically logged here." position="left"/>
+        
       </div>
 
       {/* Permit search + filter */}
@@ -7889,23 +7872,6 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 </script>
 <script type="text/babel" data-presets="react">
 
-// ── HELPTIP (redeclared for Script3 scope) ────────────────────────────────────
-function HelpTip({text,position="top"}) {
-  const [show,setShow]=React.useState(false);
-  const pos={
-    top:{bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"},
-    right:{left:"calc(100% + 6px)",top:"50%",transform:"translateY(-50%)"},
-    left:{right:"calc(100% + 6px)",top:"50%",transform:"translateY(-50%)"},
-    bottom:{top:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"},
-  }[position]||{bottom:"calc(100% + 6px)",left:"50%",transform:"translateX(-50%)"};
-  return (
-    <span style={{position:"relative",display:"inline-flex",alignItems:"center",verticalAlign:"middle",marginLeft:4}}>
-      <button onClick={e=>{e.stopPropagation();setShow(s=>!s);}} onBlur={()=>setShow(false)}
-        style={{width:16,height:16,borderRadius:"50%",background:"var(--blue)",color:"white",border:"none",cursor:"pointer",fontSize:10,fontWeight:700,fontFamily:"var(--font-m)",lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0}}>?</button>
-      {show&&<div style={{position:"absolute",...pos,background:"#1a1210",color:"white",fontSize:12,lineHeight:1.6,padding:"8px 12px",borderRadius:6,width:220,zIndex:1000,boxShadow:"0 4px 16px rgba(0,0,0,.4)",fontWeight:400,fontFamily:"var(--font-b)",pointerEvents:"none"}}>{text}</div>}
-    </span>
-  );
-}
 
 // ── PARTS INVENTORY SECTION ──────────────────────────────────────────────────
 function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members}) {
@@ -8162,7 +8128,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
                         </>
                       ):(
                         <button onClick={()=>publishToShop(p)} style={{flex:1,padding:"5px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontSize:11,fontWeight:600}}>Publish to Shop</button>
-                        <HelpTip text="Publishing a part makes it visible in the public Club Shop. Members see the member price, and the public sees the standard price. You can remove it from the shop at any time." position="top"/>
+                        
                       )}
                       {(p.requests||[]).length>0&&<span style={{padding:"5px 8px",background:"#e8f0f8",color:"#1a4a7a",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.requests||[]).length} request{(p.requests||[]).length!==1?"s":""}</span>}
                       {(p.eois||[]).length>0&&<span style={{padding:"5px 8px",background:"#f0e8ff",color:"#7c3aed",borderRadius:5,fontSize:11,fontWeight:600}}>{(p.eois||[]).length} EOI</span>}
@@ -8658,7 +8624,7 @@ function QualitySystemSection({user,qualityDocs,setQualityDocs}) {
               <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Document Type</label>
               <select value={form.docType} onChange={e=>setForm({...form,docType:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
                 {docTypes.map(t=><option key={t}>{t}</option>)}</select></div>
-              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility <HelpTip text="Admin Only — only committee can see this. Members — all logged-in members can view. Public — visible to anyone on the website including non-members." position="top"/></label>
+              <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Visibility </label>
               <select value={form.visibility} onChange={e=>setForm({...form,visibility:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}>
                 <option value="admin">Admin Only</option>
                 <option value="members">Members</option>
@@ -9112,10 +9078,7 @@ ${textContent}`});
             {/* AI Scan Button */}
             {(form.fileData||form.content||form.fileName)&&(
               <div>
-                <div style={{display:"flex",alignItems:"center",marginBottom:6}}>
-                  <span style={{fontSize:12,color:"var(--text3)",flex:1}}>Let AI read the document and pre-fill the form fields</span>
-                  <HelpTip text="Claude AI reads the uploaded file and suggests values for the title, year, document type, tags and description. You can review and edit all suggestions before submitting. Each scan costs a few cents from the club's Anthropic account." position="left"/>
-                </div>
+
                 <button onClick={scanWithAI} disabled={aiScanning} style={{
                   width:"100%",padding:"10px 0",borderRadius:6,border:"none",
                   background:aiDone?"var(--green)":aiScanning?"var(--bg3)":"linear-gradient(135deg,#5a1a8a,#7c3aed)",
@@ -9187,7 +9150,7 @@ function PointsAwardsSection({user,members,points,setPoints}) {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
           <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Points & Awards</h2>
-          <div style={{fontSize:13,color:"var(--text3)"}}>Member recognition and club participation scoring <HelpTip text="Members earn points for activities like submitting archive documents, attending events, and participating in club activities. Points appear on a leaderboard and may unlock recognition like AGM awards or mentions in Viking Torque." position="right"/></div>
+          <div style={{fontSize:13,color:"var(--text3)"}}>Member recognition and club participation scoring </div>
         </div>
         <div style={{display:"flex",gap:8}}>
           {["leaderboard","my points"].map(v=>(
