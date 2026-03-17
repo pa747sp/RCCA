@@ -3665,7 +3665,7 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
 
   return (
     <nav style={{
-      position:"sticky", top:0, zIndex:100,
+      position:"sticky", top:0, zIndex:200,
       background:"rgba(16,6,8,.97)", backdropFilter:"blur(8px)",
       borderBottom:"1px solid var(--border2)",
       boxShadow:"0 2px 20px rgba(0,0,0,.5)"
@@ -3683,7 +3683,7 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
         </button>
 
         {/* Desktop links — hidden on mobile */}
-        <div style={{display:"flex",alignItems:"center",gap:2,flex:1,justifyContent:"center",overflow:"hidden"}}
+        <div style={{display:"flex",alignItems:"center",gap:2,flex:1,justifyContent:"center"}}
           className="desktop-nav">
           {links.map(l=>(
             <button key={l.id} onClick={()=>navTo(l.id)} style={{
@@ -3700,7 +3700,8 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
             return(
               <div key={p.id} style={{position:"relative"}}
                 onMouseEnter={()=>kids.length&&setOpenDropdown(p.id)}
-                onMouseLeave={()=>setOpenDropdown(null)}>
+                onMouseLeave={()=>setOpenDropdown(null)}
+                onClick={()=>kids.length&&setOpenDropdown(openDropdown===p.id?null:p.id)}>
                 <button onClick={()=>navTo(p.slug)} style={{
                   background:"none",border:"none",cursor:"pointer",
                   padding:"6px 10px",borderRadius:6,whiteSpace:"nowrap",
