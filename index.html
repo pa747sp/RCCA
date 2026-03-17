@@ -101,6 +101,10 @@ const SK = {
   suppliers:"rcca:suppliers",
   pages:"rcca:pages",
   gallery:"rcca:gallery",
+  expenses:"rcca:expenses", finSettings:"rcca:finSettings",
+  permits:"rcca:permits", tripLogs:"rcca:tripLogs",
+  categories:"rcca:categories", messages:"rcca:messages",
+  checkins:"rcca:checkins",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -1960,10 +1964,414 @@ ${itemsHTML}
   );
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EVENT DETAIL PAGE — tabbed full-page view with check-in and event record
+// ══════════════════════════════════════════════════════════════════════════════
+function EventDetailPage({event,user,members,cars,rsvps,setRsvps,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,tasks,setTasks,onClose,onEdit,onDelete,onRsvp,myRsvp,onCancelRsvp,isFull,isAdmin}) {
+  const [tab,setTab]=useState("details");
+  const [ciSearch,setCiSearch]=useState("");
+  const [ciStep,setCiStep]=useState(null); // {memberId, step:1-4, selectedVehicleId}
+  const [guestName,setGuestName]=useState("");
+  const [guestCount,setGuestCount]=useState(1);
+  const [recordNotes,setRecordNotes]=useState("");
+  const [generating,setGenerating]=useState(false);
+
+  const isPast=event.date<today;
+  const att=rsvps.filter(r=>r.eventId===event.id&&r.status==="attending");
+  const attCount=att.length;
+  const eventCheckins=(checkins||[]).filter(c=>c.eventId===event.id);
+  const checkedInIds=new Set(eventCheckins.map(c=>c.memberId));
+  const orgName=members.find(m=>m.id===event.organiser)?.name||"Unknown";
+  const typeIcon={show:"🏆",drive:"🚗",social:"🥂",charity:"❤️",competition:"🏁"};
+
+  // Check-in helpers
+  const memberCars=mid=>( cars||[]).filter(c=>c.ownerId===mid&&c.status==="active");
+  const rsvpCar=mid=>{ const r=att.find(r=>r.memberId===mid); return r?.vehicleId?(cars||[]).find(c=>c.id===r.vehicleId):null; };
+  const carLabel=c=>c?`${c.year} ${c.make} ${c.model}${c.reg?" ("+c.reg+")":""}`:null;
+
+  const saveCheckin=async(memberId,vehicleId,vehicleDesc,isGuest,guestLabel)=>{
+    const entry={
+      id:uid("CI"),eventId:event.id,memberId:memberId||null,
+      vehicleId:vehicleId||null,vehicleDesc:vehicleDesc||null,
+      isGuest:isGuest||false,guestLabel:guestLabel||null,
+      checkedInAt:new Date().toISOString(),checkedInBy:user.id
+    };
+    const updated=[...(checkins||[]),entry];
+    setCheckins(updated); await dbSet(SK.checkins,updated);
+    // Auto-log trip for permit vehicles
+    if(vehicleId){
+      const car=(cars||[]).find(c=>c.id===vehicleId);
+      if(car?.onPermit){
+        const trip={id:uid("TL"),carId:vehicleId,memberId:memberId,date:event.date,
+          purpose:`Event: ${event.title}`,destination:event.location||"",
+          startOdo:null,endOdo:null,km:null};
+        const updatedLogs=[...(tripLogs||[]),trip];
+        setTripLogs(updatedLogs); await dbSet(SK.tripLogs,updatedLogs);
+      }
+    }
+    setCiStep(null); setCiSearch("");
+  };
+
+  const removeCheckin=async(id)=>{
+    const updated=(checkins||[]).filter(c=>c.id!==id);
+    setCheckins(updated); await dbSet(SK.checkins,updated);
+  };
+
+  // Filtered member list for check-in search
+  const ciMembers=members.filter(m=>{
+    if(!ciSearch)return true;
+    return `${m.name} ${m.memberNumber||""}`.toLowerCase().includes(ciSearch.toLowerCase());
+  }).slice(0,10);
+
+  // Event record PDF generation
+  const generateRecord=async()=>{
+    setGenerating(true);
+    const attendeeRows=eventCheckins.map(ci=>{
+      const m=members.find(x=>x.id===ci.memberId);
+      const vDesc=ci.vehicleDesc||"";
+      if(ci.isGuest)return `Guest: ${ci.guestLabel||"Unknown"}`;
+      return `${m?.name||"Unknown"} — ${vDesc||"No vehicle recorded"}`;
+    }).join("\n");
+
+    const taskRows=(tasks||[]).filter(t=>t.eventId===event.id||t.tags?.includes("events")).map(t=>`[${t.status==="done"?"✓":"○"}] ${t.title} (${t.assigneeId?members.find(m=>m.id===t.assigneeId)?.name||"Unassigned":"Unassigned"})`).join("\n");
+
+    const content=`EVENT RECORD — ${event.title}
+${"=".repeat(60)}
+Date: ${event.date}
+Time: ${event.time||""}
+Location: ${event.location||""}
+Type: ${event.type||""}
+Organiser: ${orgName}
+Registered: ${attCount}
+Checked In: ${eventCheckins.length}
+
+DESCRIPTION
+${event.description||"None"}
+
+ATTENDEES & VEHICLES (${eventCheckins.length} checked in)
+${attendeeRows||"No check-ins recorded"}
+
+TASKS
+${taskRows||"No tasks recorded"}
+
+NOTES FOR NEXT TIME
+${recordNotes||"None"}
+
+Generated: ${new Date().toLocaleString("en-AU")}`;
+
+    const doc={
+      id:uid("AD"),title:`Event Record — ${event.title} (${event.date})`,
+      docType:"Event Record",year:event.date.substring(0,4),
+      description:`Post-event record for ${event.title} held ${event.date} at ${event.location||""}. ${attCount} registered, ${eventCheckins.length} checked in.`,
+      tags:["event-record",event.type||"event",event.date.substring(0,4)],
+      visibility:"members",content,status:"Pending Review",
+      archivedBy:user.name,createdAt:new Date().toISOString(),
+      submittedBy:user.name,fileName:"",fileData:"",fileType:""
+    };
+    const updated=[...(archiveDocs||[]),doc];
+    setArchiveDocs(updated); await dbSet(SK.archiveDocs,updated);
+    setGenerating(false);
+    alert("Event record submitted to archive for review!");
+  };
+
+  const tabBtn=(id,label)=>(
+    <button key={id} onClick={()=>setTab(id)} style={{
+      padding:"10px 16px",background:"none",border:"none",
+      borderBottom:tab===id?"2px solid var(--burg)":"2px solid transparent",
+      color:tab===id?"var(--burg)":"var(--text3)",
+      fontWeight:tab===id?700:400,cursor:"pointer",fontSize:13,
+      whiteSpace:"nowrap",flexShrink:0
+    }}>{label}</button>
+  );
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,overflowY:"auto"}}>
+      {/* Header */}
+      <div style={{background:"var(--burg)",color:"white",padding:"16px 20px",position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,maxWidth:800,margin:"0 auto"}}>
+          <button onClick={onClose} style={{background:"rgba(255,255,255,.2)",border:"none",color:"white",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:600}}>← Back</button>
+          <div style={{flex:1}}>
+            <div style={{fontFamily:"var(--font-d)",fontSize:18,fontWeight:700}}>{event.title}</div>
+            <div style={{fontSize:12,opacity:.85}}>{event.date} · {event.location}</div>
+          </div>
+          {isAdmin&&<div style={{display:"flex",gap:8}}>
+            <button onClick={onEdit} style={{background:"rgba(255,255,255,.2)",border:"none",color:"white",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:12}}>Edit</button>
+            <button onClick={onDelete} style={{background:"rgba(255,255,255,.15)",border:"none",color:"white",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:12}}>Delete</button>
+          </div>}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{background:"white",borderBottom:"1px solid var(--border)",overflowX:"auto"}}>
+        <div style={{display:"flex",maxWidth:800,margin:"0 auto",padding:"0 20px"}}>
+          {tabBtn("details","Details")}
+          {tabBtn("attendees",`Attendees (${attCount})`)}
+          {isAdmin&&tabBtn("checkin",`Check-In (${eventCheckins.length})`)}
+          {isAdmin&&isPast&&tabBtn("record","Event Record")}
+        </div>
+      </div>
+
+      <div style={{maxWidth:800,margin:"0 auto",padding:"20px"}}>
+
+        {/* DETAILS TAB */}
+        {tab==="details"&&(
+          <div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:13,background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16}}>
+              {[["Date",event.date],["Time",event.time||"—"],["Location",event.location||"—"],["Organiser",orgName],
+                ["Capacity",event.maxAttendees?`${attCount}/${event.maxAttendees}`:"Unlimited"],
+                ["Type",(typeIcon[event.type]||"")+" "+(event.type||"—")],
+                ["Catering",event.catering?"Yes — dietary info collected":"No"],
+                ["Status",event.status]].map(([k,v])=>(
+                <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",display:"block",marginBottom:2}}>{k}</span><span style={{color:"var(--text2)",fontWeight:600}}>{v}</span></div>
+              ))}
+            </div>
+            {event.description&&<div style={{background:"var(--bg3)",borderRadius:8,padding:14,fontSize:14,color:"var(--text2)",lineHeight:1.7,marginBottom:16}}>{event.description}</div>}
+            {/* Member RSVP actions */}
+            <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16}}>
+              {myRsvp?.status==="attending"
+                ?<div>
+                  <div style={{color:"var(--green)",fontWeight:700,fontSize:15,marginBottom:10}}>✓ You are registered</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={onRsvp} style={{padding:"8px 16px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,cursor:"pointer",fontSize:13}}>Edit registration</button>
+                    <button onClick={onCancelRsvp} style={{padding:"8px 16px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:13}}>Cancel registration</button>
+                  </div>
+                </div>
+                :<button onClick={onRsvp} disabled={isFull} style={{width:"100%",padding:"12px",background:isFull?"var(--bg3)":"var(--burg)",color:isFull?"var(--text3)":"white",border:"none",borderRadius:6,cursor:isFull?"not-allowed":"pointer",fontWeight:700,fontSize:15}}>
+                  {isFull?"Event Full — Registration Closed":"Register for this Event"}
+                </button>
+              }
+            </div>
+          </div>
+        )}
+
+        {/* ATTENDEES TAB */}
+        {tab==="attendees"&&(
+          <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",overflow:"hidden"}}>
+            {att.length===0
+              ?<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No registrations yet</div>
+              :<table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                <thead><tr style={{background:"var(--bg3)",borderBottom:"1px solid var(--border)"}}>
+                  {["Member","Guests","Vehicle","Dietary","Requirements","Registered"].map(h=>(
+                    <th key={h} style={{textAlign:"left",padding:"10px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {att.map(r=>{
+                    const m2=members.find(m=>m.id===r.memberId);
+                    const vc=r.vehicleId?(cars||[]).find(c=>c.id===r.vehicleId):null;
+                    return m2?(<tr key={r.id} style={{borderBottom:"1px solid var(--border)"}}>
+                      <td style={{padding:"8px 12px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar name={m2.name} size={22}/><span style={{fontWeight:600}}>{m2.name}</span></div></td>
+                      <td style={{padding:"8px 12px",color:"var(--text2)"}}>{r.guests>0?`+${r.guests}`:"-"}</td>
+                      <td style={{padding:"8px 12px",color:"var(--text2)",fontSize:11}}>{vc?carLabel(vc):"-"}</td>
+                      <td style={{padding:"8px 12px",color:"var(--text2)"}}>{r.dietary||"-"}</td>
+                      <td style={{padding:"8px 12px",color:"var(--text2)",maxWidth:160}}>{r.requirements||"-"}</td>
+                      <td style={{padding:"8px 12px",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:11}}>{r.created}</td>
+                    </tr>):null;
+                  })}
+                </tbody>
+              </table>
+            }
+          </div>
+        )}
+
+        {/* CHECK-IN TAB */}
+        {tab==="checkin"&&isAdmin&&(
+          <div>
+            {/* Stats */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20}}>
+              <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",textAlign:"center"}}>
+                <div style={{fontSize:28,fontWeight:700,color:"var(--burg)"}}>{eventCheckins.length}</div>
+                <div style={{fontSize:11,color:"var(--text3)",fontWeight:600}}>CHECKED IN</div>
+              </div>
+              <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",textAlign:"center"}}>
+                <div style={{fontSize:28,fontWeight:700,color:"var(--green)"}}>{attCount}</div>
+                <div style={{fontSize:11,color:"var(--text3)",fontWeight:600}}>REGISTERED</div>
+              </div>
+              <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",textAlign:"center"}}>
+                <div style={{fontSize:28,fontWeight:700,color:"#b06010"}}>{eventCheckins.filter(c=>c.isGuest).length}</div>
+                <div style={{fontSize:11,color:"var(--text3)",fontWeight:600}}>GUESTS</div>
+              </div>
+            </div>
+
+            {/* Member check-in flow */}
+            {!ciStep?(
+              <div>
+                <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:12,color:"var(--text)"}}>Check In a Member</div>
+                  <input
+                    value={ciSearch} onChange={e=>setCiSearch(e.target.value)}
+                    placeholder="Search member name or number…"
+                    style={{width:"100%",padding:"12px 16px",borderRadius:8,border:"2px solid var(--burg)",fontSize:16,boxSizing:"border-box",marginBottom:ciSearch?12:0}}
+                    autoFocus
+                  />
+                  {ciSearch&&(
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {ciMembers.map(m=>{
+                        const alreadyIn=checkedInIds.has(m.id);
+                        return(
+                          <button key={m.id} onClick={()=>{if(!alreadyIn)setCiStep({memberId:m.id,step:1});}} style={{
+                            display:"flex",alignItems:"center",gap:12,padding:"12px 16px",
+                            background:alreadyIn?"#f0faf4":"white",border:`2px solid ${alreadyIn?"var(--green)":"var(--border)"}`,
+                            borderRadius:8,cursor:alreadyIn?"default":"pointer",textAlign:"left",width:"100%"
+                          }}>
+                            <Avatar name={m.name} size={36}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontWeight:700,fontSize:15}}>{m.name}</div>
+                              <div style={{fontSize:12,color:"var(--text3)"}}>#{m.memberNumber||m.id} · {m.memberType}</div>
+                            </div>
+                            {alreadyIn&&<span style={{color:"var(--green)",fontWeight:700,fontSize:13}}>✓ Checked in</span>}
+                          </button>
+                        );
+                      })}
+                      {ciMembers.length===0&&<div style={{padding:16,color:"var(--text3)",textAlign:"center",fontSize:13}}>No members found</div>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Add guest */}
+                <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:12,color:"var(--text)"}}>Add Walk-in Guest</div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <input value={guestName} onChange={e=>setGuestName(e.target.value)} placeholder="Guest name (optional)" style={{flex:1,minWidth:160,padding:"10px 14px",borderRadius:6,border:"1px solid var(--border)",fontSize:14}}/>
+                    <input type="number" value={guestCount} onChange={e=>setGuestCount(Math.max(1,Number(e.target.value)))} min={1} max={20} style={{width:70,padding:"10px 14px",borderRadius:6,border:"1px solid var(--border)",fontSize:14}}/>
+                    <button onClick={async()=>{
+                      for(let i=0;i<guestCount;i++){
+                        await saveCheckin(null,null,null,true,guestName?`${guestName}${guestCount>1?` (${i+1})`:""}`:null);
+                      }
+                      setGuestName("");setGuestCount(1);
+                    }} style={{padding:"10px 20px",background:"var(--burg)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700,fontSize:14}}>
+                      Add Guest{guestCount>1?`s (${guestCount})`:""}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Checked-in list */}
+                {eventCheckins.length>0&&(
+                  <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",overflow:"hidden"}}>
+                    <div style={{padding:"12px 16px",borderBottom:"1px solid var(--border)",fontWeight:700,fontSize:14,background:"var(--bg3)"}}>Checked In ({eventCheckins.length})</div>
+                    {eventCheckins.map(ci=>{
+                      const m=members.find(x=>x.id===ci.memberId);
+                      return(
+                        <div key={ci.id} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",borderBottom:"1px solid var(--border)"}}>
+                          {ci.isGuest
+                            ?<div style={{width:36,height:36,borderRadius:"50%",background:"#f0e8ff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>👤</div>
+                            :<Avatar name={m?.name||"?"} size={36}/>
+                          }
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:600,fontSize:14}}>{ci.isGuest?`Guest${ci.guestLabel?`: ${ci.guestLabel}`:""}`:m?.name||"Unknown"}</div>
+                            {ci.vehicleDesc&&<div style={{fontSize:12,color:"var(--text3)"}}>🚗 {ci.vehicleDesc}</div>}
+                            <div style={{fontSize:11,color:"var(--text3)"}}>{new Date(ci.checkedInAt).toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"})}</div>
+                          </div>
+                          <button onClick={()=>removeCheckin(ci.id)} style={{padding:"4px 10px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:4,cursor:"pointer",fontSize:11}}>Remove</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ):(
+              /* Vehicle selection steps */
+              <div style={{background:"white",borderRadius:8,border:"2px solid var(--burg)",padding:20}}>
+                {(()=>{
+                  const m=members.find(x=>x.id===ciStep.memberId);
+                  const mCars=memberCars(ciStep.memberId);
+                  const rCar=rsvpCar(ciStep.memberId);
+                  const allCars=(cars||[]).filter(c=>c.status==="active");
+
+                  return(
+                    <>
+                      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+                        <Avatar name={m?.name||"?"} size={44}/>
+                        <div>
+                          <div style={{fontWeight:700,fontSize:18}}>{m?.name}</div>
+                          <div style={{fontSize:13,color:"var(--text3)"}}>Select vehicle to check in</div>
+                        </div>
+                        <button onClick={()=>setCiStep(null)} style={{marginLeft:"auto",background:"var(--bg3)",border:"none",borderRadius:6,padding:"6px 12px",cursor:"pointer",fontSize:12}}>Cancel</button>
+                      </div>
+
+                      {/* Step 1: Pre-registered vehicle */}
+                      {rCar&&(
+                        <div style={{marginBottom:16}}>
+                          <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Registered Vehicle</div>
+                          <button onClick={()=>saveCheckin(ciStep.memberId,rCar.id,carLabel(rCar),false,null)} style={{width:"100%",padding:"14px 16px",background:"#e8f5ee",border:"2px solid var(--green)",borderRadius:8,cursor:"pointer",textAlign:"left",fontSize:14,fontWeight:600,color:"var(--green)"}}>
+                            ✓ {carLabel(rCar)}{rCar.onPermit?" 🔖 Permit":""}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Step 2: Other member vehicles */}
+                      {mCars.filter(c=>c.id!==rCar?.id).length>0&&(
+                        <div style={{marginBottom:16}}>
+                          <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Other Registered Vehicles</div>
+                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                            {mCars.filter(c=>c.id!==rCar?.id).map(c=>(
+                              <button key={c.id} onClick={()=>saveCheckin(ciStep.memberId,c.id,carLabel(c),false,null)} style={{width:"100%",padding:"12px 16px",background:"white",border:"1px solid var(--border)",borderRadius:8,cursor:"pointer",textAlign:"left",fontSize:14}}>
+                                {carLabel(c)}{c.onPermit?" 🔖 Permit":""}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 3: No vehicle / walk in */}
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                        <button onClick={()=>saveCheckin(ciStep.memberId,null,null,false,null)} style={{flex:1,padding:"12px 16px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600}}>
+                          Check in without vehicle
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* EVENT RECORD TAB */}
+        {tab==="record"&&isAdmin&&isPast&&(
+          <div>
+            <div style={{background:"#e8f5ee",border:"1px solid #a0d8b8",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#1a6040"}}>
+              This will generate an event record and submit it to the archive as Pending Review. You can edit it there before approving.
+            </div>
+            <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:13,marginBottom:16}}>
+                {[["Event",event.title],["Date",event.date],["Location",event.location||"—"],["Organiser",orgName],["Registered",attCount],["Checked In",eventCheckins.length]].map(([k,v])=>(
+                  <div key={k}><span style={{color:"var(--text3)",fontSize:11,display:"block",marginBottom:2}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>
+                ))}
+              </div>
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:12,fontWeight:600,color:"var(--text2)",marginBottom:6}}>Vehicles Attending ({eventCheckins.filter(c=>c.vehicleDesc).length})</div>
+                {eventCheckins.filter(c=>c.vehicleDesc).length===0
+                  ?<div style={{fontSize:13,color:"var(--text3)"}}>No vehicles recorded at check-in</div>
+                  :<div style={{display:"flex",flexDirection:"column",gap:4}}>
+                    {eventCheckins.filter(c=>c.vehicleDesc).map(ci=>{
+                      const m=members.find(x=>x.id===ci.memberId);
+                      return <div key={ci.id} style={{fontSize:13,color:"var(--text2)"}}>• {m?.name||"Unknown"} — {ci.vehicleDesc}</div>;
+                    })}
+                  </div>
+                }
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Notes for Next Time</label>
+                <textarea value={recordNotes} onChange={e=>setRecordNotes(e.target.value)} rows={5} placeholder="What went well? What to improve? Tips for the next organiser…" style={{width:"100%",padding:"10px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",lineHeight:1.6}}/>
+              </div>
+            </div>
+            <button onClick={generateRecord} disabled={generating} style={{width:"100%",padding:"14px",background:generating?"var(--bg3)":"var(--burg)",color:generating?"var(--text3)":"white",border:"none",borderRadius:8,fontWeight:700,fontSize:15,cursor:generating?"not-allowed":"pointer"}}>
+              {generating?"Generating…":"Generate Event Record & Submit to Archive"}
+            </button>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // EVENTS
 // ══════════════════════════════════════════════════════════════════════════════
-function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
+function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, checkins, setCheckins, tripLogs, setTripLogs, archiveDocs, setArchiveDocs, tasks, setTasks, cars }) {
   const isAdmin=user.role==="admin";
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({});
@@ -1985,7 +2393,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
 
   function openRsvp(ev){
     const ex=rsvps.find(r=>r.eventId===ev.id&&r.memberId===user.id);
-    setRsvpForm({guests:ex?.guests||0,dietary:ex?.dietary||"None",requirements:ex?.requirements||""});
+    setRsvpForm({guests:ex?.guests||0,dietary:ex?.dietary||"None",requirements:ex?.requirements||"",vehicleId:ex?.vehicleId||""});
     setModal({rsvp:ev});
   }
 
@@ -1993,7 +2401,8 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
     const ex=rsvps.find(r=>r.eventId===ev.id&&r.memberId===user.id);
     const entry={id:ex?.id||uid("R"),eventId:ev.id,memberId:user.id,status:"attending",
       created:ex?.created||today,guests:Number(rsvpForm.guests)||0,
-      dietary:rsvpForm.dietary||"None",requirements:rsvpForm.requirements||""};
+      dietary:rsvpForm.dietary||"None",requirements:rsvpForm.requirements||"",
+      vehicleId:rsvpForm.vehicleId||null};
     const u=ex?rsvps.map(r=>r.id===ex.id?entry:r):[...rsvps,entry];
     setRsvps(u);await dbSet(SK.rsvps,u);
     setModal(null);
@@ -2062,67 +2471,25 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
         })}
       </div>
 
-      {/* Event detail modal */}
-      {view&&<Modal title={view.title} onClose={()=>setView(null)} wide>
-        <Row gap={8} wrap style={{marginBottom:12}}><Badge status={view.status}/><Badge status={view.type}/></Row>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14,fontSize:13}}>
-          {[["Date",view.date],["Time",view.time],["Location",view.location],["Organiser",orgName(view.organiser)],
-            ["Capacity",view.maxAttendees?`${attCount(view.id)}/${view.maxAttendees}`:"Unlimited"],
-            ["Catering",view.catering?"Yes — dietary info collected":"No"],
-            ["Attending",attCount(view.id)]].map(([k,v])=>(
-            <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em"}}>{k}: </span><span style={{color:"var(--text2)",fontWeight:600}}>{v}</span></div>
-          ))}
-        </div>
-        <div style={{background:"var(--bg3)",borderRadius:6,padding:14,fontSize:14,color:"var(--text2)",lineHeight:1.7,marginBottom:16}}>{view.description||"No description."}</div>
-
-        {/* Attendee list */}
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>
-            Registered Attendees ({attCount(view.id)})
-          </div>
-          {isAdmin
-            ? <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                  <thead><tr style={{borderBottom:"2px solid var(--border)"}}>
-                    {["Member","Guests","Dietary","Requirements","Registered"].map(h=>(
-                      <th key={h} style={{textAlign:"left",padding:"6px 10px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {att(view.id).map(r=>{
-                      const m2=members.find(m=>m.id===r.memberId);
-                      return m2?(<tr key={r.id} style={{borderBottom:"1px solid var(--border)"}}>
-                        <td style={{padding:"8px 10px"}}><Row gap={8} align="center"><Avatar name={m2.name} size={22}/><span style={{fontWeight:600}}>{m2.name}</span></Row></td>
-                        <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.guests>0?`+${r.guests}`:"-"}</td>
-                        <td style={{padding:"8px 10px",color:"var(--text2)"}}>{r.dietary||"-"}</td>
-                        <td style={{padding:"8px 10px",color:"var(--text2)",maxWidth:160}}>{r.requirements||"-"}</td>
-                        <td style={{padding:"8px 10px",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:11}}>{r.created}</td>
-                      </tr>):null;
-                    })}
-                    {attCount(view.id)===0&&<tr><td colSpan={5} style={{padding:"16px 10px",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12,textAlign:"center"}}>No registrations yet</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            : <Row gap={6} wrap>
-                {att(view.id).map(r=>{const m2=members.find(m=>m.id===r.memberId);return m2?<Row key={r.id} gap={6} align="center" style={{background:"var(--bg3)",borderRadius:6,padding:"5px 10px"}}><Avatar name={m2.name} size={20}/><span style={{fontSize:12,color:"var(--text2)"}}>{m2.name.split(" ")[0]}</span></Row>:null;})}
-                {attCount(view.id)===0&&<span style={{color:"var(--text3)",fontSize:13,fontFamily:"var(--font-m)"}}>No registrations yet</span>}
-              </Row>
-          }
-        </div>
-
-        {view.status==="upcoming"&&<Row gap={8} justify="space-between" align="center">
-          <div>
-            {myR(view.id)?.status==="attending"
-              ? <Row gap={8}><span style={{color:"var(--green)",fontWeight:700,fontSize:14}}>✓ You are registered</span>
-                  <Btn variant="ghost" size="sm" onClick={()=>{setView(null);openRsvp(view);}}>Edit registration</Btn>
-                  <Btn variant="ghost" size="sm" onClick={()=>cancelRsvp(view.id)}>Cancel</Btn>
-                </Row>
-              : <Btn onClick={()=>{setView(null);openRsvp(view);}} disabled={isFull(view)}>{isFull(view)?"Event Full":"Register for this Event"}</Btn>
-            }
-          </div>
-          {isAdmin&&<Row gap={8}><Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete event?",fn:()=>del(view.id)}})}>Delete</Btn><Btn variant="ghost" size="sm" onClick={()=>{setView(null);setForm({...view});setModal({edit:view});}}>Edit</Btn></Row>}
-        </Row>}
-      </Modal>}
+      {/* Event detail - full page */}
+      {view&&(
+        <EventDetailPage
+          event={view} user={user} members={members} cars={cars||[]}
+          rsvps={rsvps} setRsvps={setRsvps}
+          checkins={checkins||[]} setCheckins={setCheckins}
+          tripLogs={tripLogs||[]} setTripLogs={setTripLogs}
+          archiveDocs={archiveDocs||[]} setArchiveDocs={setArchiveDocs}
+          tasks={tasks||[]} setTasks={setTasks}
+          onClose={()=>setView(null)}
+          onEdit={()=>{setForm({...view});setModal({edit:view});}}
+          onDelete={()=>setModal({confirm:{msg:"Delete event?",fn:()=>del(view.id)}})}
+          onRsvp={()=>openRsvp(view)}
+          myRsvp={myR(view.id)}
+          onCancelRsvp={()=>cancelRsvp(view.id)}
+          isFull={isFull(view)}
+          isAdmin={isAdmin}
+        />
+      )}
 
       {/* RSVP / Registration modal */}
       {modal?.rsvp&&<Modal title={`Register — ${modal.rsvp.title}`} onClose={()=>setModal(null)}>
@@ -2130,65 +2497,43 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps }) {
           <div style={{fontWeight:700,marginBottom:4,color:"var(--text)"}}>{modal.rsvp.date} · {modal.rsvp.time}</div>
           <div>📍 {modal.rsvp.location}</div>
         </div>
-        <Field label="Registering as">
-          <div style={{padding:"9px 12px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,fontSize:13,color:"var(--text2)"}}>{user.name} (Member #{user.memberNumber})</div>
-        </Field>
-        <Field label="Additional guests (not including yourself)">
-          <Select value={rsvpForm.guests} onChange={e=>setRsvpForm({...rsvpForm,guests:e.target.value})}>
-            {[0,1,2,3,4,5].map(n=><option key={n} value={n}>{n===0?"Just me":`+${n} guest${n>1?"s":""}`}</option>)}
-          </Select>
-        </Field>
-        {modal.rsvp.catering&&<Field label="Dietary requirements">
-          <Select value={rsvpForm.dietary} onChange={e=>setRsvpForm({...rsvpForm,dietary:e.target.value})}>
-            {["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"].map(d=><option key={d}>{d}</option>)}
-          </Select>
-        </Field>}
-        <Field label="Special requirements or notes (optional)">
-          <Textarea value={rsvpForm.requirements} onChange={e=>setRsvpForm({...rsvpForm,requirements:e.target.value})}
-            placeholder="e.g. wheelchair access needed, bringing classic car for display..." style={{minHeight:80}}/>
-        </Field>
-        <Row gap={10} justify="flex-end">
-          <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
-          <Btn onClick={()=>submitRsvp(modal.rsvp)}>Confirm Registration</Btn>
-        </Row>
+        <Field label="Number of Guests"><Input type="number" value={rsvpForm.guests} min={0} onChange={e=>setRsvpForm({...rsvpForm,guests:Number(e.target.value)||0})} placeholder="0"/></Field>
+        {(cars||[]).filter(c=>c.ownerId===user.id&&c.status==="active").length>0&&(
+          <Field label="Which vehicle are you bringing? (optional)">
+            <Select value={rsvpForm.vehicleId||""} onChange={e=>setRsvpForm({...rsvpForm,vehicleId:e.target.value})}>
+              <option value="">Select a vehicle…</option>
+              {(cars||[]).filter(c=>c.ownerId===user.id&&c.status==="active").map(c=>(
+                <option key={c.id} value={c.id}>{c.year} {c.make} {c.model}{c.reg?" ("+c.reg+")":""}{c.onPermit?" 🔖":""}</option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {modal.rsvp.catering&&<Field label="Dietary Requirements"><Select value={rsvpForm.dietary} onChange={e=>setRsvpForm({...rsvpForm,dietary:e.target.value})}>{["None","Vegetarian","Vegan","Gluten Free","Halal","Other"].map(d=><option key={d}>{d}</option>)}</Select></Field>}
+        <Field label="Special Requirements or Notes"><Textarea value={rsvpForm.requirements} onChange={e=>setRsvpForm({...rsvpForm,requirements:e.target.value})} placeholder="Accessibility needs, parking requirements, etc."/></Field>
+        <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={()=>submitRsvp(modal.rsvp)}>Confirm Registration</Btn></Row>
       </Modal>}
 
-      {/* Printable confirmation */}
-      {confirmation&&<Modal title="Registration Confirmed!" onClose={()=>setConfirmation(null)} wide>
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontSize:48,marginBottom:8}}>✅</div>
-          <div style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--green)",marginBottom:4}}>You're registered!</div>
-          <div style={{fontSize:14,color:"var(--text3)"}}>Keep this confirmation for your records</div>
+      {/* Confirmation modal */}
+      {confirmation&&<Modal title="Registration Confirmed!" onClose={()=>setConfirmation(null)}>
+        <div style={{textAlign:"center",padding:"10px 0 20px"}}>
+          <div style={{fontSize:48,marginBottom:12}}>🎉</div>
+          <div style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--burg)",marginBottom:8}}>{confirmation.ev.title}</div>
+          <div style={{fontSize:14,color:"var(--text2)",marginBottom:4}}>{confirmation.ev.date} · {confirmation.ev.time}</div>
+          <div style={{fontSize:14,color:"var(--text2)",marginBottom:20}}>📍 {confirmation.ev.location}</div>
         </div>
-        <div id="print-confirmation" style={{background:"var(--bg3)",border:"2px solid var(--burg)",borderRadius:10,padding:24,marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>
-            <div>
-              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:4}}>Event Registration Confirmation</div>
-              <div style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--text)",lineHeight:1.2}}>{confirmation.ev.title}</div>
+        <div style={{background:"var(--bg3)",borderRadius:8,padding:16,marginBottom:16,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,fontSize:13}}>
+          {[["Member",user.name],["Guests",confirmation.entry.guests>0?`+${confirmation.entry.guests}`:"None"],
+            ...(confirmation.ev.catering?[["Dietary",confirmation.entry.dietary||"None"]]:[[]]),
+            ["Special Requirements",confirmation.entry.requirements||"None"],
+          ].map(([k,v])=>(
+            <div key={k}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{k}</div>
+              <div style={{color:"var(--text)",fontWeight:600}}>{v}</div>
             </div>
-            <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textAlign:"right"}}>
-              <div>Ref: {confirmation.entry.id}</div>
-              <div>{new Date().toLocaleDateString("en-AU")}</div>
-            </div>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,fontSize:13}}>
-            {[
-              ["Member",`${user.name} (#${user.memberNumber})`],
-              ["Date & Time",`${confirmation.ev.date} at ${confirmation.ev.time}`],
-              ["Location",confirmation.ev.location],
-              ["Guests",confirmation.entry.guests>0?`+${confirmation.entry.guests} guest${confirmation.entry.guests>1?"s":""}`:"None"],
-              ...(confirmation.ev.catering?[["Dietary",confirmation.entry.dietary||"None"]]:[[]]),
-              ["Special Requirements",confirmation.entry.requirements||"None"],
-            ].map(([k,v])=>(
-              <div key={k}>
-                <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{k}</div>
-                <div style={{color:"var(--text)",fontWeight:600}}>{v}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid var(--border)",fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>
-            Rover Car Club of Australia · secretary@rcca.com.au · PO Box 6049 Wantirna VIC 3152
-          </div>
+          ))}
+        </div>
+        <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid var(--border)",fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>
+          Rover Car Club of Australia · secretary@rcca.com.au · PO Box 6049 Wantirna VIC 3152
         </div>
         <Row gap={10} justify="center">
           <Btn onClick={()=>window.print()}>🖨️ Print Confirmation</Btn>
@@ -5942,15 +6287,15 @@ function App() {
   const [suppliers,setSuppliers]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
-  const [showApplicationForm,setShowApplicationForm]=useState(false);
+  const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -5976,6 +6321,7 @@ function App() {
       setSuppliers(Array.isArray(sup)?sup:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
+      setCheckins(Array.isArray(ci)?ci:[]);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -6004,7 +6350,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
