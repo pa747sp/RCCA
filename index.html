@@ -3644,7 +3644,11 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 <script type="text/babel" data-presets="react">
 function PublicNav({ page, setPage, onLoginClick, pages }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const customPublicPages=(typeof pages!=="undefined"?pages||[]:[]).filter(p=>p.visibility==="public");
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const allPublic=(typeof pages!=="undefined"?pages||[]).filter(p=>p.visibility==="public");
+  const rootPages=allPublic.filter(p=>!p.parentId);
+  const childPages=id=>allPublic.filter(p=>p.parentId===id);
+
   const links = [
     { id:"home",        label:"Home" },
     { id:"about",       label:"About" },
@@ -3655,10 +3659,9 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
     { id:"shop",        label:"Shop" },
     { id:"parts",       label:"Parts" },
     { id:"gallery",      label:"Gallery" },
-    ...customPublicPages.map(p=>({id:p.slug,label:p.title})),
   ];
 
-  const navTo = (id) => { setPage(id); setMenuOpen(false); };
+  const navTo = (id) => { setPage(id); setMenuOpen(false); setOpenDropdown(null); };
 
   return (
     <nav style={{
@@ -3691,6 +3694,38 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
               borderBottom: page===l.id ? "2px solid var(--gold)" : "2px solid transparent",
             }}>{l.label}</button>
           ))}
+          {rootPages.map(p=>{
+            const kids=childPages(p.id);
+            const isActive=page===p.slug||kids.some(k=>page===k.slug);
+            return(
+              <div key={p.id} style={{position:"relative"}}
+                onMouseEnter={()=>kids.length&&setOpenDropdown(p.id)}
+                onMouseLeave={()=>setOpenDropdown(null)}>
+                <button onClick={()=>navTo(p.slug)} style={{
+                  background:"none",border:"none",cursor:"pointer",
+                  padding:"6px 10px",borderRadius:6,whiteSpace:"nowrap",
+                  color:isActive?"#ffffff":"rgba(255,255,255,.72)",
+                  fontFamily:"var(--font-b)",fontSize:12,fontWeight:isActive?700:400,
+                  borderBottom:isActive?"2px solid var(--gold)":"2px solid transparent",
+                  display:"flex",alignItems:"center",gap:4,
+                }}>
+                  {p.title}{kids.length>0&&<span style={{fontSize:9,opacity:.7}}>▾</span>}
+                </button>
+                {kids.length>0&&openDropdown===p.id&&(
+                  <div style={{position:"absolute",top:"100%",left:0,background:"rgba(10,3,5,.98)",border:"1px solid rgba(255,255,255,.15)",borderRadius:6,minWidth:160,zIndex:200,boxShadow:"0 8px 24px rgba(0,0,0,.5)",overflow:"hidden"}}>
+                    {kids.map(k=>(
+                      <button key={k.id} onClick={()=>navTo(k.slug)} style={{
+                        display:"block",width:"100%",textAlign:"left",background:page===k.slug?"rgba(192,40,42,.3)":"none",
+                        border:"none",padding:"10px 16px",cursor:"pointer",
+                        color:page===k.slug?"#ffffff":"rgba(255,255,255,.8)",
+                        fontFamily:"var(--font-b)",fontSize:12,whiteSpace:"nowrap",
+                      }}>{k.title}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Right side: login + hamburger */}
@@ -3733,6 +3768,32 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
               fontFamily:"var(--font-b)", fontSize:15, fontWeight: page===l.id ? 700 : 400,
             }}>{l.label}</button>
           ))}
+          {rootPages.map(p=>{
+            const kids=childPages(p.id);
+            const isActive=page===p.slug;
+            return(
+              <React.Fragment key={p.id}>
+                <button onClick={()=>navTo(p.slug)} style={{
+                  display:"block",width:"100%",textAlign:"left",
+                  background:isActive?"rgba(192,40,42,.2)":"none",
+                  border:"none",borderLeft:isActive?"3px solid var(--burg)":"3px solid transparent",
+                  padding:"12px 24px",cursor:"pointer",
+                  color:isActive?"#ffffff":"rgba(255,255,255,.8)",
+                  fontFamily:"var(--font-b)",fontSize:15,fontWeight:isActive?700:400,
+                }}>{p.title}</button>
+                {kids.map(k=>(
+                  <button key={k.id} onClick={()=>navTo(k.slug)} style={{
+                    display:"block",width:"100%",textAlign:"left",
+                    background:page===k.slug?"rgba(192,40,42,.2)":"none",
+                    border:"none",borderLeft:page===k.slug?"3px solid var(--burg)":"3px solid transparent",
+                    padding:"10px 24px 10px 40px",cursor:"pointer",
+                    color:page===k.slug?"#ffffff":"rgba(255,255,255,.65)",
+                    fontFamily:"var(--font-b)",fontSize:13,
+                  }}>↳ {k.title}</button>
+                ))}
+              </React.Fragment>
+            );
+          })}
         </div>
       )}
 
