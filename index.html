@@ -1177,7 +1177,13 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
-            <Field label="Digital Access" half><HelpTip text="Members marked as Post Newsletter will appear on the postal list for those without email or portal access. They are excluded from bulk emails and SMS." position="right"/><Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select></Field>
+            <div style={{position:"relative",width:"calc(50% - 6px)",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
+                <label style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em"}}>Digital Access</label>
+                <HelpTip text="Members marked as Post Newsletter will appear on the postal list for those without email or portal access. They are excluded from bulk emails and SMS." position="right"/>
+              </div>
+              <Select value={form.noDigital?"no":"yes"} onChange={e=>setForm({...form,noDigital:e.target.value==="no"})}><option value="yes">Digitally Connected</option><option value="no">Post Newsletter (no digital)</option></Select>
+            </div>
             <Field label="Join Date" half><Input type="date" value={form.joined||""} onChange={e=>setForm({...form,joined:e.target.value})}/></Field>
           </Row>
           <Field label="Bio"><Textarea value={form.bio||""} onChange={e=>setForm({...form,bio:e.target.value})} placeholder="Member bio…"/></Field>
