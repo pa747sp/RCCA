@@ -1977,6 +1977,12 @@ function EventDetailPage({event,user,members,cars,rsvps,setRsvps,checkins,setChe
   const [recordNotes,setRecordNotes]=useState("");
   const [generating,setGenerating]=useState(false);
 
+  // Lock body scroll while page is open
+  useEffect(()=>{
+    document.body.style.overflow="hidden";
+    return ()=>{ document.body.style.overflow=""; };
+  },[]);
+
   const isPast=event.date<today;
   const att=rsvps.filter(r=>r.eventId===event.id&&r.status==="attending");
   const attCount=att.length;
@@ -2086,7 +2092,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
   );
 
   return (
-    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,overflowY:"auto"}}>
+    <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:200,overflowY:"auto",overflowX:"hidden"}}>
       {/* Header */}
       <div style={{background:"var(--burg)",color:"white",padding:"16px 20px",position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",gap:12,maxWidth:800,margin:"0 auto"}}>
