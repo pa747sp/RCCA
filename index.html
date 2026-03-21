@@ -3155,9 +3155,14 @@ function MarketplaceSection({ user, members, listings, setListings, cats, messag
           <div style={{fontSize:10.5,color:"var(--gold)",fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Your Active Listings ({myListings.filter(l=>l.status==="active").length})</div>
           <Row gap={8} wrap>
             {myListings.filter(l=>l.status==="active").map(l=>(
-              <div key={l.id} style={{background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:6,padding:"8px 14px",cursor:"pointer"}} onClick={()=>setView(l)}>
+              <div key={l.id} style={{background:"var(--bg3)",border:`1px solid ${Math.floor((new Date()-new Date(l.created))/(1000*60*60*24))>=30?"#f0c840":"var(--border2)"}`,borderRadius:6,padding:"8px 14px",cursor:"pointer"}} onClick={()=>setView(l)}>
                 <div style={{fontSize:13,color:"var(--text)",fontWeight:700}}>{l.title.slice(0,40)}{l.title.length>40?"…":""}</div>
-                <Row gap={6} style={{marginTop:4}}><Badge status={l.type}/><Badge status={l.category}/>{l.price&&<span style={{fontSize:11,color:"var(--gold2)",fontFamily:"var(--font-m)"}}>A${l.price.toLocaleString()}</span>}</Row>
+                <Row gap={6} style={{marginTop:4}}>
+                  <Badge status={l.type}/><Badge status={l.category}/>
+                  {l.price&&<span style={{fontSize:11,color:"var(--gold2)",fontFamily:"var(--font-m)"}}>A${l.price.toLocaleString()}</span>}
+                  {(messages||[]).filter(m=>m.listingId===l.id).length>0&&<span style={{fontSize:10,background:"var(--blue)",color:"white",borderRadius:8,padding:"1px 6px",fontWeight:700}}>{(messages||[]).filter(m=>m.listingId===l.id).length} enquir{(messages||[]).filter(m=>m.listingId===l.id).length===1?"y":"ies"}</span>}
+                  {Math.floor((new Date()-new Date(l.created))/(1000*60*60*24))>=30&&<span style={{fontSize:10,background:"#f0c840",color:"#7a4010",borderRadius:8,padding:"1px 6px",fontWeight:700}}>⏰ Renewal needed</span>}
+                </Row>
               </div>
             ))}
           </Row>
@@ -3308,13 +3313,42 @@ function MarketplaceSection({ user, members, listings, setListings, cats, messag
             <div key={k}><span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.08em"}}>{k}: </span><span style={{color:"var(--text)"}}>{v}</span></div>
           ):null)}
         </div>
-        {view.hideContact
-          ?<ContactSeller listing={view} user={user} messages={messages} setMessages={setMessages}/>
+        {view.hideContact || true
+          ?<>{view.memberId!==user.id&&<ContactSeller listing={view} user={user} messages={messages} setMessages={setMessages}/>}</>
           :view.contact&&<div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",marginBottom:12,fontSize:13}}>
             <span style={{color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:9.5,textTransform:"uppercase",letterSpacing:"0.08em"}}>Contact: </span>
             <span style={{color:"var(--burg)",fontWeight:600}}>{view.contact}</span>
           </div>
         }
+        {/* Renewal prompt for poster */}
+        {view.memberId===user.id&&(()=>{
+          const daysSince=Math.floor((new Date()-new Date(view.created))/(1000*60*60*24));
+          if(daysSince<30)return null;
+          return(
+            <div style={{background:"#fff8e8",border:"1px solid #f0c840",borderRadius:8,padding:"12px 16px",marginBottom:12}}>
+              <div style={{fontWeight:700,fontSize:13,color:"#7a4010",marginBottom:6}}>⏰ This listing is {daysSince} days old</div>
+              <div style={{fontSize:12,color:"#7a4010",marginBottom:10}}>Is this item still available? Please renew or remove it to keep the marketplace current.</div>
+              <Row gap={8}>
+                <button onClick={async()=>{
+                  const u=listings.map(l=>l.id===view.id?{...l,created:today}:l);
+                  setListings(u);await dbSet(SK.listings,u);
+                  setView({...view,created:today});
+                }} style={{padding:"6px 16px",background:"var(--green)",color:"white",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600}}>✓ Still available — Renew</button>
+                <button onClick={()=>setModal({confirm:{msg:"Remove this listing?",fn:()=>del(view.id)}})} style={{padding:"6px 16px",background:"#fee2e2",color:"#dc2626",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600}}>Remove listing</button>
+              </Row>
+            </div>
+          );
+        })()}
+        {/* Enquiries count for poster */}
+        {view.memberId===user.id&&(()=>{
+          const enquiries=(messages||[]).filter(m=>m.listingId===view.id);
+          if(!enquiries.length)return null;
+          return(
+            <div style={{background:"#e8f0f8",border:"1px solid #90c0f0",borderRadius:8,padding:"10px 16px",marginBottom:12,fontSize:13,color:"#1a3a6a"}}>
+              <span style={{fontWeight:700}}>{enquiries.length} enquir{enquiries.length===1?"y":"ies"}</span> received for this listing. Check your messages to respond.
+            </div>
+          );
+        })()}
         {(user.role==="admin"||view.memberId===user.id)&&(
           <Row gap={8} justify="flex-end">
             <Btn variant="danger" size="sm" onClick={()=>setModal({confirm:{msg:"Delete listing?",fn:()=>del(view.id)}})}>Delete</Btn>
