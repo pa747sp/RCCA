@@ -1263,6 +1263,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   var spState=useState({}); var showPhotos=spState[0]; var setShowPhotos=spState[1];
   var vis=isAdmin?cars:cars.filter(function(c){return c.ownerId===user.id;});
   var sfState=useState(false); var showFilters=sfState[0]; var setShowFilters=sfState[1];
+  var vrState=useState(false); var showReport=vrState[0]; var setShowReport=vrState[1];
   var flState=useState({status:[],make:[],model:[],owner:[],hasPermit:false,yearFrom:"",yearTo:"",regSearch:""});
   var vFilters=flState[0]; var setVFilters=flState[1];
   var setVFilter=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=v;return n;});};
@@ -1305,7 +1306,113 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   }
   return (
     <div className="fade-up">
-      <SectionHeader title={isAdmin?"Vehicle Register":"My Vehicles"} subtitle={filtered.filter(function(c){return c.status==="active";}).length+" active Rovers"} action={<Btn onClick={openAdd}>+ Register Vehicle</Btn>}/>
+      <SectionHeader title={isAdmin?"Vehicle Register":"My Vehicles"} subtitle={filtered.filter(function(c){return c.status==="active";}).length+" active Rovers"} action={<Row gap={8}>{isAdmin&&<Btn variant="ghost" onClick={function(){setShowReport(function(r){return !r;});}}>📊 Reports</Btn>}<Btn onClick={openAdd}>+ Register Vehicle</Btn></Row>}/>
+      {isAdmin&&showReport&&(function(){
+        const yr=new Date().getFullYear();
+        const active=cars.filter(c=>c.status==="active");
+        // By model
+        const byModel={};
+        active.forEach(c=>{const k=`${c.make||"Unknown"} ${c.model||"Unknown"}`.trim();byModel[k]=(byModel[k]||0)+1;});
+        const modelRows=Object.entries(byModel).sort((a,b)=>b[1]-a[1]);
+        // By state
+        const byState={};
+        active.forEach(c=>{const m=members.find(x=>x.id===c.ownerId);const s=m?.state||"Unknown";byState[s]=(byState[s]||0)+1;});
+        const stateRows=Object.entries(byState).sort((a,b)=>b[1]-a[1]);
+        // By status
+        const statuses=["active","sold","destroyed"];
+        // Added this year
+        const addedThisYear=cars.filter(c=>c.registered&&c.registered.startsWith(String(yr))).length;
+        // Permit
+        const onPermit=cars.filter(c=>c.onPermit&&c.status==="active");
+        const permit45=onPermit.filter(c=>c.permitDays===45).length;
+        const permit90=onPermit.filter(c=>c.permitDays!==45).length;
+        return(
+          <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:20,marginBottom:20,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+              <div style={{fontFamily:"var(--font-d)",fontSize:18,fontWeight:700,color:"var(--burg)"}}>Vehicle Register Report</div>
+              <div style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>As at {new Date().toLocaleDateString("en-AU")}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:16}}>
+
+              {/* By Status */}
+              <div style={{background:"var(--bg3)",borderRadius:8,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:10,borderBottom:"1px solid var(--border)",paddingBottom:6}}>By Status</div>
+                {statuses.map(s=>{
+                  const count=cars.filter(c=>c.status===s).length;
+                  const col={active:"var(--green)",sold:"var(--blue)",destroyed:"var(--red2)"}[s]||"var(--text3)";
+                  return(<div key={s} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                    <span style={{fontSize:13,color:"var(--text2)",textTransform:"capitalize"}}>{s}</span>
+                    <span style={{fontWeight:700,fontSize:14,color:col}}>{count}</span>
+                  </div>);
+                })}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,paddingTop:8,borderTop:"1px solid var(--border)"}}>
+                  <span style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Total</span>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--burg)"}}>{cars.length}</span>
+                </div>
+              </div>
+
+              {/* Added this year */}
+              <div style={{background:"var(--bg3)",borderRadius:8,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:10,borderBottom:"1px solid var(--border)",paddingBottom:6}}>Registered This Year ({yr})</div>
+                <div style={{textAlign:"center",padding:"12px 0"}}>
+                  <div style={{fontSize:42,fontWeight:700,color:"var(--burg)"}}>{addedThisYear}</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4}}>new vehicles registered</div>
+                </div>
+              </div>
+
+              {/* Permit summary */}
+              <div style={{background:"var(--bg3)",borderRadius:8,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:10,borderBottom:"1px solid var(--border)",paddingBottom:6}}>Club Permit Scheme</div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:13,color:"var(--text2)"}}>On permit scheme</span>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--blue)"}}>{onPermit.length}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:13,color:"var(--text2)"}}>90 day permits</span>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{permit90}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+                  <span style={{fontSize:13,color:"var(--text2)"}}>45 day permits</span>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{permit45}</span>
+                </div>
+                <div style={{display:"flex",justifyContent:"space-between",marginTop:8,paddingTop:8,borderTop:"1px solid var(--border)"}}>
+                  <span style={{fontSize:13,color:"var(--text2)"}}>% of fleet on permit</span>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--burg)"}}>{cars.length?Math.round(onPermit.length/cars.length*100):0}%</span>
+                </div>
+              </div>
+
+              {/* By model */}
+              <div style={{background:"var(--bg3)",borderRadius:8,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:10,borderBottom:"1px solid var(--border)",paddingBottom:6}}>By Model (active)</div>
+                {modelRows.slice(0,8).map(([model,count])=>(
+                  <div key={model} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <span style={{fontSize:12,color:"var(--text2)"}}>{model}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{height:6,borderRadius:3,background:"var(--burg)",width:Math.round(count/modelRows[0][1]*60)+"px"}}/>
+                      <span style={{fontWeight:700,fontSize:13,color:"var(--text)",minWidth:16,textAlign:"right"}}>{count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* By state */}
+              <div style={{background:"var(--bg3)",borderRadius:8,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:10,borderBottom:"1px solid var(--border)",paddingBottom:6}}>By Owner State (active)</div>
+                {stateRows.map(([state,count])=>(
+                  <div key={state} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                    <span style={{fontSize:12,color:"var(--text2)"}}>{state}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{height:6,borderRadius:3,background:"var(--blue)",width:Math.round(count/stateRows[0][1]*60)+"px"}}/>
+                      <span style={{fontWeight:700,fontSize:13,color:"var(--text)",minWidth:16,textAlign:"right"}}>{count}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
       {isAdmin&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:20}}>
         <StatCard label="Total" value={cars.length}/>
         <StatCard label="Active" value={cars.filter(function(c){return c.status==="active";}).length} colour="var(--green2)"/>
@@ -10523,7 +10630,8 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
     const newTasks=selected.map(t=>({
       id:uid("TK"),title:`${event.title}: ${t.text}`,
       assignee:t.assignee||"",due:t.due||"",
-      priority:"Medium",status:"todo",
+      priority:"Medium",status:t.status==="completed"?"done":t.status==="in_progress"?"in_progress":"todo",
+      notes:t.notes||"",
       createdAt:new Date().toISOString(),
       eventId:event.id,workflow:true,
       riskPlan:risks
@@ -10559,16 +10667,31 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
                     <span style={{fontSize:13,fontWeight:t.checked?700:400,color:t.checked?"var(--burg)":"var(--text)"}}>{t.text}</span>
                   </div>
                   {t.checked&&(
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginLeft:26}}>
-                      <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Assign to</label>
-                      <select value={t.assignee} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,assignee:e.target.value}:w))}
-                        style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}>
-                        <option value="">Unassigned</option>
-                        {(members||[]).filter(m=>m.status==="active").map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-                      </select></div>
-                      <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Due date</label>
-                      <input type="date" value={t.due} min={today} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,due:e.target.value}:w))}
-                        style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}/></div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8,marginLeft:26}}>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                        <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Assign to</label>
+                        <select value={t.assignee} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,assignee:e.target.value}:w))}
+                          style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}>
+                          <option value="">Unassigned</option>
+                          {(members||[]).filter(m=>m.status==="active").map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                        </select></div>
+                        <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Due date</label>
+                        <input type="date" value={t.due} min={today} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,due:e.target.value}:w))}
+                          style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12}}/></div>
+                        <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Status</label>
+                        <select value={t.status||"not_started"} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,status:e.target.value}:w))}
+                          style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,
+                            color:{not_started:"var(--text3)",in_progress:"#1a4a7a",stalled:"#dc2626",completed:"var(--green)"}[t.status||"not_started"]}}>
+                          <option value="not_started">Not Started</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="stalled">Stalled</option>
+                          <option value="completed">Completed</option>
+                        </select></div>
+                      </div>
+                      <div><label style={{fontSize:11,color:"var(--text3)",display:"block",marginBottom:3}}>Notes</label>
+                      <textarea value={t.notes||""} onChange={e=>setWfTasks(wfTasks.map(w=>w.id===t.id?{...w,notes:e.target.value}:w))}
+                        placeholder="Add any notes, updates or instructions for this task…"
+                        rows={2} style={{width:"100%",padding:"5px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:12,resize:"vertical",boxSizing:"border-box",lineHeight:1.5}}/></div>
                     </div>
                   )}
                 </div>
