@@ -773,9 +773,10 @@ function Sidebar({ user, tab, setTab, onLogout, notifs={} }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-function Dashboard({ user, members, setMembers, cars, dues, meetings, events, tasks, rsvps, listings, messages, books, setTab, points, setPoints }) {
+function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, events, tasks, rsvps, listings, messages, books, setTab, points, setPoints }) {
   const isAdmin=user.role==="admin";
   const MILESTONES=[1,2,5,10,15,20,25,30,50,75];
+  const VEHICLE_MILESTONES=[25,50,75,100,125,150];
   const thisYear=new Date().getFullYear();
 
   function getMemberMilestone(m) {
@@ -786,9 +787,20 @@ function Dashboard({ user, members, setMembers, cars, dues, meetings, events, ta
     return null;
   }
 
+  function getVehicleMilestone(c) {
+    if(!c.year)return null;
+    const age=thisYear-Number(c.year);
+    if(VEHICLE_MILESTONES.includes(age))return age;
+    return null;
+  }
+
   const milestoneMembers=(members||[]).filter(m=>m.status==="active"&&getMemberMilestone(m)!==null)
     .map(m=>({...m,milestoneYears:getMemberMilestone(m)}))
     .sort((a,b)=>b.milestoneYears-a.milestoneYears);
+
+  const milestoneCars=(cars||[]).filter(c=>c.status==="active"&&getVehicleMilestone(c)!==null)
+    .map(c=>({...c,milestoneAge:getVehicleMilestone(c)}))
+    .sort((a,b)=>b.milestoneAge-a.milestoneAge);
 
   // Auto-award milestone points if not already awarded this year
   React.useEffect(()=>{
@@ -796,17 +808,25 @@ function Dashboard({ user, members, setMembers, cars, dues, meetings, events, ta
     const milestoneKey=(memberId,years)=>`milestone-${memberId}-${years}-${thisYear}`;
     const existingKeys=new Set((points||[]).map(p=>p.milestoneKey).filter(Boolean));
     const toAward=milestoneMembers.filter(m=>!existingKeys.has(milestoneKey(m.id,m.milestoneYears)));
-    if(!toAward.length)return;
+
+    // Also award for vehicle milestones
+    const vMilestoneKey=(carId,age)=>`vmilestone-${carId}-${age}-${thisYear}`;
+    const toAwardV=milestoneCars.filter(c=>{
+      const owner=(members||[]).find(m=>m.id===c.ownerId);
+      return owner&&!existingKeys.has(vMilestoneKey(c.id,c.milestoneAge));
+    });
+
+    if(!toAward.length&&!toAwardV.length)return;
     const ptAmt=(yrs)=>yrs>=50?500:yrs>=25?250:yrs>=10?100:yrs>=5?50:25;
-    const newPts=toAward.map(m=>({
-      id:uid("PT"),memberId:m.id,points:ptAmt(m.milestoneYears),
-      reason:`${m.milestoneYears}-year membership milestone`,
-      date:new Date().toISOString().slice(0,10),
-      awardedBy:"System",milestoneKey:milestoneKey(m.id,m.milestoneYears)
-    }));
+    const vPtAmt=(age)=>age>=100?500:age>=75?250:age>=50?100:50;
+    const newPts=[
+      ...toAward.map(m=>({id:uid("PT"),memberId:m.id,points:ptAmt(m.milestoneYears),reason:`${m.milestoneYears}-year membership milestone`,date:new Date().toISOString().slice(0,10),awardedBy:"System",milestoneKey:milestoneKey(m.id,m.milestoneYears)})),
+      ...toAwardV.map(c=>({id:uid("PT"),memberId:c.ownerId,points:vPtAmt(c.milestoneAge),reason:`${c.make} ${c.model} ${c.year} — ${c.milestoneAge}-year vehicle anniversary`,date:new Date().toISOString().slice(0,10),awardedBy:"System",milestoneKey:vMilestoneKey(c.id,c.milestoneAge)}))
+    ];
+    if(!newPts.length)return;
     const updated=[...(points||[]),...newPts];
     setPoints(updated);dbSet(SK.points,updated);
-  },[milestoneMembers.length]);
+  },[milestoneMembers.length,milestoneCars.length]);
 
   const overdue=(dues||[]).filter(d=>d.year===yr&&!d.paid);
   const upcoming=[...meetings,...events].filter(e=>e.status==="upcoming").sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
@@ -993,6 +1013,40 @@ function Dashboard({ user, members, setMembers, cars, dues, meetings, events, ta
               );
             })}
             <Btn variant="ghost" size="sm" style={{marginTop:8}} onClick={()=>setTab("members")}>View All Members →</Btn>
+          </Card>
+        )}
+
+        {/* ── Vehicle Anniversaries ─────────────────────────────── */}
+        {isAdmin&&milestoneCars.length>0&&(
+          <Card style={{padding:20,borderColor:"var(--blue)",borderTop:"3px solid var(--blue)"}}>
+            <Row align="center" gap={8} style={{marginBottom:14}}>
+              <span style={{fontSize:20}}>🚗</span>
+              <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--blue)",fontWeight:700}}>Vehicle Anniversaries — {thisYear}</div>
+              <span style={{background:"var(--blue)",color:"white",borderRadius:10,padding:"1px 8px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700}}>{milestoneCars.length}</span>
+            </Row>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These Rovers reach a significant anniversary this year. Consider a feature in Viking Torque.</div>
+            {milestoneCars.map(c=>{
+              const owner=(members||[]).find(m=>m.id===c.ownerId);
+              const ageColour=c.milestoneAge>=100?"#8B4513":c.milestoneAge>=75?"#c9922a":c.milestoneAge>=50?"#888":"var(--blue)";
+              return(
+                <div key={c.id} style={{padding:"10px 12px",background:"var(--bg3)",borderRadius:6,marginBottom:8,borderLeft:`3px solid ${ageColour}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{c.year} {c.make} {c.model}</div>
+                    <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:2}}>Owner: {owner?.name||"Unknown"}{c.reg?` · ${c.reg}`:""}</div>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:22,fontWeight:700,color:ageColour,fontFamily:"var(--font-d)"}}>{c.milestoneAge}</div>
+                    <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--font-m)"}}>years old</div>
+                    {!c.vtFlaggedV&&<button onClick={async()=>{
+                      const updated=(cars||[]).map(x=>x.id===c.id?{...x,vtFlaggedV:true,vtFlaggedVYear:thisYear}:x);
+                      if(typeof setCars==="function"){setCars(updated);await dbSet(SK.cars,updated);}
+                    }} style={{marginTop:4,fontSize:9,background:"var(--gold)",color:"white",border:"none",borderRadius:4,padding:"2px 7px",cursor:"pointer",fontWeight:700,fontFamily:"var(--font-m)"}}>📰 Flag for VT</button>}
+                    {c.vtFlaggedV&&c.vtFlaggedVYear===thisYear&&<span style={{marginTop:4,display:"block",fontSize:9,color:"var(--gold2)",fontFamily:"var(--font-m)",fontWeight:700}}>✓ Flagged for VT</span>}
+                  </div>
+                </div>
+              );
+            })}
+            <Btn variant="ghost" size="sm" style={{marginTop:8}} onClick={()=>setTab("cars")}>View Vehicle Register →</Btn>
           </Card>
         )}
 
@@ -1560,7 +1614,10 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
                     <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700}}>{c.year} {c.make}</div>
                     <div style={{fontSize:13,color:"var(--burg)"}}>{c.model}</div>
                   </div>
-                  <Badge status={c.status}/>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
+                    <Badge status={c.status}/>
+                    {(()=>{const age=new Date().getFullYear()-Number(c.year);const vm=[25,50,75,100,125,150];return vm.includes(age)?<span style={{fontSize:9,background:"#e8f4ff",color:"var(--blue)",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700}}>🚗 {age}yr{c.vtFlaggedV?" 📰":""}</span>:null;})()}
+                  </div>
                 </Row>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 8px",fontSize:11,marginBottom:10}}>
                   {[["Rego",c.reg],["Colour",c.colour],["Owner",ownerName(c.ownerId)],["Chassis",c.chassis||"n/a"]].map(function(pair){
@@ -9667,9 +9724,10 @@ function PointsAwardsSection({user,members,points,setPoints}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("leaderboard");
   const [showAward,setShowAward]=React.useState(false);
+  const [selectedMember,setSelectedMember]=React.useState(null);
   const [form,setForm]=React.useState({memberId:"",category:"Attendance",points:1,reason:"",event:""});
 
-  const cats=["Attendance","Concours","Competitive Event","Club Service","Drive Participation","Show Entry","Special Award","Volunteer","Archivist"];
+  const cats=["Attendance","Concours","Competitive Event","Club Service","Drive Participation","Show Entry","Special Award","Volunteer","Archivist","Milestone"];
 
   const save=async(pts)=>{setPoints(pts);await dbSet(SK.points,pts);};
 
@@ -9699,8 +9757,8 @@ function PointsAwardsSection({user,members,points,setPoints}) {
           <div style={{fontSize:13,color:"var(--text3)"}}>Member recognition and club participation scoring </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          {["leaderboard","my points"].map(v=>(
-            <button key={v} onClick={()=>setView(v)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize"}}>{v}</button>
+          {["leaderboard","my points",...(isAdmin?["all awards"]:[])].map(v=>(
+            <button key={v} onClick={()=>{setView(v);setSelectedMember(null);}} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--burg)",background:view===v?"var(--burg)":"white",color:view===v?"white":"var(--burg)",cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize"}}>{v}</button>
           ))}
           {isAdmin&&<button onClick={()=>setShowAward(true)} style={{padding:"6px 14px",borderRadius:6,border:"none",background:"var(--burg)",color:"white",cursor:"pointer",fontSize:12,fontWeight:700}}>+ Award Points</button>}
         </div>
@@ -9723,22 +9781,68 @@ function PointsAwardsSection({user,members,points,setPoints}) {
 
       {view==="leaderboard"&&(
         <div>
+          {selectedMember?(()=>{
+            const m=memberTotals.find(x=>x.id===selectedMember);
+            if(!m)return null;
+            const sorted=[...m.entries].sort((a,b)=>new Date(b.date)-new Date(a.date));
+            const byCat={};m.entries.forEach(p=>{const c=p.category||"Other";byCat[c]=(byCat[c]||0)+(parseInt(p.points)||0);});
+            const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+            const max=catList[0]?.[1]||1;
+            return(
+              <div>
+                <button onClick={()=>setSelectedMember(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--blue)",fontSize:13,padding:"0 0 12px",display:"flex",alignItems:"center",gap:4,fontFamily:"var(--font-b)"}}>← Back to Leaderboard</button>
+                <div style={{background:"white",borderRadius:10,border:"1px solid var(--border)",padding:"16px 20px",marginBottom:16}}>
+                  <Row justify="space-between" align="center">
+                    <div>
+                      <div style={{fontFamily:"var(--font-d)",fontSize:18,fontWeight:700,color:"var(--text)"}}>{m.name}</div>
+                      <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{m.entries.length} award{m.entries.length!==1?"s":""}</div>
+                    </div>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:36,fontWeight:700,color:"var(--burg)"}}>{m.total}</div>
+                  </Row>
+                  {catList.length>1&&<div style={{marginTop:12,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                    <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>Points by Category</div>
+                    {catList.map(([cat,val])=>(
+                      <div key={cat} style={{marginBottom:6}}>
+                        <Row justify="space-between" style={{marginBottom:3,fontSize:12}}><span>{cat}</span><span style={{fontWeight:700,color:"var(--burg)"}}>{val}</span></Row>
+                        <div style={{height:6,background:"var(--bg3)",borderRadius:3}}><div style={{height:6,borderRadius:3,background:"var(--burg)",width:(val/max*100)+"%"}}/></div>
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {sorted.map(p=>(
+                    <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:2}}>{p.reason}</div>
+                        <div style={{fontSize:11,color:"var(--text3)"}}>{p.category} · {p.date?new Date(p.date).toLocaleDateString("en-AU"):""} · Awarded by {p.awardedBy}</div>
+                      </div>
+                      <div style={{fontWeight:700,fontSize:18,color:"var(--burg)",flexShrink:0}}>+{p.points}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })():(
+          <>
           <h3 style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--burg)",marginBottom:12}}>Club Leaderboard</h3>
           {memberTotals.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No points awarded yet. Admins can award points from the button above.</div>}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {memberTotals.map((m,i)=>(
-              <div key={m.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",alignItems:"center",gap:14}}>
+              <div key={m.id} onClick={()=>setSelectedMember(m.id)} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer"}} className="hover-lift">
                 <div style={{width:36,height:36,borderRadius:"50%",background:i===0?"#c9922a":i===1?"#aaa":i===2?"#b06010":"var(--bg3)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:i<3?"white":"var(--text3)",fontSize:14,flexShrink:0}}>
                   {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
                 </div>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{m.name}</div>
-                  <div style={{fontSize:12,color:"var(--text3)"}}>{m.entries.length} award{m.entries.length!==1?"s":""}</div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{m.entries.length} award{m.entries.length!==1?"s":""} · click to see history</div>
                 </div>
                 <div style={{fontWeight:700,fontSize:20,color:"var(--burg)"}}>{m.total}</div>
+                <span style={{color:"var(--text3)",fontSize:16}}>›</span>
               </div>
             ))}
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -9751,11 +9855,33 @@ function PointsAwardsSection({user,members,points,setPoints}) {
               <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:2}}>{p.reason}</div>
-                  <div style={{fontSize:11,color:"var(--text3)"}}>{p.category}{p.event?` · ${p.event}`:""} · {new Date(p.date).toLocaleDateString('en-AU')} · Awarded by {p.awardedBy}</div>
+                  <div style={{fontSize:11,color:"var(--text3)"}}>{p.category}{p.event?` · ${p.event}`:""} · {p.date?new Date(p.date).toLocaleDateString("en-AU"):""} · Awarded by {p.awardedBy}</div>
                 </div>
                 <div style={{fontWeight:700,fontSize:18,color:"var(--burg)",flexShrink:0}}>+{p.points}</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {view==="all awards"&&isAdmin&&(
+        <div>
+          <h3 style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--burg)",marginBottom:12}}>All Awards — {pts.length} total</h3>
+          {pts.length===0&&<div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>No points awarded yet.</div>}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {[...pts].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(p=>{
+              const m=(members||[]).find(x=>x.id===p.memberId);
+              return(
+                <div key={p.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+                  <div style={{flex:1}}>
+                    {m&&<div style={{fontSize:11,color:"var(--blue)",fontWeight:600,marginBottom:2}}>{m.name}</div>}
+                    <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:2}}>{p.reason}</div>
+                    <div style={{fontSize:11,color:"var(--text3)"}}>{p.category} · {p.date?new Date(p.date).toLocaleDateString("en-AU"):""} · Awarded by {p.awardedBy}</div>
+                  </div>
+                  <div style={{fontWeight:700,fontSize:18,color:"var(--burg)",flexShrink:0}}>+{p.points}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
