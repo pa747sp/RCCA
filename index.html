@@ -6554,7 +6554,8 @@ function App() {
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
       setCars(toArr(c).length?c:SEED_CARS); setTransfers(toArr(tr)); setMeetings(toArr(mt).length?mt:SEED_MEETINGS);
       setEvents(toArr(ev).length?ev:SEED_EVENTS); setTasks(toArr(tk).length?tk:SEED_TASKS); setDues(toArr(d).length?d:SEED_DUES);
-      setRsvps(toArr(r)); setListings(toArr(li).length?li:SEED_LISTINGS); setMessages(toArr(msg));
+      const fixedListings=(toArr(li).length?li:SEED_LISTINGS).map(l=>({...l,images:Array.isArray(l.images)?l.images:[]}));
+      setListings(fixedListings); setMessages(toArr(msg));
       const fixedSi=toArr(si).length?si.map(s=>s.partId&&s.status!=="active"?{...s,status:"active"}:s):SEED_SHOP;
       setShopItems(fixedSi); setOrders(toArr(or)); setNews(toArr(nw).length?nw:SEED_NEWS);
       setSiteContent(sc||DEFAULT_SITE_CONTENT);
