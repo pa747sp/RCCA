@@ -773,8 +773,41 @@ function Sidebar({ user, tab, setTab, onLogout, notifs={} }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD
 // ══════════════════════════════════════════════════════════════════════════════
-function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, listings, messages, books, setTab }) {
+function Dashboard({ user, members, setMembers, cars, dues, meetings, events, tasks, rsvps, listings, messages, books, setTab, points, setPoints }) {
   const isAdmin=user.role==="admin";
+  const MILESTONES=[1,2,5,10,15,20,25,30,50,75];
+  const thisYear=new Date().getFullYear();
+
+  function getMemberMilestone(m) {
+    if(!m.joined)return null;
+    const joinYear=new Date(m.joined).getFullYear();
+    const years=thisYear-joinYear;
+    if(MILESTONES.includes(years))return years;
+    return null;
+  }
+
+  const milestoneMembers=(members||[]).filter(m=>m.status==="active"&&getMemberMilestone(m)!==null)
+    .map(m=>({...m,milestoneYears:getMemberMilestone(m)}))
+    .sort((a,b)=>b.milestoneYears-a.milestoneYears);
+
+  // Auto-award milestone points if not already awarded this year
+  React.useEffect(()=>{
+    if(!isAdmin||!points||!setPoints)return;
+    const milestoneKey=(memberId,years)=>`milestone-${memberId}-${years}-${thisYear}`;
+    const existingKeys=new Set((points||[]).map(p=>p.milestoneKey).filter(Boolean));
+    const toAward=milestoneMembers.filter(m=>!existingKeys.has(milestoneKey(m.id,m.milestoneYears)));
+    if(!toAward.length)return;
+    const ptAmt=(yrs)=>yrs>=50?500:yrs>=25?250:yrs>=10?100:yrs>=5?50:25;
+    const newPts=toAward.map(m=>({
+      id:uid("PT"),memberId:m.id,points:ptAmt(m.milestoneYears),
+      reason:`${m.milestoneYears}-year membership milestone`,
+      date:new Date().toISOString().slice(0,10),
+      awardedBy:"System",milestoneKey:milestoneKey(m.id,m.milestoneYears)
+    }));
+    const updated=[...(points||[]),...newPts];
+    setPoints(updated);dbSet(SK.points,updated);
+  },[milestoneMembers.length]);
+
   const overdue=(dues||[]).filter(d=>d.year===yr&&!d.paid);
   const upcoming=[...meetings,...events].filter(e=>e.status==="upcoming").sort((a,b)=>a.date.localeCompare(b.date)).slice(0,4);
   const myTasks=(tasks||[]).filter(t=>t.assigneeId===user.id&&t.status!=="done");
@@ -923,6 +956,45 @@ function Dashboard({ user, members, cars, dues, meetings, events, tasks, rsvps, 
           {listings.filter(l=>l.status==="active").length===0 && <EmptyState icon="⟳" text="No active listings"/>}
           <Btn variant="outline" size="sm" style={{marginTop:8}} onClick={()=>setTab("marketplace")}>View All Listings →</Btn>
         </Card>
+
+        {/* ── Membership Milestones ─────────────────────────────── */}
+        {isAdmin&&milestoneMembers.length>0&&(
+          <Card style={{padding:20,borderColor:"var(--gold)",borderTop:"3px solid var(--gold)"}}>
+            <Row align="center" gap={8} style={{marginBottom:14}}>
+              <span style={{fontSize:20}}>🏅</span>
+              <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--gold2)",fontWeight:700}}>Membership Milestones — {thisYear}</div>
+              <span style={{background:"var(--gold)",color:"white",borderRadius:10,padding:"1px 8px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700}}>{milestoneMembers.length}</span>
+            </Row>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These members reach a milestone anniversary this year. Consider a mention in Viking Torque and an award at the AGM.</div>
+            {milestoneMembers.map(m=>{
+              const medalColour=m.milestoneYears>=50?"#c9922a":m.milestoneYears>=25?"#888":m.milestoneYears>=10?"#c07820":"var(--burg)";
+              const medal=m.milestoneYears>=50?"🏆":m.milestoneYears>=25?"🥇":m.milestoneYears>=10?"🥈":"🥉";
+              return(
+                <div key={m.id} style={{padding:"10px 12px",background:"var(--bg3)",borderRadius:6,marginBottom:8,borderLeft:`3px solid ${medalColour}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                  <div style={{flex:1}}>
+                    <Row gap={8} align="center">
+                      <span style={{fontSize:16}}>{medal}</span>
+                      <div>
+                        <div style={{fontWeight:700,fontSize:13,color:"var(--text)"}}>{m.name}</div>
+                        <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:2}}>Member since {new Date(m.joined).getFullYear()} · {m.memberNumber?"#"+m.memberNumber:""}</div>
+                      </div>
+                    </Row>
+                  </div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:22,fontWeight:700,color:medalColour,fontFamily:"var(--font-d)"}}>{m.milestoneYears}</div>
+                    <div style={{fontSize:10,color:"var(--text3)",fontFamily:"var(--font-m)"}}>years</div>
+                    {!m.vtFlagged&&<button onClick={async()=>{
+                      const updated=(members||[]).map(x=>x.id===m.id?{...x,vtFlagged:true,vtFlaggedYear:thisYear}:x);
+                      setMembers(updated);await dbSet(SK.members,updated);
+                    }} style={{marginTop:4,fontSize:9,background:"var(--gold)",color:"white",border:"none",borderRadius:4,padding:"2px 7px",cursor:"pointer",fontWeight:700,fontFamily:"var(--font-m)"}}>📰 Flag for VT</button>}
+                    {m.vtFlagged&&m.vtFlaggedYear===thisYear&&<span style={{marginTop:4,display:"block",fontSize:9,color:"var(--gold2)",fontFamily:"var(--font-m)",fontWeight:700}}>✓ Flagged for VT</span>}
+                  </div>
+                </div>
+              );
+            })}
+            <Btn variant="ghost" size="sm" style={{marginTop:8}} onClick={()=>setTab("members")}>View All Members →</Btn>
+          </Card>
+        )}
 
         {isAdmin && overdue.length>0 ? (
           <Card style={{padding:20,borderColor:"var(--burg2)"}}>
@@ -1131,7 +1203,7 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
                 <td style={{padding:"9px 12px"}}><Badge status={m.role}/></td>
                 <td style={{padding:"9px 12px"}}>{d?<Badge status={d.paid?"paid":"overdue"} label={d.paid?"PAID":"OVERDUE"}/>:"—"}</td>
                 <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",color:"var(--text2)"}}>{mCars(m.id)}</td>
-                <td style={{padding:"9px 12px"}}><Badge status={m.status}/>{m.noDigital&&<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>✉ POST</span>}</td>
+                <td style={{padding:"9px 12px"}}><Badge status={m.status}/>{m.noDigital&&<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>✉ POST</span>}{(()=>{const yrs=m.joined?new Date().getFullYear()-new Date(m.joined).getFullYear():null;const ms=[1,2,5,10,15,20,25,30,50,75];return yrs&&ms.includes(yrs)?<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#fff8e0",color:"#7a5010",border:"1px solid #f0c840",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>🏅 {yrs}yr{m.vtFlagged&&m.vtFlaggedYear===new Date().getFullYear()?" 📰":""}</span>:null;})()}</td>
                 <td style={{padding:"9px 12px"}}>
                   <Row gap={5} wrap>
                     <Btn variant="ghost" size="sm" onClick={()=>openEdit(m)}>Edit</Btn>
