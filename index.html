@@ -2979,6 +2979,7 @@ function ListingGallery({ images }) {
 // Resizes photos to max 900px wide, JPEG @ 0.72 quality ≈ 80-130KB each
 // 5 photos × ~110KB ≈ 550KB max per listing — reasonable for storage
 function ListingPhotoUploader({ photos, onChange }) {
+  const safePhotos = Array.isArray(photos) ? photos : [];
   const MAX = 5;
   const MAX_PX = 900;   // max dimension in pixels
   const QUALITY = 0.72; // JPEG quality — good balance of size vs clarity
@@ -3012,7 +3013,7 @@ function ListingPhotoUploader({ photos, onChange }) {
   }
 
   async function handleFiles(files) {
-    const remaining = MAX - photos.length;
+    const remaining = MAX - safePhotos.length;
     if (remaining <= 0) return;
     const toProcess = Array.from(files).slice(0, remaining);
     setProcessing(true);
@@ -3022,10 +3023,10 @@ function ListingPhotoUploader({ photos, onChange }) {
       try { results.push(await resizeAndEncode(f)); } catch(e) {}
     }
     setProcessing(false);
-    if (results.length) onChange([...photos, ...results]);
+    if (results.length) onChange([...safePhotos, ...results]);
   }
 
-  function remove(id) { onChange(photos.filter(p => p.id !== id)); }
+  function remove(id) { onChange(safePhotos.filter(p => p.id !== id)); }
   function move(i, dir) {
     const a = [...photos]; const j = i + dir;
     if (j < 0 || j >= a.length) return;
@@ -3035,9 +3036,9 @@ function ListingPhotoUploader({ photos, onChange }) {
   return (
     <div>
       {/* Thumbnails */}
-      {photos.length > 0 && (
+      {safePhotos.length > 0 && (
         <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:6, marginBottom:10 }}>
-          {photos.map((p,i) => (
+          {safePhotos.map((p,i) => (
             <div key={p.id} style={{ position:"relative", aspectRatio:"4/3", borderRadius:6, overflow:"hidden", border:"2px solid var(--border)", cursor:"pointer" }}
               onClick={() => setLightbox(i)}>
               <img src={p.url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
@@ -3054,14 +3055,14 @@ function ListingPhotoUploader({ photos, onChange }) {
                 onClick={e=>e.stopPropagation()}>
                 {i > 0 && <button onClick={()=>move(i,-1)} title="Move left"
                   style={{ background:"rgba(0,0,0,.6)", border:"none", color:"#fff", width:14, height:14, borderRadius:2, cursor:"pointer", fontSize:9, padding:0 }}>‹</button>}
-                {i < photos.length-1 && <button onClick={()=>move(i,1)} title="Move right"
+                {i < safePhotos.length-1 && <button onClick={()=>move(i,1)} title="Move right"
                   style={{ background:"rgba(0,0,0,.6)", border:"none", color:"#fff", width:14, height:14, borderRadius:2, cursor:"pointer", fontSize:9, padding:0 }}>›</button>}
               </div>
               <div style={{ position:"absolute", bottom:2, right:2, background:"rgba(0,0,0,.55)", color:"#fff", fontSize:8, fontFamily:"var(--font-m)", padding:"1px 4px", borderRadius:2 }}>{p.size}KB</div>
             </div>
           ))}
           {/* Empty slots */}
-          {Array.from({length: MAX - photos.length}).map((_,i) => (
+          {Array.from({length: MAX - safePhotos.length}).map((_,i) => (
             <div key={"e"+i} style={{ aspectRatio:"4/3", borderRadius:6, border:"2px dashed var(--border2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", background:"var(--bg3)" }}
               onClick={() => inputRef.current?.click()}>
               <span style={{ fontSize:20, opacity:0.3 }}>+</span>
@@ -3071,7 +3072,7 @@ function ListingPhotoUploader({ photos, onChange }) {
       )}
 
       {/* Drop zone (only shown when no photos yet) */}
-      {photos.length === 0 && (
+      {safePhotos.length === 0 && (
         <div style={{ border:"2px dashed var(--border2)", borderRadius:8, padding:"24px 16px", textAlign:"center", background:"var(--bg3)", cursor:"pointer", marginBottom:8 }}
           onClick={() => inputRef.current?.click()}
           onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--gold)";}}
@@ -3084,9 +3085,9 @@ function ListingPhotoUploader({ photos, onChange }) {
       )}
 
       {/* Add more button when there are some but not max */}
-      {photos.length > 0 && photos.length < MAX && (
+      {safePhotos.length > 0 && safePhotos.length < MAX && (
         <button onClick={() => inputRef.current?.click()} style={{ background:"none", border:"1px dashed var(--border2)", borderRadius:6, padding:"5px 14px", fontSize:11, color:"var(--text3)", fontFamily:"var(--font-m)", cursor:"pointer", marginBottom:4 }}>
-          {processing ? "Processing…" : `+ Add more (${MAX - photos.length} remaining)`}
+          {processing ? "Processing…" : `+ Add more (${MAX - safePhotos.length} remaining)`}
         </button>
       )}
       {processing && <div style={{ fontSize:11, color:"var(--gold)", fontFamily:"var(--font-m)", marginTop:4 }}>⟳ Resizing photos…</div>}
@@ -3100,11 +3101,11 @@ function ListingPhotoUploader({ photos, onChange }) {
           onClick={() => setLightbox(null)}>
           <div style={{ maxWidth:"90vw", textAlign:"center" }} onClick={e=>e.stopPropagation()}>
             <img src={photos[lightbox].url} alt="" style={{ maxHeight:"82vh", maxWidth:"88vw", objectFit:"contain", borderRadius:8 }}/>
-            <div style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:6, fontFamily:"var(--font-m)" }}>{lightbox+1} / {photos.length} · {photos[lightbox].size}KB</div>
+            <div style={{ color:"rgba(255,255,255,.5)", fontSize:11, marginTop:6, fontFamily:"var(--font-m)" }}>{lightbox+1} / {safePhotos.length} · {photos[lightbox].size}KB</div>
             <div style={{ display:"flex", gap:16, justifyContent:"center", marginTop:10 }}>
               {lightbox > 0 && <button onClick={()=>setLightbox(lightbox-1)}
                 style={{ background:"rgba(255,255,255,.2)", border:"none", color:"#fff", padding:"8px 22px", borderRadius:6, cursor:"pointer", fontSize:14 }}>‹ Prev</button>}
-              {lightbox < photos.length-1 && <button onClick={()=>setLightbox(lightbox+1)}
+              {lightbox < safePhotos.length-1 && <button onClick={()=>setLightbox(lightbox+1)}
                 style={{ background:"rgba(255,255,255,.2)", border:"none", color:"#fff", padding:"8px 22px", borderRadius:6, cursor:"pointer", fontSize:14 }}>Next ›</button>}
             </div>
           </div>
@@ -3407,7 +3408,7 @@ function MarketplaceSection({ user, members, listings, setListings, cats, messag
         </div>
         <Field label="Negotiable?"><Select value={form.negotiable?"yes":"no"} onChange={e=>setForm({...form,negotiable:e.target.value==="yes"})}><option value="no">Fixed Price</option><option value="yes">Negotiable / ONO</option></Select></Field>
         <Field label="Photos (up to 5)">
-          <ListingPhotoUploader photos={form.images||[]} onChange={imgs=>setForm({...form,images:imgs})}/>
+          <ListingPhotoUploader photos={Array.isArray(form.images)?form.images:[]} onChange={imgs=>setForm({...form,images:imgs})}/>
         </Field>
         <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSave}>Post Listing</Btn></Row>
       </Modal>}
@@ -4813,7 +4814,7 @@ function PublicMarketplace({ listings, setListings, members, user, onLoginClick 
           </div>
           <div style={secSt}>
             <div style={secHead}>Photos <span style={{fontSize:13,fontWeight:400,color:"var(--text3)"}}>— up to 5</span></div>
-            <ListingPhotoUploader photos={form.images||[]} onChange={imgs=>fld("images",imgs)}/>
+            <ListingPhotoUploader photos={Array.isArray(form.images)?form.images:[]} onChange={imgs=>fld("images",imgs)}/>
           </div>
           {Object.keys(errors).length>0&&<div style={{background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:8,padding:14,marginBottom:20,fontSize:13,color:"#8f1a1a"}}>Please fix the errors above before submitting.</div>}
           <button onClick={handleSubmit} disabled={processing} style={{width:"100%",background:"var(--burg)",border:"none",borderRadius:8,padding:14,color:"#fff",fontFamily:"var(--font-b)",fontSize:16,fontWeight:700,cursor:"pointer",opacity:processing?.7:1}}>
