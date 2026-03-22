@@ -107,6 +107,7 @@ const SK = {
   permits:"rcca:permits", tripLogs:"rcca:tripLogs",
   categories:"rcca:categories", messages:"rcca:messages",
   checkins:"rcca:checkins",
+  contacts:"rcca:contacts",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -648,14 +649,6 @@ function LoginScreen({ members, onLogin }) {
       <div style={{width:"100%",maxWidth:420,padding:24}} className="fade-up">
         {/* Header emblem */}
         <div style={{textAlign:"center",marginBottom:36}}>
-          <div style={{
-            width:90,height:90,borderRadius:"50%",margin:"0 auto 16px",
-            border:"3px solid var(--gold)",overflow:"hidden",
-            boxShadow:"0 0 40px rgba(201,146,42,.2)",
-            display:"flex",alignItems:"center",justifyContent:"center"
-          }}>
-            <RccaLogo size={70}/>
-          </div>
           <h1 style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--gold3)",margin:"0 0 4px",lineHeight:1.2}}>
             Rover Car Club
           </h1>
@@ -3818,6 +3811,73 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 </script>
 
 <script type="text/babel" data-presets="react">
+// ── PAYEE SEARCH ─────────────────────────────────────────────────────────────
+function PayeeSearch({members,contacts,setContacts,onSelect}) {
+  const [query,setQuery]=React.useState("");
+  const [showNew,setShowNew]=React.useState(false);
+  const [newForm,setNewForm]=React.useState({name:"",category:"Supplier",email:"",phone:""});
+
+  const memberResults=(members||[]).filter(m=>m.status==="active"&&(m.name.toLowerCase().includes(query.toLowerCase())||( m.email&&m.email.toLowerCase().includes(query.toLowerCase())))).slice(0,5);
+  const contactResults=(contacts||[]).filter(c=>c.active!==false&&(c.name.toLowerCase().includes(query.toLowerCase())||(c.contactPerson&&c.contactPerson.toLowerCase().includes(query.toLowerCase()))||(c.email&&c.email.toLowerCase().includes(query.toLowerCase())))).slice(0,5);
+  const hasResults=memberResults.length>0||contactResults.length>0;
+  const showDropdown=query.length>0;
+
+  async function createAndSelect(){
+    if(!newForm.name.trim())return alert("Name required.");
+    const nc={...newForm,id:uid("CT"),createdAt:new Date().toISOString(),active:true};
+    const updated=[...(contacts||[]),nc];
+    setContacts(updated);await dbSet(SK.contacts,updated);
+    onSelect({name:nc.name,email:nc.email||""});
+    setQuery(nc.name);setShowNew(false);
+  }
+
+  return(
+    <div style={{position:"relative"}}>
+      <Input value={query} onChange={e=>{setQuery(e.target.value);setShowNew(false);}} placeholder="Type name to search members or contacts…"/>
+      {showDropdown&&(
+        <div style={{position:"absolute",top:"100%",left:0,right:0,background:"white",border:"1px solid var(--border)",borderRadius:6,zIndex:200,boxShadow:"0 4px 16px rgba(0,0,0,.12)",maxHeight:260,overflowY:"auto"}}>
+          {memberResults.length>0&&<div style={{padding:"6px 12px",fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:"1px solid var(--border)"}}>Members</div>}
+          {memberResults.map(m=>(
+            <button key={m.id} onClick={()=>{onSelect({name:m.name,email:m.email||""});setQuery(m.name);}} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",background:"none",border:"none",cursor:"pointer",fontSize:13}}>
+              <span style={{fontWeight:600}}>{m.name}</span>
+              <span style={{marginLeft:6,fontSize:10,background:"var(--blue)",color:"white",borderRadius:3,padding:"1px 5px",fontFamily:"var(--font-m)"}}>MEMBER</span>
+              {m.email&&<span style={{marginLeft:8,fontSize:11,color:"var(--text3)"}}>{m.email}</span>}
+            </button>
+          ))}
+          {contactResults.length>0&&<div style={{padding:"6px 12px",fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:"1px solid var(--border)",borderTop:memberResults.length?"1px solid var(--border)":"none"}}>Contacts</div>}
+          {contactResults.map(c=>(
+            <button key={c.id} onClick={()=>{onSelect({name:c.name,email:c.email||""});setQuery(c.name);}} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",background:"none",border:"none",cursor:"pointer",fontSize:13}}>
+              <span style={{fontWeight:600}}>{c.name}</span>
+              <span style={{marginLeft:6,fontSize:10,background:"var(--green)",color:"white",borderRadius:3,padding:"1px 5px",fontFamily:"var(--font-m)"}}>{c.category||"CONTACT"}</span>
+              {c.email&&<span style={{marginLeft:8,fontSize:11,color:"var(--text3)"}}>{c.email}</span>}
+            </button>
+          ))}
+          {!hasResults&&query.length>1&&!showNew&&(
+            <div style={{padding:"10px 12px"}}>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>No results for "{query}"</div>
+              <button onClick={()=>{setNewForm({name:query,category:"Supplier",email:"",phone:""});setShowNew(true);}} style={{fontSize:12,color:"var(--blue)",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>+ Create new contact "{query}"</button>
+            </div>
+          )}
+          {showNew&&(
+            <div style={{padding:12,borderTop:"1px solid var(--border)",background:"#f8f5f0"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--burg)",marginBottom:8}}>New Contact</div>
+              <Input value={newForm.name} onChange={e=>setNewForm({...newForm,name:e.target.value})} placeholder="Name" style={{marginBottom:6}}/>
+              <Select value={newForm.category} onChange={e=>setNewForm({...newForm,category:e.target.value})} style={{marginBottom:6,width:"100%"}}>
+                {["Supplier","Sponsor","Affiliated Club","Venue","Media","Government","Other"].map(c=><option key={c}>{c}</option>)}
+              </Select>
+              <Input value={newForm.email} onChange={e=>setNewForm({...newForm,email:e.target.value})} placeholder="Email (optional)" style={{marginBottom:6}}/>
+              <Row gap={6}>
+                <Btn size="sm" onClick={createAndSelect}>Create & Select</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>setShowNew(false)}>Cancel</Btn>
+              </Row>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PublicNav({ page, setPage, onLoginClick, pages }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -6539,17 +6599,18 @@ function App() {
   const [points,setPoints]=useState([]);
   const [forum,setForum]=useState([]);
   const [suppliers,setSuppliers]=useState([]);
+  const [contacts,setContacts]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
   const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -6574,6 +6635,7 @@ function App() {
       setPoints(Array.isArray(pts)?pts:[]);
       setForum(Array.isArray(fr)?fr:[]);
       setSuppliers(Array.isArray(sup)?sup:[]);
+      setContacts(Array.isArray(ct)?ct:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
       setCheckins(Array.isArray(ci)?ci:[]);
@@ -6605,7 +6667,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -6629,6 +6691,7 @@ function App() {
     { id:"marketplace",  label:"Marketplace",      icon:"⟳" },
     { id:"library",      label:"Library",          icon:"📚" },
     { divider: true, label: "Administration" },
+    { id:\"contacts\",     label:\"Contacts\",         icon:\"☎\" },
     { id:"finance",      label:"Finance",          icon:"$" },
     { id:"categories",   label:"Categories",       icon:"≡" },
     { id:"import",       label:"Bulk Import",      icon:"↑" },
@@ -6750,7 +6813,7 @@ function App() {
             {tab==="import"&&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
-            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars}/>}
+            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems}/>}
             {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
             {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
@@ -6758,6 +6821,7 @@ function App() {
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
             {tab==="sparepartsc"&&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
+            {tab==="contacts"   &&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
             {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
           </div>
         </main>
@@ -7329,7 +7393,7 @@ const DEFAULT_FIN_SETTINGS = {
 };
 const EXPENSE_CATS=getCats(null).expenseCat;
 
-function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars }) {
+function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems }) {
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
   const [tab,setTab]=useState("dashboard");
   const [modal,setModal]=useState(null);
@@ -7461,7 +7525,22 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
       {tab==="dashboard"&&(
         <div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:24}}>
+          {/* Period selector */}
+          <Row gap={10} style={{marginBottom:20,flexWrap:"wrap"}} align="center">
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)"}}>Financial Period:</div>
+            {[["This FY","fy"],["Last FY","lastfy"],["This Year","year"],["All Time","all"]].map(([label,val])=>(
+              <button key={val} onClick={()=>setPeriod&&setPeriod(val)} style={{padding:"5px 14px",borderRadius:6,border:"1px solid var(--border)",background:"var(--burg)",color:"white",cursor:"pointer",fontSize:12,fontWeight:600}}>{label}</button>
+            ))}
+            <Btn variant="ghost" size="sm" onClick={()=>{
+              const rows=[["Category","Amount"],["INCOME",""],["Membership Dues","$"+((dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0)).toFixed(2)],["Club Shop","$"+((orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0)).toFixed(2)],["EXPENSES",""],...EXPENSE_CATS.map(cat=>{const amt=expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0);return[cat,"$"+amt.toFixed(2)];}),[" ",""],["SURPLUS/DEFICIT","$"+(surplus>=0?"":"-")+Math.abs(surplus).toFixed(2)]];
+              const csv=rows.map(r=>r.join(",")).join("\n");
+              const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);a.download="RCCA_Finance_"+fyLabel()+".csv";a.click();
+            }}>⬇ Export CSV</Btn>
+            <Btn variant="ghost" size="sm" onClick={()=>window.print()}>🖨 Print Report</Btn>
+          </Row>
+
+          {/* Key stats */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:24}}>
             {[["Total Income","$"+totalIncome.toFixed(2),"var(--green)"],["Total Expenses","$"+totalExpenses.toFixed(2),"var(--red2)"],["Surplus / Deficit",(surplus>=0?"$":"-$")+Math.abs(surplus).toFixed(2),surplus>=0?"var(--green)":"var(--red2)"],["Transactions",(incomeItems.length+expItems.length),"var(--burg)"]].map(([k,v,c])=>(
               <Card key={k} style={{padding:18}}>
                 <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:6}}>{k}</div>
@@ -7469,29 +7548,129 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
               </Card>
             ))}
           </div>
+
+          {/* P&L Summary */}
           <Card style={{padding:18,marginBottom:16}}>
-            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Income by Category — FY {fyLabel()}</div>
-            {[["Membership Dues",(dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0),"var(--green)"],
-              ["Club Shop",(orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0),"var(--blue)"]].map(([k,v,c])=>{
-              const pct=totalIncome>0?Math.round(v/totalIncome*100):0;
-              return <div key={k} style={{marginBottom:10}}>
-                <Row justify="space-between" style={{marginBottom:4,fontSize:13}}><span>{k}</span><span style={{fontWeight:700}}>${v.toFixed(2)} <span style={{color:"var(--text3)",fontWeight:400,fontSize:11}}>({pct}%)</span></span></Row>
-                <div style={{height:8,background:"var(--bg3)",borderRadius:4}}><div style={{height:8,borderRadius:4,background:c,width:pct+"%",transition:"width .4s"}}/></div>
-              </div>;
-            })}
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:16}}>Profit & Loss — FY {fyLabel()}</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:10,paddingBottom:6,borderBottom:"2px solid var(--green)"}}>INCOME</div>
+                {(()=>{
+                  const incCats=[
+                    ["Membership Dues",(dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0)],
+                    ["Club Shop",(orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0)],
+                  ].filter(([,v])=>v>0);
+                  return incCats.map(([k,v])=>(
+                    <Row key={k} justify="space-between" style={{marginBottom:6,fontSize:13}}>
+                      <span style={{color:"var(--text2)"}}>{k}</span>
+                      <span style={{fontWeight:600,color:"var(--green)"}}>${v.toFixed(2)}</span>
+                    </Row>
+                  ));
+                })()}
+                <Row justify="space-between" style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",fontSize:14,fontWeight:700}}>
+                  <span>Total Income</span><span style={{color:"var(--green)"}}>${totalIncome.toFixed(2)}</span>
+                </Row>
+              </div>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--red2)",marginBottom:10,paddingBottom:6,borderBottom:"2px solid var(--red2)"}}>EXPENSES</div>
+                {EXPENSE_CATS.map(cat=>{
+                  const amt=expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0);
+                  if(!amt)return null;
+                  return(<Row key={cat} justify="space-between" style={{marginBottom:6,fontSize:13}}>
+                    <span style={{color:"var(--text2)"}}>{cat}</span>
+                    <span style={{fontWeight:600,color:"var(--red2)"}}>${amt.toFixed(2)}</span>
+                  </Row>);
+                })}
+                <Row justify="space-between" style={{marginTop:10,paddingTop:8,borderTop:"1px solid var(--border)",fontSize:14,fontWeight:700}}>
+                  <span>Total Expenses</span><span style={{color:"var(--red2)"}}>${totalExpenses.toFixed(2)}</span>
+                </Row>
+              </div>
+            </div>
+            <div style={{marginTop:16,paddingTop:14,borderTop:`3px solid ${surplus>=0?"var(--green)":"var(--red2)"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:15,fontWeight:700}}>NET SURPLUS / DEFICIT</span>
+              <span style={{fontSize:22,fontWeight:700,color:surplus>=0?"var(--green)":"var(--red2)"}}>{surplus>=0?"$":"-$"}{Math.abs(surplus).toFixed(2)}</span>
+            </div>
           </Card>
+
+          {/* Visual charts */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+            {/* Income breakdown bar chart */}
+            <Card style={{padding:18}}>
+              <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Income Breakdown</div>
+              {(()=>{
+                const cats=[
+                  ["Membership Dues",(dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0),"var(--green)"],
+                  ["Club Shop",(orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0),"var(--blue)"],
+                ].filter(([,v])=>v>0);
+                const max=Math.max(...cats.map(([,v])=>v),1);
+                return cats.length?cats.map(([k,v,c])=>(
+                  <div key={k} style={{marginBottom:10}}>
+                    <Row justify="space-between" style={{marginBottom:4,fontSize:12}}><span>{k}</span><span style={{fontWeight:700,color:c}}>${v.toFixed(2)}</span></Row>
+                    <div style={{height:10,background:"var(--bg3)",borderRadius:5}}><div style={{height:10,borderRadius:5,background:c,width:(v/max*100)+"%",transition:"width .4s"}}/></div>
+                  </div>
+                )):<div style={{color:"var(--text3)",fontSize:12,fontFamily:"var(--font-m)"}}>No income this period</div>;
+              })()}
+            </Card>
+
+            {/* Expense breakdown bar chart */}
+            <Card style={{padding:18}}>
+              <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Expense Breakdown</div>
+              {(()=>{
+                const cats=EXPENSE_CATS.map(cat=>[cat,expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0)]).filter(([,v])=>v>0);
+                const max=Math.max(...cats.map(([,v])=>v),1);
+                const colours=["var(--burg)","var(--blue)","var(--green)","var(--gold)","#7a4a9a","#2a8a8a","#c05010","#505090"];
+                return cats.length?cats.map(([k,v],i)=>(
+                  <div key={k} style={{marginBottom:10}}>
+                    <Row justify="space-between" style={{marginBottom:4,fontSize:12}}><span>{k}</span><span style={{fontWeight:700,color:colours[i%colours.length]}}>${v.toFixed(2)}</span></Row>
+                    <div style={{height:10,background:"var(--bg3)",borderRadius:5}}><div style={{height:10,borderRadius:5,background:colours[i%colours.length],width:(v/max*100)+"%",transition:"width .4s"}}/></div>
+                  </div>
+                )):<div style={{color:"var(--text3)",fontSize:12,fontFamily:"var(--font-m)"}}>No expenses this period</div>;
+              })()}
+            </Card>
+          </div>
+
+          {/* Dues collection */}
+          <Card style={{padding:18,marginBottom:16}}>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Dues Collection Status</div>
+            {(()=>{
+              const yr=new Date().getFullYear();
+              const paid=(dues||[]).filter(d=>d.paid&&d.year===yr).length;
+              const unpaid=(dues||[]).filter(d=>!d.paid&&d.year===yr).length;
+              const total=paid+unpaid;
+              const pct=total>0?Math.round(paid/total*100):0;
+              return(
+                <div>
+                  <Row gap={20} style={{marginBottom:10}}>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:700,color:"var(--green)"}}>{paid}</div><div style={{fontSize:11,color:"var(--text3)"}}>Paid</div></div>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:700,color:"var(--red2)"}}>{unpaid}</div><div style={{fontSize:11,color:"var(--text3)"}}>Outstanding</div></div>
+                    <div style={{textAlign:"center"}}><div style={{fontSize:28,fontWeight:700,color:"var(--burg)"}}>{pct}%</div><div style={{fontSize:11,color:"var(--text3)"}}>Collection rate</div></div>
+                  </Row>
+                  <div style={{height:14,background:"var(--bg3)",borderRadius:7,overflow:"hidden"}}>
+                    <div style={{height:14,background:"var(--green)",width:pct+"%",transition:"width .4s",borderRadius:7}}/>
+                  </div>
+                </div>
+              );
+            })()}
+          </Card>
+
+          {/* Assets on hand */}
           <Card style={{padding:18}}>
-            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Expenses by Category — FY {fyLabel()}</div>
-            {EXPENSE_CATS.map(cat=>{
-              const amt=expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0);
-              if(amt===0)return null;
-              const pct=totalExpenses>0?Math.round(amt/totalExpenses*100):0;
-              return <div key={cat} style={{marginBottom:10}}>
-                <Row justify="space-between" style={{marginBottom:4,fontSize:13}}><span>{cat}</span><span style={{fontWeight:700}}>${amt.toFixed(2)} <span style={{color:"var(--text3)",fontWeight:400,fontSize:11}}>({pct}%)</span></span></Row>
-                <div style={{height:8,background:"var(--bg3)",borderRadius:4}}><div style={{height:8,borderRadius:4,background:"var(--burg)",width:pct+"%",transition:"width .4s"}}/></div>
-              </div>;
-            })}
-            {expItems.length===0&&<div style={{color:"var(--text3)",fontSize:13,fontFamily:"var(--font-m)"}}>No expenses recorded this FY</div>}
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Assets on Hand (estimated value)</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12}}>
+              {(()=>{
+                const partsVal=(partsInventory||[]).reduce((s,p)=>s+(Number(p.costPrice||0)*Number(p.stock||0)),0);
+                const shopVal=(shopItems||[]).reduce((s,i)=>s+(Number(i.price||0)*Number(i.stock||0)),0);
+                return[
+                  ["Parts Inventory",partsVal,"var(--blue)"],
+                  ["Shop Stock",shopVal,"var(--burg)"],
+                ].map(([k,v,c])=>(
+                  <div key={k} style={{background:"var(--bg3)",borderRadius:8,padding:"12px 16px",borderTop:`3px solid ${c}`}}>
+                    <div style={{fontSize:20,fontWeight:700,color:c}}>${v.toFixed(2)}</div>
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{k}</div>
+                  </div>
+                ));
+              })()}
+            </div>
           </Card>
         </div>
       )}
@@ -7587,11 +7766,8 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:4}}>
           <div>
             <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:10}}>Bill To</div>
-            <Field label="Search member (optional)">
-              <Select value={adhocForm.memberSearch} onChange={e=>{const m=members.find(x=>x.name===e.target.value);if(m)pickMember(m);else setAdhocForm(f=>({...f,memberSearch:e.target.value}));}}>
-                <option value="">— Select a member or enter manually —</option>
-                {members.filter(m=>m.status==="active").map(m=><option key={m.id} value={m.name}>{m.name} #{m.memberNumber}</option>)}
-              </Select>
+            <Field label="Search member or contact">
+              <PayeeSearch members={members} contacts={contacts||[]} setContacts={setContacts} onSelect={p=>{setAdhocForm(f=>({...f,memberName:p.name,memberEmail:p.email||""}));}}/>
             </Field>
             <Field label="Name"><Input value={adhocForm.memberName} onChange={e=>setAdhocForm(f=>({...f,memberName:e.target.value}))}/></Field>
             <Field label="Email (optional)"><Input value={adhocForm.memberEmail} onChange={e=>setAdhocForm(f=>({...f,memberEmail:e.target.value}))}/></Field>
@@ -8461,6 +8637,155 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
 }
 
 // ── SUPPLIERS SECTION ─────────────────────────────────────────────────────────
+// ── CONTACTS SECTION ─────────────────────────────────────────────────────────
+const CONTACT_CATEGORIES=["Supplier","Sponsor","Affiliated Club","Venue","Media","Government","Other"];
+const CONTACT_CAT_COLOURS={
+  "Supplier":"#1a4a7a","Sponsor":"#c9922a","Affiliated Club":"#1e6840",
+  "Venue":"#7a1a7a","Media":"#c0282a","Government":"#444","Other":"#666"
+};
+
+function ContactsSection({user,contacts,setContacts}) {
+  const [search,setSearch]=React.useState("");
+  const [fCat,setFCat]=React.useState("all");
+  const [modal,setModal]=React.useState(null);
+  const [form,setForm]=React.useState({});
+  const [view,setView]=React.useState(null);
+
+  const save=async(updated)=>{setContacts(updated);await dbSet(SK.contacts,updated);};
+
+  const filtered=(contacts||[]).filter(c=>{
+    const txt=`${c.name} ${c.contactPerson||""} ${c.email||""} ${c.tags||""} ${c.phone||""}`.toLowerCase();
+    return txt.includes(search.toLowerCase())&&(fCat==="all"||c.category===fCat);
+  });
+
+  function openAdd(){setForm({name:"",category:"Supplier",contactPerson:"",email:"",phone:"",website:"",address:"",notes:"",tags:"",active:true});setModal("add");}
+  function openEdit(c){setForm({...c});setModal({edit:c});}
+
+  async function handleSave(){
+    if(!form.name.trim())return alert("Name required.");
+    if(modal==="add"){
+      await save([...(contacts||[]),{...form,id:uid("CT"),createdAt:new Date().toISOString()}]);
+    } else {
+      await save((contacts||[]).map(c=>c.id===form.id?{...form}:c));
+      setView({...form});
+    }
+    setModal(null);
+  }
+
+  async function del(id){
+    if(!window.confirm("Delete this contact?"))return;
+    await save((contacts||[]).filter(c=>c.id!==id));
+    setView(null);
+  }
+
+  const catBadge=(cat)=>(
+    <span style={{fontSize:10,fontWeight:700,fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3,
+      background:CONTACT_CAT_COLOURS[cat]||"#666",color:"white",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+      {cat}
+    </span>
+  );
+
+  return(
+    <div style={{padding:24}}>
+      <SectionHeader title="Contacts" subtitle="External contacts — suppliers, sponsors, venues and more"
+        action={<Btn onClick={openAdd}>+ Add Contact</Btn>}/>
+
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:10,marginBottom:20}}>
+        {CONTACT_CATEGORIES.map(cat=>{
+          const count=(contacts||[]).filter(c=>c.category===cat&&c.active!==false).length;
+          if(!count)return null;
+          return(<div key={cat} style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",borderTop:`3px solid ${CONTACT_CAT_COLOURS[cat]}`}}>
+            <div style={{fontSize:20,fontWeight:700,color:CONTACT_CAT_COLOURS[cat]}}>{count}</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{cat}</div>
+          </div>);
+        })}
+      </div>
+
+      {/* Search & Filter */}
+      <Row gap={10} style={{marginBottom:16,flexWrap:"wrap"}}>
+        <Input placeholder="Search contacts…" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:200}}/>
+        <Select value={fCat} onChange={e=>setFCat(e.target.value)} style={{width:"auto"}}>
+          <option value="all">All Categories</option>
+          {CONTACT_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+        </Select>
+      </Row>
+
+      {/* List */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+        {filtered.length===0&&<div style={{gridColumn:"1/-1"}}><EmptyState icon="☎" text="No contacts found" sub="Add your first contact to get started"/></div>}
+        {filtered.map(c=>(
+          <Card key={c.id} className="hover-lift" style={{padding:16,cursor:"pointer",opacity:c.active===false?0.6:1}} onClick={()=>setView(c)}>
+            <Row justify="space-between" align="flex-start" style={{marginBottom:8}}>
+              <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",flex:1,marginRight:8}}>{c.name}</div>
+              {catBadge(c.category)}
+            </Row>
+            {c.contactPerson&&<div style={{fontSize:12,color:"var(--text3)",marginBottom:4}}>👤 {c.contactPerson}</div>}
+            {c.email&&<div style={{fontSize:12,color:"var(--blue)",marginBottom:2}}>✉ {c.email}</div>}
+            {c.phone&&<div style={{fontSize:12,color:"var(--text2)",marginBottom:2}}>☎ {c.phone}</div>}
+            {c.tags&&<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:4}}>
+              {c.tags.split(",").map(t=>t.trim()).filter(Boolean).map(t=>(
+                <span key={t} style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"1px 6px",color:"var(--text3)"}}>{t}</span>
+              ))}
+            </div>}
+          </Card>
+        ))}
+      </div>
+
+      {/* Detail view */}
+      {view&&<Modal title={view.name} onClose={()=>setView(null)}>
+        <div style={{marginBottom:12}}>{catBadge(view.category)}{view.active===false&&<span style={{marginLeft:6,fontSize:10,background:"#fee2e2",color:"#dc2626",border:"1px solid #fca5a5",borderRadius:3,padding:"2px 7px",fontFamily:"var(--font-m)",fontWeight:700}}>INACTIVE</span>}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16,fontSize:13}}>
+          {[["Contact Person",view.contactPerson],["Email",view.email],["Phone",view.phone],["Website",view.website],["Address",view.address]].map(([k,v])=>v?(
+            <div key={k} style={{gridColumn:k==="Address"?"1/-1":"auto"}}>
+              <div style={{fontSize:9.5,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k}</div>
+              <div style={{color:"var(--text)",fontWeight:500}}>{v}</div>
+            </div>
+          ):null)}
+        </div>
+        {view.notes&&<div style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px",marginBottom:12,fontSize:13,color:"var(--text2)",lineHeight:1.6}}>{view.notes}</div>}
+        {view.tags&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:16}}>
+          {view.tags.split(",").map(t=>t.trim()).filter(Boolean).map(t=>(
+            <span key={t} style={{fontSize:11,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"2px 8px",color:"var(--text3)"}}>{t}</span>
+          ))}
+        </div>}
+        <Row gap={8} justify="flex-end">
+          <Btn variant="danger" size="sm" onClick={()=>del(view.id)}>Delete</Btn>
+          <Btn variant="ghost" size="sm" onClick={()=>{setView(null);openEdit(view);}}>Edit</Btn>
+        </Row>
+      </Modal>}
+
+      {/* Add/Edit modal */}
+      {(modal==="add"||modal?.edit)&&<Modal title={modal==="add"?"Add Contact":"Edit Contact"} onClose={()=>setModal(null)}>
+        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+          <Field label="Name" ><Input value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Organisation or person name"/></Field>
+          <Field label="Category" half><Select value={form.category||"Supplier"} onChange={e=>setForm({...form,category:e.target.value})}>
+            {CONTACT_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+          </Select></Field>
+          <Field label="Status" half><Select value={form.active===false?"inactive":"active"} onChange={e=>setForm({...form,active:e.target.value==="active"})}>
+            <option value="active">Active</option><option value="inactive">Inactive</option>
+          </Select></Field>
+        </Row>
+        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+          <Field label="Contact Person" half><Input value={form.contactPerson||""} onChange={e=>setForm({...form,contactPerson:e.target.value})} placeholder="Main contact name"/></Field>
+          <Field label="Email" half><Input type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
+        </Row>
+        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+          <Field label="Phone" half><Input value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
+          <Field label="Website" half><Input value={form.website||""} onChange={e=>setForm({...form,website:e.target.value})} placeholder="https://"/></Field>
+        </Row>
+        <Field label="Address"><Input value={form.address||""} onChange={e=>setForm({...form,address:e.target.value})}/></Field>
+        <Field label="Tags (comma separated)"><Input value={form.tags||""} onChange={e=>setForm({...form,tags:e.target.value})} placeholder="e.g. parts, P6, newsletter, permit"/></Field>
+        <Field label="Notes"><Textarea value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Any relevant notes…" style={{minHeight:80}}/></Field>
+        <Row gap={8} justify="flex-end">
+          <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+          <Btn onClick={handleSave}>Save Contact</Btn>
+        </Row>
+      </Modal>}
+    </div>
+  );
+}
+
 function SuppliersSection({user,suppliers,setSuppliers,members}) {
   const isAdmin = user&&user.role==="admin";
   const [modal,setModal]=React.useState(null);
