@@ -108,6 +108,7 @@ const SK = {
   categories:"rcca:categories", messages:"rcca:messages",
   checkins:"rcca:checkins",
   contacts:"rcca:contacts",
+  competitions:"rcca:competitions",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -6732,17 +6733,18 @@ function App() {
   const [forum,setForum]=useState([]);
   const [suppliers,setSuppliers]=useState([]);
   const [contacts,setContacts]=useState([]);
+  const [competitions,setCompetitions]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
   const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -6768,6 +6770,7 @@ function App() {
       setForum(Array.isArray(fr)?fr:[]);
       setSuppliers(Array.isArray(sup)?sup:[]);
       setContacts(Array.isArray(ct)?ct:[]);
+      setCompetitions(Array.isArray(comps)?comps:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
       setCheckins(Array.isArray(ci)?ci:[]);
@@ -6799,7 +6802,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -6837,6 +6840,8 @@ function App() {
     { id:"archive",      label:"Club Archive",     icon:"📚" },
     { divider: true, label: "Recognition" },
     { id:"points",       label:"Points & Awards",  icon:"🏆" },
+    { divider: true, label: "Competitions" },
+    { id:"competitions", label:"Competitions",     icon:"🏁" },
     { divider: true, label: "Access Control" },
     { id:"permissions",  label:"Permissions",      icon:"🔑" },
     { divider: true },
@@ -6953,6 +6958,7 @@ function App() {
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
             {tab==="sparepartsc"&&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
+            {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="contacts"   &&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
             {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
           </div>
@@ -8775,6 +8781,535 @@ const CONTACT_CAT_COLOURS={
   "Supplier":"#1a4a7a","Sponsor":"#c9922a","Affiliated Club":"#1e6840",
   "Venue":"#7a1a7a","Media":"#c0282a","Government":"#444","Other":"#666"
 };
+
+// ── COMPETITIONS SECTION ──────────────────────────────────────────────────────
+const COMP_TYPES=["Show & Shine","Regularity Trial","People's Choice","Season Championship","Custom"];
+const COMP_TYPE_ICONS={"Show & Shine":"🏆","Regularity Trial":"⏱","People's Choice":"👥","Season Championship":"🎖","Custom":"⭐"};
+
+const DEFAULT_SHOW_CATEGORIES=[
+  {id:"ext",name:"Exterior",weight:30},
+  {id:"int",name:"Interior",weight:20},
+  {id:"eng",name:"Engine Bay",weight:20},
+  {id:"orig",name:"Originality",weight:20},
+  {id:"pres",name:"Presentation",weight:10},
+];
+
+const DEFAULT_REGULARITY_FIELDS=[
+  {id:"time",name:"Time Score",type:"number",higher:"lower"},
+  {id:"penalty",name:"Penalty Points",type:"number",higher:"lower"},
+  {id:"checkpoints",name:"Checkpoints Hit",type:"number",higher:"higher"},
+];
+
+const SEASON_POINTS=[25,18,15,12,10,8,6,4,2,1];
+
+function CompetitionsSection({user,competitions,setCompetitions,members,cars,events,points,setPoints}) {
+  const isAdmin=user.role==="admin";
+  const [view,setView]=React.useState("list");
+  const [selected,setSelected]=React.useState(null);
+  const [modal,setModal]=React.useState(null);
+  const [form,setForm]=React.useState({});
+  const [activeTab,setActiveTab]=React.useState("entries");
+
+  const save=async(updated)=>{setCompetitions(updated);await dbSet(SK.competitions,updated);};
+
+  function openNew(){
+    setForm({
+      name:"",type:"Show & Shine",date:today,eventId:"",status:"upcoming",
+      description:"",
+      categories:[...DEFAULT_SHOW_CATEGORIES],
+      fields:[...DEFAULT_REGULARITY_FIELDS],
+      awards:[
+        {id:"bis",name:"Best in Show",icon:"🥇"},
+        {id:"best_orig",name:"Best Original",icon:"🏅"},
+        {id:"best_rest",name:"Best Restoration",icon:"🔧"},
+        {id:"peoples",name:"People's Choice",icon:"❤️"},
+        {id:"hard_luck",name:"Hard Luck Award",icon:"😅"},
+      ],
+      judges:[],
+      entries:[],
+      seasonId:"",
+      clonedFrom:null,
+    });
+    setModal("new");
+  }
+
+  function cloneComp(comp){
+    setForm({
+      ...comp,
+      id:undefined,
+      name:comp.name+" (Copy)",
+      date:today,
+      status:"upcoming",
+      entries:[],
+      createdAt:undefined,
+    });
+    setModal("new");
+  }
+
+  async function saveComp(){
+    if(!form.name.trim())return alert("Name required.");
+    if(modal==="new"){
+      const nc={...form,id:uid("CP"),createdAt:new Date().toISOString(),createdBy:user.name};
+      await save([...(competitions||[]),nc]);
+    } else {
+      await save((competitions||[]).map(c=>c.id===form.id?{...form}:c));
+      setSelected({...form});
+    }
+    setModal(null);
+  }
+
+  async function deleteComp(id){
+    if(!window.confirm("Delete this competition?"))return;
+    await save((competitions||[]).filter(c=>c.id!==id));
+    setSelected(null);setView("list");
+  }
+
+  // Entry management
+  async function addEntry(comp,entry){
+    const updated=(competitions||[]).map(c=>c.id===comp.id?{...c,entries:[...(c.entries||[]),{...entry,id:uid("CE"),scores:{},totalScore:0,rank:0}]}:c);
+    await save(updated);
+    setSelected(updated.find(c=>c.id===comp.id));
+  }
+
+  async function updateScore(comp,entryId,catId,score){
+    const updated=(competitions||[]).map(c=>{
+      if(c.id!==comp.id)return c;
+      const entries=(c.entries||[]).map(e=>{
+        if(e.id!==entryId)return e;
+        const newScores={...e.scores,[catId]:Number(score)||0};
+        // Calculate weighted total for Show & Shine
+        let total=0;
+        if(c.type==="Show & Shine"){
+          const cats=c.categories||DEFAULT_SHOW_CATEGORIES;
+          const totalWeight=cats.reduce((s,cat)=>s+cat.weight,0);
+          total=cats.reduce((s,cat)=>s+((newScores[cat.id]||0)*(cat.weight/totalWeight)),0);
+          total=Math.round(total*10)/10;
+        } else {
+          total=Object.values(newScores).reduce((s,v)=>s+v,0);
+        }
+        return {...e,scores:newScores,totalScore:total};
+      });
+      // Recalculate ranks
+      const sorted=[...entries].sort((a,b)=>b.totalScore-a.totalScore);
+      const ranked=entries.map(e=>({...e,rank:sorted.findIndex(s=>s.id===e.id)+1}));
+      return {...c,entries:ranked};
+    });
+    await save(updated);
+    setSelected(updated.find(c=>c.id===comp.id));
+  }
+
+  async function removeEntry(comp,entryId){
+    const updated=(competitions||[]).map(c=>c.id!==comp.id?c:{...c,entries:(c.entries||[]).filter(e=>e.id!==entryId)});
+    await save(updated);
+    setSelected(updated.find(c=>c.id===comp.id));
+  }
+
+  async function finaliseResults(comp){
+    if(!window.confirm("Finalise results? This will award season championship points and lock the competition."))return;
+    // Award points to top finishers
+    if(comp.type==="Season Championship")return;
+    const newPts=[];
+    const entries=[...(comp.entries||[])].sort((a,b)=>a.rank-b.rank);
+    entries.forEach((e,i)=>{
+      const pts=SEASON_POINTS[i]||0;
+      if(pts>0&&e.memberId){
+        newPts.push({id:uid("PT"),memberId:e.memberId,points:pts,reason:`${comp.name} — ${e.rank===1?"1st":e.rank===2?"2nd":e.rank===3?"3rd":`${e.rank}th`} place`,category:"Competitive Event",date:today,awardedBy:"System",compId:comp.id});
+      }
+    });
+    if(newPts.length){
+      const updatedPts=[...(points||[]),...newPts];
+      setPoints(updatedPts);await dbSet(SK.points,updatedPts);
+    }
+    const updated=(competitions||[]).map(c=>c.id===comp.id?{...c,status:"completed",finalisedAt:new Date().toISOString()}:c);
+    await save(updated);
+    setSelected(updated.find(c=>c.id===comp.id));
+    alert(`Results finalised! ${newPts.length} points awards created.`);
+  }
+
+  const statusColour={upcoming:"var(--blue)",active:"var(--green)",completed:"var(--text3)",draft:"var(--gold)"};
+
+  // ── ENTRY FORM STATE ─────────────────────────────────────────────────────
+  const [entryForm,setEntryForm]=React.useState({memberId:"",carId:"",entryNumber:"",vehicleDesc:""});
+  const [showEntryForm,setShowEntryForm]=React.useState(false);
+  const [peoplesVote,setPeoplesVote]=React.useState({});
+
+  if(view==="detail"&&selected){
+    const comp=(competitions||[]).find(c=>c.id===selected.id)||selected;
+    const entries=comp.entries||[];
+    const sorted=[...entries].sort((a,b)=>a.rank-b.rank||a.totalScore-b.totalScore);
+    const cats=comp.type==="Show & Shine"?(comp.categories||DEFAULT_SHOW_CATEGORIES):[];
+    const fields=comp.type==="Regularity Trial"?(comp.fields||DEFAULT_REGULARITY_FIELDS):[];
+
+    return(
+      <div style={{padding:24}}>
+        {/* Header */}
+        <Row align="center" gap={10} style={{marginBottom:4}}>
+          <button onClick={()=>{setView("list");setSelected(null);}} style={{background:"none",border:"none",cursor:"pointer",color:"var(--blue)",fontSize:13,fontFamily:"var(--font-b)",padding:0}}>← Back</button>
+        </Row>
+        <Row justify="space-between" align="flex-start" style={{marginBottom:20}}>
+          <div>
+            <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>{COMP_TYPE_ICONS[comp.type]||"🏁"} {comp.name}</h2>
+            <Row gap={8} align="center">
+              <span style={{fontSize:12,background:statusColour[comp.status]||"var(--text3)",color:"white",borderRadius:4,padding:"2px 8px",fontFamily:"var(--font-m)",fontWeight:700,textTransform:"uppercase"}}>{comp.status}</span>
+              <span style={{fontSize:12,color:"var(--text3)"}}>{comp.type} · {comp.date}</span>
+              <span style={{fontSize:12,color:"var(--text3)"}}>{entries.length} entries</span>
+            </Row>
+          </div>
+          {isAdmin&&(
+            <Row gap={8}>
+              {comp.status!=="completed"&&<Btn variant="ghost" size="sm" onClick={()=>{setForm({...comp});setModal("edit");}}>✎ Edit</Btn>}
+              {comp.status!=="completed"&&entries.length>0&&<Btn size="sm" onClick={()=>finaliseResults(comp)}>✓ Finalise Results</Btn>}
+              <Btn variant="danger" size="sm" onClick={()=>deleteComp(comp.id)}>Delete</Btn>
+            </Row>
+          )}
+        </Row>
+
+        {/* Tabs */}
+        <Row gap={0} style={{marginBottom:20,borderBottom:"2px solid var(--border)"}}>
+          {["entries","scores","results","awards"].map(t=>(
+            <button key={t} onClick={()=>setActiveTab(t)} style={{padding:"8px 20px",background:"none",border:"none",borderBottom:activeTab===t?"2px solid var(--burg)":"2px solid transparent",marginBottom:-2,color:activeTab===t?"var(--burg)":"var(--text3)",fontWeight:activeTab===t?700:400,cursor:"pointer",fontSize:13,textTransform:"capitalize",fontFamily:"var(--font-b)"}}>{t}</button>
+          ))}
+        </Row>
+
+        {/* ENTRIES TAB */}
+        {activeTab==="entries"&&(
+          <div>
+            {isAdmin&&comp.status!=="completed"&&(
+              <div style={{marginBottom:16}}>
+                {!showEntryForm?(
+                  <Btn onClick={()=>setShowEntryForm(true)}>+ Add Entry</Btn>
+                ):(
+                  <Card style={{padding:16,marginBottom:12}}>
+                    <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>Add Entry</div>
+                    <Row gap={12} wrap style={{justifyContent:"space-between",marginBottom:10}}>
+                      <Field label="Member" half>
+                        <Select value={entryForm.memberId} onChange={e=>{const m=(members||[]).find(x=>x.id===e.target.value);setEntryForm({...entryForm,memberId:e.target.value,vehicleDesc:m?`${m.name}'s vehicle`:""});}}>
+                          <option value="">— Select member —</option>
+                          {(members||[]).filter(m=>m.status==="active").map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                        </Select>
+                      </Field>
+                      <Field label="Vehicle" half>
+                        <Select value={entryForm.carId} onChange={e=>{const c=(cars||[]).find(x=>x.id===e.target.value);setEntryForm({...entryForm,carId:e.target.value,vehicleDesc:c?`${c.year} ${c.make} ${c.model}`:entryForm.vehicleDesc});}}>
+                          <option value="">— Select vehicle —</option>
+                          {(cars||[]).filter(c=>c.status==="active"&&(!entryForm.memberId||c.ownerId===entryForm.memberId)).map(c=><option key={c.id} value={c.id}>{c.year} {c.make} {c.model}</option>)}
+                        </Select>
+                      </Field>
+                    </Row>
+                    <Row gap={12} wrap style={{justifyContent:"space-between",marginBottom:10}}>
+                      <Field label="Entry Number" half><Input value={entryForm.entryNumber} onChange={e=>setEntryForm({...entryForm,entryNumber:e.target.value})} placeholder="e.g. 42"/></Field>
+                      <Field label="Vehicle Description" half><Input value={entryForm.vehicleDesc} onChange={e=>setEntryForm({...entryForm,vehicleDesc:e.target.value})} placeholder="e.g. 1972 Rover P6 3500S"/></Field>
+                    </Row>
+                    <Row gap={8}>
+                      <Btn onClick={async()=>{if(!entryForm.vehicleDesc.trim())return alert("Vehicle description required.");await addEntry(comp,{...entryForm});setEntryForm({memberId:"",carId:"",entryNumber:"",vehicleDesc:""});setShowEntryForm(false);}}>Add Entry</Btn>
+                      <Btn variant="ghost" onClick={()=>setShowEntryForm(false)}>Cancel</Btn>
+                    </Row>
+                  </Card>
+                )}
+              </div>
+            )}
+            {entries.length===0&&<EmptyState icon="🏁" text="No entries yet" sub="Add entries to get started"/>}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {entries.map(e=>{
+                const m=(members||[]).find(x=>x.id===e.memberId);
+                return(
+                  <div key={e.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+                    {e.entryNumber&&<div style={{width:36,height:36,borderRadius:"50%",background:"var(--burg)",color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0}}>#{e.entryNumber}</div>}
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13}}>{e.vehicleDesc}</div>
+                      {m&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{m.name}</div>}
+                    </div>
+                    {e.rank>0&&<div style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--burg)"}}>#{e.rank}</div>}
+                    {isAdmin&&comp.status!=="completed"&&<button onClick={()=>removeEntry(comp,e.id)} style={{background:"none",border:"none",color:"var(--red2)",cursor:"pointer",fontSize:18,padding:"0 4px"}}>×</button>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* SCORES TAB */}
+        {activeTab==="scores"&&(
+          <div>
+            {comp.type==="Show & Shine"&&(
+              <div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:16}}>Enter scores out of 10 for each category. Total is automatically weighted.</div>
+                {entries.length===0&&<EmptyState icon="📋" text="No entries to score" sub="Add entries first"/>}
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {entries.map(e=>{
+                    const m=(members||[]).find(x=>x.id===e.memberId);
+                    return(
+                      <Card key={e.id} style={{padding:16}}>
+                        <Row justify="space-between" align="center" style={{marginBottom:12}}>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:14}}>{e.entryNumber?`#${e.entryNumber} · `:""}{e.vehicleDesc}</div>
+                            {m&&<div style={{fontSize:11,color:"var(--text3)"}}>{m.name}</div>}
+                          </div>
+                          <div style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--burg)"}}>{e.totalScore||0}</div>
+                        </Row>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+                          {cats.map(cat=>(
+                            <div key={cat.id}>
+                              <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",marginBottom:3,textTransform:"uppercase"}}>{cat.name} ({cat.weight}%)</div>
+                              <input type="number" min="0" max="10" step="0.5"
+                                value={e.scores?.[cat.id]||""}
+                                onChange={ev=>isAdmin&&comp.status!=="completed"&&updateScore(comp,e.id,cat.id,ev.target.value)}
+                                disabled={!isAdmin||comp.status==="completed"}
+                                style={{width:"100%",padding:"6px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {comp.type==="Regularity Trial"&&(
+              <div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:16}}>Enter field values for each entry. Lower penalty scores rank higher.</div>
+                {entries.length===0&&<EmptyState icon="⏱" text="No entries to score"/>}
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {entries.map(e=>{
+                    const m=(members||[]).find(x=>x.id===e.memberId);
+                    return(
+                      <Card key={e.id} style={{padding:16}}>
+                        <Row justify="space-between" align="center" style={{marginBottom:12}}>
+                          <div>
+                            <div style={{fontWeight:700,fontSize:14}}>{e.entryNumber?`#${e.entryNumber} · `:""}{e.vehicleDesc}</div>
+                            {m&&<div style={{fontSize:11,color:"var(--text3)"}}>{m.name}</div>}
+                          </div>
+                          <div style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--burg)"}}>{e.totalScore||0}</div>
+                        </Row>
+                        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+                          {fields.map(f=>(
+                            <div key={f.id}>
+                              <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",marginBottom:3,textTransform:"uppercase"}}>{f.name}</div>
+                              <input type="number" min="0"
+                                value={e.scores?.[f.id]||""}
+                                onChange={ev=>isAdmin&&comp.status!=="completed"&&updateScore(comp,e.id,f.id,ev.target.value)}
+                                disabled={!isAdmin||comp.status==="completed"}
+                                style={{width:"100%",padding:"6px 8px",borderRadius:5,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/>
+                            </div>
+                          ))}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {comp.type==="People's Choice"&&(
+              <div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:16}}>Tally votes for each entry. Each member gets one vote.</div>
+                {entries.length===0&&<EmptyState icon="👥" text="No entries to vote on"/>}
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {sorted.map(e=>{
+                    const votes=e.scores?.votes||0;
+                    const maxVotes=Math.max(...entries.map(x=>x.scores?.votes||0),1);
+                    return(
+                      <div key={e.id} style={{background:"white",borderRadius:8,border:"1px solid var(--border)",padding:"12px 16px"}}>
+                        <Row justify="space-between" align="center" style={{marginBottom:6}}>
+                          <div style={{fontWeight:700,fontSize:13}}>{e.entryNumber?`#${e.entryNumber} · `:""}{e.vehicleDesc}</div>
+                          <Row gap={8} align="center">
+                            <span style={{fontWeight:700,fontSize:18,color:"var(--burg)"}}>{votes} votes</span>
+                            {isAdmin&&comp.status!=="completed"&&(
+                              <Row gap={4}>
+                                <button onClick={()=>updateScore(comp,e.id,"votes",votes+1)} style={{width:28,height:28,borderRadius:"50%",background:"var(--green)",color:"white",border:"none",cursor:"pointer",fontSize:16,fontWeight:700}}>+</button>
+                                <button onClick={()=>votes>0&&updateScore(comp,e.id,"votes",votes-1)} style={{width:28,height:28,borderRadius:"50%",background:"var(--bg3)",color:"var(--text2)",border:"1px solid var(--border)",cursor:"pointer",fontSize:16,fontWeight:700}}>−</button>
+                              </Row>
+                            )}
+                          </Row>
+                        </Row>
+                        <div style={{height:8,background:"var(--bg3)",borderRadius:4}}><div style={{height:8,borderRadius:4,background:"var(--gold)",width:(votes/maxVotes*100)+"%",transition:"width .3s"}}/></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* RESULTS TAB */}
+        {activeTab==="results"&&(
+          <div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:16}}>{comp.status==="completed"?"Final results.":"Live standings — updates as scores are entered."}</div>
+            {sorted.length===0&&<EmptyState icon="📊" text="No results yet" sub="Add entries and enter scores first"/>}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {sorted.map((e,i)=>{
+                const m=(members||[]).find(x=>x.id===e.memberId);
+                const medalBg=i===0?"#c9922a":i===1?"#aaa":i===2?"#b06010":"var(--bg3)";
+                const medalCol=i<3?"white":"var(--text3)";
+                return(
+                  <div key={e.id} style={{background:"white",borderRadius:8,border:`1px solid ${i===0?"var(--gold)":"var(--border)"}`,padding:"12px 16px",display:"flex",alignItems:"center",gap:14}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",background:medalBg,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:medalCol,fontSize:14,flexShrink:0}}>
+                      {i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}`}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:14}}>{e.vehicleDesc}</div>
+                      {m&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{m.name}</div>}
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--burg)"}}>{comp.type==="People's Choice"?`${e.scores?.votes||0} votes`:e.totalScore||0}</div>
+                      <div style={{fontSize:10,color:"var(--text3)"}}>score</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* AWARDS TAB */}
+        {activeTab==="awards"&&(
+          <div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:16}}>Assign award winners. Winners are saved with the competition record.</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {(comp.awards||[]).map(award=>(
+                <Card key={award.id} style={{padding:16}}>
+                  <Row justify="space-between" align="center">
+                    <Row gap={8} align="center">
+                      <span style={{fontSize:20}}>{award.icon}</span>
+                      <div style={{fontWeight:700,fontSize:14}}>{award.name}</div>
+                    </Row>
+                    {isAdmin&&comp.status!=="completed"?(
+                      <Select value={award.winnerId||""} onChange={async e=>{
+                        const updated=(competitions||[]).map(c=>c.id!==comp.id?c:{...c,awards:(c.awards||[]).map(a=>a.id===award.id?{...a,winnerId:e.target.value,winnerDesc:entries.find(x=>x.memberId===e.target.value)?.vehicleDesc||""}:a)});
+                        await save(updated);setSelected(updated.find(c=>c.id===comp.id));
+                      }} style={{width:220,padding:"6px 10px",borderRadius:5,border:"1px solid var(--border)",fontSize:13}}>
+                        <option value="">— Not assigned —</option>
+                        {entries.map(e=>{const m=(members||[]).find(x=>x.id===e.memberId);return<option key={e.id} value={e.memberId||e.id}>{e.vehicleDesc}{m?` (${m.name})`:""}</option>;})}
+                      </Select>
+                    ):(
+                      <div style={{fontSize:13,fontWeight:600,color:"var(--burg)"}}>
+                        {award.winnerId?(entries.find(e=>e.memberId===award.winnerId)?.vehicleDesc||"Assigned"):"Not assigned"}
+                      </div>
+                    )}
+                  </Row>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──────────────────────────────────────────────────────────────
+  return(
+    <div style={{padding:24}}>
+      <SectionHeader title="Competitions" subtitle="Show & Shine, regularity trials, season championships"
+        action={isAdmin&&<Btn onClick={openNew}>+ New Competition</Btn>}/>
+
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginBottom:20}}>
+        {[
+          ["Total",(competitions||[]).length,"var(--burg)"],
+          ["Active",(competitions||[]).filter(c=>c.status==="active").length,"var(--green)"],
+          ["Upcoming",(competitions||[]).filter(c=>c.status==="upcoming").length,"var(--blue)"],
+          ["Completed",(competitions||[]).filter(c=>c.status==="completed").length,"var(--text3)"],
+        ].map(([k,v,col])=>(
+          <div key={k} style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",borderTop:`3px solid ${col}`}}>
+            <div style={{fontSize:24,fontWeight:700,color:col}}>{v}</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{k}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Competition list */}
+      {(competitions||[]).length===0&&<EmptyState icon="🏁" text="No competitions yet" sub={isAdmin?"Click '+ New Competition' to get started":"No competitions have been created yet"}/>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>
+        {[...(competitions||[])].sort((a,b)=>b.date?.localeCompare(a.date||"")||0).map(comp=>(
+          <Card key={comp.id} className="hover-lift" style={{padding:0,overflow:"hidden",cursor:"pointer",borderTop:`3px solid ${statusColour[comp.status]||"var(--border)"}`}} onClick={()=>{setSelected(comp);setView("detail");setActiveTab("entries");}}>
+            <div style={{padding:16}}>
+              <Row justify="space-between" align="flex-start" style={{marginBottom:8}}>
+                <div style={{fontSize:24}}>{COMP_TYPE_ICONS[comp.type]||"🏁"}</div>
+                <span style={{fontSize:10,fontWeight:700,fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3,background:statusColour[comp.status]||"var(--text3)",color:"white",textTransform:"uppercase"}}>{comp.status}</span>
+              </Row>
+              <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,color:"var(--text)",marginBottom:4}}>{comp.name}</div>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:8}}>{comp.type} · {comp.date}</div>
+              <Row gap={10}>
+                <span style={{fontSize:11,color:"var(--text2)"}}>{(comp.entries||[]).length} entries</span>
+                {(comp.awards||[]).length>0&&<span style={{fontSize:11,color:"var(--text2)"}}>{(comp.awards||[]).length} awards</span>}
+              </Row>
+            </div>
+            {isAdmin&&(
+              <div style={{borderTop:"1px solid var(--border)",padding:"8px 16px",background:"var(--bg3)",display:"flex",gap:8}}>
+                <button onClick={e=>{e.stopPropagation();cloneComp(comp);}} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"3px 10px",cursor:"pointer",color:"var(--text2)"}}>⧉ Clone</button>
+                <button onClick={e=>{e.stopPropagation();setForm({...comp});setModal("edit");}} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:4,padding:"3px 10px",cursor:"pointer",color:"var(--text2)"}}>✎ Edit</button>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+
+      {/* New/Edit Modal */}
+      {(modal==="new"||modal==="edit")&&(
+        <Modal title={modal==="new"?"New Competition":"Edit Competition"} onClose={()=>setModal(null)} wide>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Competition Name"><Input value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. 2026 Annual Show & Shine"/></Field>
+          </Row>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Type" half>
+              <Select value={form.type||"Show & Shine"} onChange={e=>setForm({...form,type:e.target.value})}>
+                {COMP_TYPES.map(t=><option key={t}>{t}</option>)}
+              </Select>
+            </Field>
+            <Field label="Status" half>
+              <Select value={form.status||"upcoming"} onChange={e=>setForm({...form,status:e.target.value})}>
+                {["draft","upcoming","active","completed"].map(s=><option key={s}>{s}</option>)}
+              </Select>
+            </Field>
+          </Row>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Date" half><Input type="date" value={form.date||today} onChange={e=>setForm({...form,date:e.target.value})}/></Field>
+            <Field label="Linked Event (optional)" half>
+              <Select value={form.eventId||""} onChange={e=>setForm({...form,eventId:e.target.value})}>
+                <option value="">— Not linked to event —</option>
+                {(events||[]).filter(ev=>ev.status==="upcoming"||ev.status==="active").map(ev=><option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </Select>
+            </Field>
+          </Row>
+          <Field label="Description"><Textarea value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Competition details, rules, eligibility…" style={{minHeight:70}}/></Field>
+
+          {/* Show & Shine categories */}
+          {(form.type==="Show & Shine"||form.type==="Custom")&&(
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>Judging Categories</div>
+              {(form.categories||DEFAULT_SHOW_CATEGORIES).map((cat,i)=>(
+                <Row key={cat.id} gap={8} align="center" style={{marginBottom:6}}>
+                  <Input value={cat.name} onChange={e=>{const cats=[...(form.categories||DEFAULT_SHOW_CATEGORIES)];cats[i]={...cats[i],name:e.target.value};setForm({...form,categories:cats});}} style={{flex:2}} placeholder="Category name"/>
+                  <Input type="number" value={cat.weight} onChange={e=>{const cats=[...(form.categories||DEFAULT_SHOW_CATEGORIES)];cats[i]={...cats[i],weight:Number(e.target.value)};setForm({...form,categories:cats});}} style={{width:70}} placeholder="%"/>
+                  <span style={{fontSize:11,color:"var(--text3)"}}>%</span>
+                  <button onClick={()=>{const cats=(form.categories||DEFAULT_SHOW_CATEGORIES).filter((_,j)=>j!==i);setForm({...form,categories:cats});}} style={{background:"none",border:"none",color:"var(--red2)",cursor:"pointer",fontSize:18}}>×</button>
+                </Row>
+              ))}
+              <button onClick={()=>{const cats=[...(form.categories||DEFAULT_SHOW_CATEGORIES),{id:uid("CA"),name:"",weight:10}];setForm({...form,categories:cats});}} style={{fontSize:12,color:"var(--blue)",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>+ Add Category</button>
+            </div>
+          )}
+
+          {/* Awards */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:8}}>Awards</div>
+            {(form.awards||[]).map((award,i)=>(
+              <Row key={award.id} gap={8} align="center" style={{marginBottom:6}}>
+                <Input value={award.icon||""} onChange={e=>{const awards=[...(form.awards||[])];awards[i]={...awards[i],icon:e.target.value};setForm({...form,awards});}} style={{width:50}} placeholder="🏆"/>
+                <Input value={award.name} onChange={e=>{const awards=[...(form.awards||[])];awards[i]={...awards[i],name:e.target.value};setForm({...form,awards});}} style={{flex:1}} placeholder="Award name"/>
+                <button onClick={()=>{const awards=(form.awards||[]).filter((_,j)=>j!==i);setForm({...form,awards});}} style={{background:"none",border:"none",color:"var(--red2)",cursor:"pointer",fontSize:18}}>×</button>
+              </Row>
+            ))}
+            <button onClick={()=>{const awards=[...(form.awards||[]),{id:uid("AW"),name:"",icon:"🏅"}];setForm({...form,awards});}} style={{fontSize:12,color:"var(--blue)",background:"none",border:"none",cursor:"pointer",fontWeight:600}}>+ Add Award</button>
+          </div>
+
+          <Row gap={8} justify="flex-end">
+            <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+            <Btn onClick={saveComp}>{modal==="new"?"Create Competition":"Save Changes"}</Btn>
+          </Row>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 function ContactsSection({user,contacts,setContacts}) {
   const [search,setSearch]=React.useState("");
