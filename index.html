@@ -3125,8 +3125,8 @@ function MarketplaceSection({ user, members, listings, setListings, cats, messag
     return txt.includes(search.toLowerCase())&&(fType==="all"||l.type===fType)&&(fCat==="all"||l.category===fCat)&&l.status==="active";
   });
   const myListings=(listings||[]).filter(l=>l.memberId===user.id);
-  function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",hideContact:false,status:"pending",created:today});setModal("add");}
-  function openEdit(l){setForm({...l});setModal({edit:l});}
+  function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",hideContact:false,status:"pending",created:today,images:[]});setModal("add");}
+  function openEdit(l){setForm({...l,images:l.images||[]});setModal({edit:l});}
   async function handleSave(){
     if(!form.title||!form.description)return alert("Title and description required.");
     const newStatus = modal==="add" ? (user.role==="admin"?"active":"pending") : form.status;
