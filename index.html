@@ -1088,7 +1088,7 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
 // ══════════════════════════════════════════════════════════════════════════════
 // MEMBERS
 // ══════════════════════════════════════════════════════════════════════════════
-function MembersSection({ user, members, setMembers, cars, dues, setDues, applications, setApplications }) {
+function MembersSection({ user, members, setMembers, cars, dues, setDues, applications, setApplications, setTab }) {
   const [mTab,setMTab]=useState("members");
   const pending=(applications||[]).filter(a=>a.status==="pending").length;
   const tabBtn=(id,label,count)=>(
@@ -1099,22 +1099,25 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues, applic
       {label}{count>0&&<span style={{background:"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{count}</span>}
     </button>
   );
-  if(mTab==="applications") return(
-    <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
-        {tabBtn("members","Members",0)}
-        {tabBtn("applications","Applications",pending)}
-      </div>
-      <ApplicationsSection user={user} members={members} setMembers={setMembers} applications={applications} setApplications={setApplications}/>
-    </div>
-  );
   return(
     <div>
       <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
         {tabBtn("members","Members",0)}
         {tabBtn("applications","Applications",pending)}
       </div>
-      <MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues}/>
+      {mTab==="members"&&<MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues}/>}
+      {mTab==="applications"&&<ApplicationsSectionPlaceholder pending={pending} setTab={setTab}/>}
+    </div>
+  );
+}
+
+function ApplicationsSectionPlaceholder({pending, setTab}) {
+  return(
+    <div style={{padding:40, textAlign:"center"}}>
+      <div style={{fontSize:48, marginBottom:16}}>📋</div>
+      <div style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",marginBottom:8}}>Membership Applications</div>
+      <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>{pending>0?`${pending} application${pending>1?"s":""} pending review`:"No pending applications"}</div>
+      <button onClick={()=>setTab&&setTab("applications")} style={{background:"var(--burg)",color:"white",border:"none",borderRadius:6,padding:"10px 24px",cursor:"pointer",fontWeight:700,fontSize:14}}>View Applications →</button>
     </div>
   );
 }
@@ -1408,30 +1411,6 @@ function PhotoManager({ car, cars, setCars }) {
 }
 
 // ── VEHICLES SECTION (tabbed wrapper) ────────────────────────────────────────
-function VehiclesSection(sp) {
-  const [vTab,setVTab]=useState("register");
-  const tabBtn=(id,label)=>(
-    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
-      {label}
-    </button>
-  );
-  return(
-    <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
-        {tabBtn("register","Vehicle Register")}
-        {tabBtn("permits","Club Permits")}
-        {tabBtn("transfers","Transfer History")}
-      </div>
-      {vTab==="register"&&<CarsSection {...sp}/>}
-      {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
-      {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
-    </div>
-  );
-}
-
 function CarsSection({ user, cars, setCars, members, setTransfers }) {
   var isAdmin=user.role==="admin";
   var sState=useState(""); var search=sState[0]; var setSearch=sState[1];
@@ -6985,7 +6964,7 @@ function App() {
         <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
           <div className="slide-r" key={tab}>
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
-            {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp}/>}
+            {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
             {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
             {tab==="vehicles"   &&<VehiclesSection {...sp}/>}
             {tab==="cars"       &&<CarsSection {...sp}/>}
@@ -8088,6 +8067,31 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 // ══════════════════════════════════════════════════════════════════════════════
 // CLUB PERMIT SECTION
 // ══════════════════════════════════════════════════════════════════════════════
+// ── VEHICLES SECTION (consolidated) ─────────────────────────────────────────
+function VehiclesSection(sp) {
+  const [vTab,setVTab]=React.useState("register");
+  const tabBtn=(id,label)=>(
+    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+      {label}
+    </button>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("register","Vehicle Register")}
+        {tabBtn("permits","Club Permits")}
+        {tabBtn("transfers","Transfer History")}
+      </div>
+      {vTab==="register"&&<CarsSection {...sp}/>}
+      {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
+      {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
+    </div>
+  );
+}
+
 function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, tripLogs, setTripLogs }) {
   const isAdmin = user.role==="admin";
   const [modal,setModal]=useState(null);
@@ -8880,54 +8884,6 @@ const DEFAULT_REGULARITY_FIELDS=[
 const SEASON_POINTS=[25,18,15,12,10,8,6,4,2,1];
 
 // ── VEHICLES SECTION (consolidated) ─────────────────────────────────────────
-function VehiclesSection(sp) {
-  const {user,members,cars,setCars,permits,setPermits,tripLogs,setTripLogs,transfers}=sp;
-  const [vTab,setVTab]=React.useState("register");
-  const tabBtn=(id,label)=>(
-    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
-      {label}
-    </button>
-  );
-  return(
-    <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
-        {tabBtn("register","Vehicle Register")}
-        {tabBtn("permits","Club Permits")}
-        {tabBtn("transfers","Transfer History")}
-      </div>
-      {vTab==="register"&&<CarsSection {...sp}/>}
-      {vTab==="permits"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
-      {vTab==="transfers"&&<TransfersSection transfers={transfers}/>}
-    </div>
-  );
-}
-
-// ── RECORDS SECTION (consolidated) ──────────────────────────────────────────
-function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints}) {
-  const [rTab,setRTab]=React.useState("archive");
-  const tabBtn=(id,label)=>(
-    <button onClick={()=>setRTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:rTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:rTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:rTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
-      {label}
-    </button>
-  );
-  return(
-    <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
-        {tabBtn("archive","Club Archive")}
-        {tabBtn("quality","Quality System")}
-      </div>
-      {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
-      {rTab==="quality"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
-    </div>
-  );
-}
-
 function CompetitionsSection({user,competitions,setCompetitions,members,cars,events,points,setPoints}) {
   const isAdmin=user.role==="admin";
   const [view,setView]=React.useState("list");
