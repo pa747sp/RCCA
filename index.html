@@ -1087,7 +1087,38 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
 // ══════════════════════════════════════════════════════════════════════════════
 // MEMBERS
 // ══════════════════════════════════════════════════════════════════════════════
-function MembersSection({ user, members, setMembers, cars, dues, setDues }) {
+function MembersSection({ user, members, setMembers, cars, dues, setDues, applications, setApplications }) {
+  const [mTab,setMTab]=useState("members");
+  const pending=(applications||[]).filter(a=>a.status==="pending").length;
+  const tabBtn=(id,label,count)=>(
+    <button onClick={()=>setMTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:mTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:mTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:mTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)",display:"flex",alignItems:"center",gap:6}}>
+      {label}{count>0&&<span style={{background:"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{count}</span>}
+    </button>
+  );
+  if(mTab==="applications") return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("members","Members",0)}
+        {tabBtn("applications","Applications",pending)}
+      </div>
+      <ApplicationsSection user={user} members={members} setMembers={setMembers} applications={applications} setApplications={setApplications}/>
+    </div>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("members","Members",0)}
+        {tabBtn("applications","Applications",pending)}
+      </div>
+      <MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues}/>
+    </div>
+  );
+}
+
+function MembersSectionInner({ user, members, setMembers, cars, dues, setDues }) {
   const [search,setSearch]=useState(""); const [modal,setModal]=useState(null); const [form,setForm]=useState({});
   const [showWorkflow,setShowWorkflow]=useState(null);
   const [showFilters,setShowFilters]=useState(false);
@@ -1371,6 +1402,31 @@ function PhotoManager({ car, cars, setCars }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── VEHICLES SECTION (tabbed wrapper) ────────────────────────────────────────
+function VehiclesSection(sp) {
+  const [vTab,setVTab]=useState("register");
+  const tabBtn=(id,label)=>(
+    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+      {label}
+    </button>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("register","Vehicle Register")}
+        {tabBtn("permits","Club Permits")}
+        {tabBtn("transfers","Transfer History")}
+      </div>
+      {vTab==="register"&&<CarsSection {...sp}/>}
+      {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
+      {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
     </div>
   );
 }
@@ -6799,6 +6855,7 @@ function App() {
     tasks: (tasks||[]).filter(t=>t.assigneeId===user?.id&&t.status!=="done").length,
     news: user?.role==="admin"?(news||[]).filter(n=>n.status==="draft").length:0,
     applications: user?.role==="admin"?(applications||[]).filter(a=>a.status==="pending").length:0,
+    members: user?.role==="admin"?(applications||[]).filter(a=>a.status==="pending").length:0,
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
@@ -6809,12 +6866,9 @@ function App() {
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"members",      label:"Members",          icon:"◉" },
-    { id:"applications", label:"Applications",     icon:"📋" },
     { id:"dues",         label:"Dues & Renewals",  icon:"◇" },
     { divider: true, label: "Vehicles" },
-    { id:"cars",         label:"Vehicle Register", icon:"◎" },
-    { id:"permits",      label:"Club Permits",     icon:"P6" },
-    { id:"transfers",    label:"Transfer History", icon:"→" },
+    { id:"vehicles",     label:"Vehicles",         icon:"◎" },
     { divider: true, label: "Club Activity" },
     { id:"meetings",     label:"Meetings",         icon:"◆" },
     { id:"events",       label:"Events & Shows",   icon:"★" },
@@ -6836,11 +6890,9 @@ function App() {
     { id:"pages",        label:"Custom Pages",     icon:"📄" },
     { id:"gallery",      label:"Photo Gallery",    icon:"📷" },
     { divider: true, label: "Club Records" },
-    { id:"qualitysystem",label:"Quality System",   icon:"📋" },
-    { id:"archive",      label:"Club Archive",     icon:"📚" },
+    { id:"records",      label:"Club Records",     icon:"📚" },
     { divider: true, label: "Recognition" },
     { id:"points",       label:"Points & Awards",  icon:"🏆" },
-    { divider: true, label: "Competitions" },
     { id:"competitions", label:"Competitions",     icon:"🏁" },
     { divider: true, label: "Access Control" },
     { id:"permissions",  label:"Permissions",      icon:"🔑" },
@@ -6934,6 +6986,7 @@ function App() {
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp}/>}
             {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
+            {tab==="vehicles"   &&<VehiclesSection {...sp}/>}
             {tab==="cars"       &&<CarsSection {...sp}/>}
             {tab==="dues"       &&user.role==="admin"&&<DuesSection {...sp}/>}
             {tab==="meetings"   &&<MeetingsSection {...sp}/>}
@@ -6953,6 +7006,7 @@ function App() {
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems}/>}
             {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
+            {tab==="records"    &&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints}/>}
             {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
             {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
@@ -7535,7 +7589,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
   const [tab,setTab]=useState("dashboard");
   const [modal,setModal]=useState(null);
-  const [expForm,setExpForm]=useState({date:today,amount:"",category:"Hall Hire",description:"",reference:""});
+  const [expForm,setExpForm]=useState({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   const [settForm,setSettForm]=useState(fs);
   const [invView,setInvView]=useState(null);
 
@@ -7566,7 +7620,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
     const entry={...expForm,id:uid("EX"),amount:Number(expForm.amount)};
     const u=modal?.edit?(expenses||[]).map(e=>e.id===modal.edit.id?entry:{...e}):[...(expenses||[]),entry];
     setExpenses(u); await dbSet(SK.expenses,u); setModal(null);
-    setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:""});
+    setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   }
   async function delExpense(id){ const u=(expenses||[]).filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
   async function saveSettings(){
@@ -7656,7 +7710,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
   return (
     <div className="fade-up">
-      <SectionHeader title="Finance" subtitle={`FY ${fyLabel()}`} action={<Row gap={8}><Btn onClick={openAdhoc}>+ New Invoice</Btn><Btn variant="ghost" onClick={exportCSV}>⬇ Export CSV</Btn></Row>}/>
+      <SectionHeader title="Finance" subtitle={`FY ${fyLabel()}`} action={<Row gap={8}><Btn onClick={openAdhoc}>+ New Invoice</Btn><Btn variant="ghost" onClick={()=>{setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});setModal({addExp:true});}}>+ Add Expense</Btn><Btn variant="ghost" onClick={exportCSV}>⬇ Export CSV</Btn></Row>}/>
       <Row gap={8} style={{marginBottom:20,flexWrap:"wrap"}}>
         {tabs2.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 18px",borderRadius:6,border:"1px solid var(--border)",background:tab===t.id?"var(--burg)":"var(--bg2)",color:tab===t.id?"#fff":"var(--text2)",fontWeight:600,cursor:"pointer",fontSize:13}}>{t.label}</button>)}
       </Row>
@@ -7840,7 +7894,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
       {tab==="expenses"&&(
         <div>
           <Row justify="flex-end" style={{marginBottom:14}}>
-            <Btn onClick={()=>{ setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:""}); setModal({addExp:true}); }}>+ Add Expense</Btn>
+            <Btn onClick={()=>{ setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""}); setModal({addExp:true}); }}>+ Add Expense</Btn>
           </Row>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
@@ -7853,7 +7907,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
                     <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)"}}>{e.date}</td>
                     <td style={{padding:"9px 12px"}}>{e.description}</td>
                     <td style={{padding:"9px 12px"}}><Badge status={e.category}/></td>
-                    <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:11,fontFamily:"var(--font-m)"}}>{e.reference||"—"}</td>
+                    <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:11,fontFamily:"var(--font-m)"}}>{e.reference||"—"}{e.receiptData&&<span style={{marginLeft:6,fontSize:10,background:"#e8f5ee",color:"var(--green)",border:"1px solid #86efac",borderRadius:3,padding:"1px 5px",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open(e.receiptData)}>📎 Receipt</span>}</td>
                     <td style={{padding:"9px 12px",fontWeight:700,color:"var(--red2)"}}>${Number(e.amount).toFixed(2)}</td>
                     <td style={{padding:"9px 12px"}}><Row gap={6}>
                       <Btn variant="ghost" size="sm" onClick={()=>{ setExpForm({...e}); setModal({edit:e}); }}>Edit</Btn>
@@ -7895,7 +7949,29 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         <Field label="Category"><Select value={expForm.category} onChange={e=>setExpForm({...expForm,category:e.target.value})}>{EXPENSE_CATS.map(c=><option key={c}>{c}</option>)}</Select></Field>
         <Field label="Description"><Input value={expForm.description} onChange={e=>setExpForm({...expForm,description:e.target.value})}/></Field>
         <Field label="Reference / Receipt No (optional)"><Input value={expForm.reference} onChange={e=>setExpForm({...expForm,reference:e.target.value})}/></Field>
-        <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveExpense}>Save</Btn></Row>
+        <Field label="Notes (optional)"><Textarea value={expForm.notes||""} onChange={e=>setExpForm({...expForm,notes:e.target.value})} placeholder="Additional details…" style={{minHeight:60}}/></Field>
+        <Field label="Receipt / Supporting Document (optional)">
+          <div style={{border:"2px dashed var(--border2)",borderRadius:8,padding:16,textAlign:"center",background:"var(--bg3)",cursor:"pointer",position:"relative"}}
+            onClick={()=>document.getElementById("exp-receipt-upload").click()}
+            onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--burg)";}}
+            onDragLeave={e=>{e.currentTarget.style.borderColor="var(--border2)";}}
+            onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor="var(--border2)";const f=e.dataTransfer.files[0];if(f){const r=new FileReader();r.onload=ev=>setExpForm({...expForm,receiptData:ev.target.result,receiptName:f.name});r.readAsDataURL(f);}}}>
+            <input id="exp-receipt-upload" type="file" accept="image/*,.pdf" style={{display:"none"}} onChange={e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setExpForm({...expForm,receiptData:ev.target.result,receiptName:f.name});r.readAsDataURL(f);}}}/>
+            {expForm.receiptData?(
+              <div>
+                <div style={{fontSize:13,color:"var(--green)",fontWeight:600,marginBottom:4}}>✓ {expForm.receiptName}</div>
+                <button onClick={e=>{e.stopPropagation();setExpForm({...expForm,receiptData:"",receiptName:"",});}} style={{fontSize:11,color:"var(--red2)",background:"none",border:"none",cursor:"pointer"}}>Remove</button>
+              </div>
+            ):(
+              <div>
+                <div style={{fontSize:24,marginBottom:6}}>📎</div>
+                <div style={{fontSize:13,color:"var(--text3)"}}>Click or drag to attach receipt</div>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:4}}>Image or PDF</div>
+              </div>
+            )}
+          </div>
+        </Field>
+        <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveExpense}>Save Expense</Btn></Row>
       </Modal>}
       {modal?.confirmDel&&<Confirm message="Delete this expense?" onConfirm={()=>delExpense(modal.confirmDel.id)} onCancel={()=>setModal(null)}/>}
 
@@ -8802,6 +8878,55 @@ const DEFAULT_REGULARITY_FIELDS=[
 
 const SEASON_POINTS=[25,18,15,12,10,8,6,4,2,1];
 
+// ── VEHICLES SECTION (consolidated) ─────────────────────────────────────────
+function VehiclesSection(sp) {
+  const {user,members,cars,setCars,permits,setPermits,tripLogs,setTripLogs,transfers}=sp;
+  const [vTab,setVTab]=React.useState("register");
+  const tabBtn=(id,label)=>(
+    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+      {label}
+    </button>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("register","Vehicle Register")}
+        {tabBtn("permits","Club Permits")}
+        {tabBtn("transfers","Transfer History")}
+      </div>
+      {vTab==="register"&&<CarsSection {...sp}/>}
+      {vTab==="permits"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+      {vTab==="transfers"&&<TransfersSection transfers={transfers}/>}
+    </div>
+  );
+}
+
+// ── RECORDS SECTION (consolidated) ──────────────────────────────────────────
+function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints}) {
+  const [rTab,setRTab]=React.useState("archive");
+  const tabBtn=(id,label)=>(
+    <button onClick={()=>setRTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:rTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:rTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:rTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+      {label}
+    </button>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("archive","Club Archive")}
+        {tabBtn("quality","Quality System")}
+      </div>
+      {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
+      {rTab==="quality"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
+    </div>
+  );
+}
+
 function CompetitionsSection({user,competitions,setCompetitions,members,cars,events,points,setPoints}) {
   const isAdmin=user.role==="admin";
   const [view,setView]=React.useState("list");
@@ -9554,6 +9679,29 @@ function AddReviewInline({supplierId,onAdd}) {
 
 
 // ── QUALITY SYSTEM SECTION ───────────────────────────────────────────────────
+// ── RECORDS SECTION (tabbed wrapper) ─────────────────────────────────────────
+function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints}) {
+  const [rTab,setRTab]=React.useState("archive");
+  const tabBtn=(id,label)=>(
+    <button onClick={()=>setRTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
+      borderBottom:rTab===id?"2px solid var(--burg)":"2px solid transparent",
+      marginBottom:-2,color:rTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:rTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+      {label}
+    </button>
+  );
+  return(
+    <div>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+        {tabBtn("archive","Club Archive")}
+        {tabBtn("quality","Quality System")}
+      </div>
+      {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
+      {rTab==="quality"&&<QualitySystemSection user={user} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs}/>}
+    </div>
+  );
+}
+
 function QualitySystemSection({user,qualityDocs,setQualityDocs}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("docs");
