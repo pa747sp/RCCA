@@ -2983,7 +2983,7 @@ function ListingPhotoUploader({ photos, onChange }) {
   const MAX = 5;
   const MAX_PX = 900;   // max dimension in pixels
   const QUALITY = 0.72; // JPEG quality — good balance of size vs clarity
-  const [dragging, setDragging] = React.useRef(false);
+  const draggingRef = React.useRef(false);
   const [lightbox, setLightbox] = React.useState(null);
   const [processing, setProcessing] = React.useState(false);
   const inputRef = React.useRef();
