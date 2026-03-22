@@ -1091,33 +1091,43 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
 function MembersSection({ user, members, setMembers, cars, dues, setDues, applications, setApplications, setTab }) {
   const [mTab,setMTab]=useState("members");
   const pending=(applications||[]).filter(a=>a.status==="pending").length;
+  const overdueDues=(dues||[]).filter(d=>d.year===new Date().getFullYear()&&!d.paid).length;
+
   const tabBtn=(id,label,count)=>(
-    <button onClick={()=>setMTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:mTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:mTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:mTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)",display:"flex",alignItems:"center",gap:6}}>
-      {label}{count>0&&<span style={{background:"var(--burg)",color:"white",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{count}</span>}
+    <button onClick={()=>setMTab(id)} style={{
+      padding:"10px 24px",background:mTab===id?"white":"transparent",border:"none",
+      borderBottom:mTab===id?"3px solid var(--burg)":"3px solid transparent",
+      color:mTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:mTab===id?700:500,cursor:"pointer",fontSize:14,
+      fontFamily:"var(--font-b)",display:"inline-flex",alignItems:"center",gap:7,
+      transition:"all .15s",marginBottom:-2,
+    }}>
+      {label}
+      {count>0&&<span style={{background:mTab===id?"var(--burg)":"#999",color:"white",borderRadius:10,padding:"1px 7px",fontSize:11,fontWeight:700}}>{count}</span>}
     </button>
   );
+
   return(
     <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0,background:"var(--bg2)",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
         {tabBtn("members","Members",0)}
         {tabBtn("applications","Applications",pending)}
+        {tabBtn("dues","Dues & Renewals",overdueDues)}
       </div>
       {mTab==="members"&&<MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues}/>}
-      {mTab==="applications"&&<ApplicationsSectionPlaceholder pending={pending} setTab={setTab}/>}
+      {mTab==="applications"&&<ApplicationsSectionPlaceholder pending={pending} onView={()=>setTab&&setTab("applications")}/>}
+      {mTab==="dues"&&<DuesSection members={members} dues={dues} setDues={setDues}/>}
     </div>
   );
 }
 
-function ApplicationsSectionPlaceholder({pending, setTab}) {
+function ApplicationsSectionPlaceholder({pending, onView}) {
   return(
     <div style={{padding:40, textAlign:"center"}}>
       <div style={{fontSize:48, marginBottom:16}}>📋</div>
       <div style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--burg)",marginBottom:8}}>Membership Applications</div>
-      <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>{pending>0?`${pending} application${pending>1?"s":""} pending review`:"No pending applications"}</div>
-      <button onClick={()=>setTab&&setTab("applications")} style={{background:"var(--burg)",color:"white",border:"none",borderRadius:6,padding:"10px 24px",cursor:"pointer",fontWeight:700,fontSize:14}}>View Applications →</button>
+      <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>{pending>0?`${pending} application${pending!==1?"s":""} pending review`:"No pending applications"}</div>
+      <button onClick={onView} style={{background:"var(--burg)",color:"white",border:"none",borderRadius:6,padding:"10px 24px",cursor:"pointer",fontWeight:700,fontSize:14}}>View Applications →</button>
     </div>
   );
 }
@@ -6846,7 +6856,6 @@ function App() {
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"members",      label:"Members",          icon:"◉" },
-    { id:"dues",         label:"Dues & Renewals",  icon:"◇" },
     { divider: true, label: "Vehicles" },
     { id:"vehicles",     label:"Vehicles",         icon:"◎" },
     { divider: true, label: "Club Activity" },
@@ -8071,16 +8080,19 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 function VehiclesSection(sp) {
   const [vTab,setVTab]=React.useState("register");
   const tabBtn=(id,label)=>(
-    <button onClick={()=>setVTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:vTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:vTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:vTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+    <button onClick={()=>setVTab(id)} style={{
+      padding:"10px 24px",background:vTab===id?"white":"transparent",border:"none",
+      borderBottom:vTab===id?"3px solid var(--burg)":"3px solid transparent",
+      color:vTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:vTab===id?700:500,cursor:"pointer",fontSize:14,
+      fontFamily:"var(--font-b)",transition:"all .15s",marginBottom:-2,
+    }}>
       {label}
     </button>
   );
   return(
     <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0,background:"var(--bg2)",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
         {tabBtn("register","Vehicle Register")}
         {tabBtn("permits","Club Permits")}
         {tabBtn("transfers","Transfer History")}
@@ -9640,16 +9652,19 @@ function AddReviewInline({supplierId,onAdd}) {
 function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints}) {
   const [rTab,setRTab]=React.useState("archive");
   const tabBtn=(id,label)=>(
-    <button onClick={()=>setRTab(id)} style={{padding:"8px 20px",background:"none",border:"none",
-      borderBottom:rTab===id?"2px solid var(--burg)":"2px solid transparent",
-      marginBottom:-2,color:rTab===id?"var(--burg)":"var(--text3)",
-      fontWeight:rTab===id?700:400,cursor:"pointer",fontSize:13,fontFamily:"var(--font-b)"}}>
+    <button onClick={()=>setRTab(id)} style={{
+      padding:"10px 24px",background:rTab===id?"white":"transparent",border:"none",
+      borderBottom:rTab===id?"3px solid var(--burg)":"3px solid transparent",
+      color:rTab===id?"var(--burg)":"var(--text3)",
+      fontWeight:rTab===id?700:500,cursor:"pointer",fontSize:14,
+      fontFamily:"var(--font-b)",transition:"all .15s",marginBottom:-2,
+    }}>
       {label}
     </button>
   );
   return(
     <div>
-      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0}}>
+      <div style={{borderBottom:"2px solid var(--border)",padding:"0 24px",display:"flex",gap:0,background:"var(--bg2)",boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
         {tabBtn("archive","Club Archive")}
         {tabBtn("quality","Quality System")}
       </div>
