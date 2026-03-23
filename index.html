@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.16 -->
+<!-- RCCA Portal v5.8.17 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -8063,7 +8063,7 @@ function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
             <div style={{fontWeight:700,fontSize:13,color:"#5b21b6"}}>Scan Rego Document</div>
             <div style={{fontSize:11,color:"#7c3aed",flex:1}}>Upload a photo to auto-fill fields below</div>
           </div>
-          <input ref={fileRef} type="file" accept="image/*,.pdf,application/pdf" style={{display:"none"}} onChange={handleFile}/>
+          <input ref={fileRef} type="file" style={{display:"none"}} onChange={handleFile}/>
           {!form.imgData?(
             <button onClick={()=>fileRef.current.click()} style={{padding:"7px 16px",background:"white",border:"1px solid #c4b5f4",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,color:"#5b21b6"}}>
               📎 Choose rego photo or PDF
