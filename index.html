@@ -487,6 +487,39 @@ function Field({ label, children, half=false, third=false }) {
 function Row({ children, gap=8, wrap=false, align="center", justify="flex-start", style={} }) {
   return <div style={{display:"flex",gap,flexWrap:wrap?"wrap":"nowrap",alignItems:align,justifyContent:justify,...style}}>{children}</div>;
 }
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastFn = null;
+function toast(msg, type="success", duration=3000) {
+  if(_toastFn) _toastFn(msg, type, duration);
+  else if(window._toastFn) window._toastFn(msg, type, duration);
+}
+window.toast = toast;
+function ToastContainer() {
+  const [toasts, setToasts] = useState([]);
+  const fnRef = useCallback((msg, type="success", duration=3000) => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, {id, msg, type}]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
+  }, []);
+  useEffect(() => {
+    _toastFn = fnRef;
+    window._toastFn = fnRef;
+    return () => { _toastFn = null; window._toastFn = null; };
+  }, [fnRef]);
+  if(!toasts.length) return null;
+  const colours = {success:"#1e6840", error:"#c0282a", info:"#1a4a7a", warning:"#c9922a"};
+  return ReactDOM.createPortal(
+    <div style={{position:"fixed",bottom:24,right:24,zIndex:99999,display:"flex",flexDirection:"column",gap:8}}>
+      {toasts.map(t => (
+        <div key={t.id} style={{background:colours[t.type]||colours.success,color:"white",padding:"10px 18px",borderRadius:8,fontSize:13,fontFamily:"var(--font-b)",boxShadow:"0 4px 16px rgba(0,0,0,.25)",maxWidth:340,animation:"fadeIn .2s ease"}}>
+          {t.msg}
+        </div>
+      ))}
+    </div>,
+    document.body
+  );
+}
 function Col({ children, gap=8, style={} }) {
   return <div style={{display:"flex",flexDirection:"column",gap,...style}}>{children}</div>;
 }
@@ -4116,6 +4149,7 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 </script>
 
 <script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 function toast(msg,type,dur){if(window._toastFn)window._toastFn(msg,type,dur);else if(window.toast&&window.toast!==toast)window.toast(msg,type,dur);}
 // ── PAYEE SEARCH ─────────────────────────────────────────────────────────────
 function PayeeSearch({members,contacts,setContacts,onSelect}) {
@@ -8322,6 +8356,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 
 </script>
 <script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
 function toast(msg,type,dur){if(window._toastFn)window._toastFn(msg,type,dur);else if(window.toast&&window.toast!==toast)window.toast(msg,type,dur);}
 // ── PARTS INVENTORY SECTION ──────────────────────────────────────────────────
 function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members}) {
@@ -11984,8 +12019,16 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
   );
 }
 
+function AppWithToast() {
+  return (
+    <>
+      <App/>
+      <ToastContainer/>
+    </>
+  );
+}
 const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(React.createElement(ErrorBoundary, null, React.createElement(App)));
+root.render(React.createElement(ErrorBoundary, null, React.createElement(AppWithToast)));
 
 </script>
 </body>
