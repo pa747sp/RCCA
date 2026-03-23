@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.20 -->
+<!-- RCCA Portal v5.8.21 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -6922,6 +6922,7 @@ function App() {
     { id:"tasks",        label:"Tasks",            icon:"☑" },
     { divider: true, label: "Commerce" },
     { id:"shop",         label:"Club Shop",        icon:"⊕" },
+    { id:"spare",        label:"Spare Parts",      icon:"🔧" },
     { id:"marketplace",  label:"Marketplace",      icon:"⟳" },
     { id:"library",      label:"Library",          icon:"📚" },
     { divider: true, label: "Club Records" },
@@ -7007,6 +7008,7 @@ function App() {
             {tab==="tasks"      &&<TasksSection {...sp}/>}
             {tab==="commerce"   &&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
+            {tab==="spare"      &&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
             {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
             {tab==="sparepartsc"&&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
