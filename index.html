@@ -1491,6 +1491,96 @@ function PhotoManager({ car, cars, setCars }) {
 }
 
 // ── VEHICLES SECTION (tabbed wrapper) ────────────────────────────────────────
+// ── REGO SCANNER ─────────────────────────────────────────────────────────────
+function RegoScanner({onResult}) {
+  const [scanning,setScanning]=useState(false);
+  const [done,setDone]=useState(false);
+  const [imgData,setImgData]=useState(null);
+  const [imgName,setImgName]=useState("");
+  const inputRef=React.useRef();
+
+  function handleFile(file) {
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=e=>{setImgData(e.target.result);setImgName(file.name);setDone(false);};
+    r.readAsDataURL(file);
+  }
+
+  async function scan() {
+    if(!imgData)return;
+    setScanning(true);
+    try {
+      const base64=imgData.split(",")[1];
+      const mediaType=imgData.split(";")[0].split(":")[1];
+      const resp=await fetch("/.netlify/functions/scan",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:500,
+          messages:[{role:"user",content:[
+            {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
+            {type:"text",text:`You are reading a Victorian vehicle registration certificate. Extract the following fields and return ONLY a JSON object with these exact keys:
+{
+  "make": "vehicle make/manufacturer",
+  "model": "vehicle model",
+  "year": "4-digit year of manufacture as a number",
+  "colour": "vehicle colour",
+  "reg": "registration plate number",
+  "chassis": "VIN or chassis number",
+  "engine": "engine number if visible",
+  "ownerName": "registered owner name (no address)"
+}
+Leave a field as empty string "" if not visible. Return ONLY the JSON, no other text.`}
+          ]}]
+        })
+      });
+      const data=await resp.json();
+      const text=data.content?.find(c=>c.type==="text")?.text||"";
+      const clean=text.replace(/```json|```/g,"").trim();
+      const parsed=JSON.parse(clean);
+      // Map to our field names
+      const result={};
+      if(parsed.make)result.make=parsed.make;
+      if(parsed.model)result.model=parsed.model;
+      if(parsed.year)result.year=Number(parsed.year)||parsed.year;
+      if(parsed.colour)result.colour=parsed.colour;
+      if(parsed.reg)result.reg=parsed.reg;
+      if(parsed.chassis)result.chassis=parsed.chassis;
+      onResult(result);
+      setDone(true);
+      toast("Rego scanned — review the pre-filled fields");
+    } catch(err) {
+      toast("Scan failed — please fill in details manually","error");
+    }
+    setScanning(false);
+  }
+
+  return(
+    <div style={{background:"linear-gradient(135deg,#f5f0ff,#ede8ff)",border:"1px solid #c4b5f4",borderRadius:8,padding:"12px 16px",marginBottom:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <span style={{fontSize:16}}>📷</span>
+        <div style={{fontWeight:700,fontSize:13,color:"#5b21b6"}}>Scan Rego Document</div>
+        <div style={{fontSize:11,color:"#7c3aed",flex:1}}>Upload a photo of your registration certificate to auto-fill fields</div>
+      </div>
+      <input ref={inputRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(e.target.files[0])}/>
+      {!imgData?(
+        <button onClick={()=>inputRef.current.click()} style={{padding:"7px 16px",background:"white",border:"1px solid #c4b5f4",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,color:"#5b21b6",display:"flex",alignItems:"center",gap:6}}>
+          📎 Choose rego photo or PDF
+        </button>
+      ):(
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:"#5b21b6",fontWeight:600}}>📎 {imgName}</span>
+          <button onClick={scan} disabled={scanning||done} style={{padding:"7px 16px",background:done?"var(--green)":scanning?"#ddd6fe":"#7c3aed",color:"white",border:"none",borderRadius:6,cursor:scanning||done?"default":"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+            {scanning?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid white",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/> Scanning…</>:done?"✓ Scanned":"✨ Scan with AI"}
+          </button>
+          {!done&&<button onClick={()=>{setImgData(null);setImgName("");}} style={{fontSize:11,color:"#7c3aed",background:"none",border:"none",cursor:"pointer"}}>Remove</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CarsSection({ user, cars, setCars, members, setTransfers }) {
   var isAdmin=user.role==="admin";
   var sState=useState(""); var search=sState[0]; var setSearch=sState[1];
@@ -1767,6 +1857,8 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
       </div>
       {(modal==="add"||modal?.edit)&&(
         <Modal title={modal==="add"?"Register Vehicle":"Edit Vehicle"} onClose={function(){setModal(null);}}>
+          {/* Rego Scanner */}
+          {modal==="add"&&<RegoScanner onResult={function(data){setForm(function(f){return Object.assign({},f,data);});}}/>}
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Registration" half><Input value={form.reg||""} onChange={function(e){setForm(Object.assign({},form,{reg:e.target.value}));}}/></Field>
             <Field label="Year" half><Input type="number" value={form.year||""} onChange={function(e){setForm(Object.assign({},form,{year:e.target.value}));}}/></Field>
@@ -4027,6 +4119,7 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
       </Card>
       {carModal&&(
         <Modal title={carModal==="add"?"Add Vehicle":"Edit Vehicle"} onClose={function(){setCarModal(null);}}>
+          {carModal==="add"&&<RegoScanner onResult={function(data){setCarForm(function(f){return Object.assign({},f,data);});}}/>}
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Make" half><Input value={carForm.make||""} onChange={function(e){setCarForm(Object.assign({},carForm,{make:e.target.value}));}}/></Field>
             <Field label="Model" half><Input value={carForm.model||""} onChange={function(e){setCarForm(Object.assign({},carForm,{model:e.target.value}));}}/></Field>
