@@ -5769,7 +5769,8 @@ Please notify them at ${app.email}`);
 // SITE CONTENT EDITOR
 // ══════════════════════════════════════════════════════════════════════════════
 function SiteContentSection({ siteContent, setSiteContent }) {
-  const [local, setLocal] = useState(JSON.parse(JSON.stringify(siteContent)));
+  const sc0 = siteContent || DEFAULT_SITE_CONTENT;
+  const [local, setLocal] = useState(JSON.parse(JSON.stringify(sc0)));
   const [activePanel, setActivePanel] = useState("hero");
   const [saved, setSaved] = useState(false);
   const [editingCommitteeIdx, setEditingCommitteeIdx] = useState(null);
@@ -5999,7 +6000,7 @@ function SiteContentSection({ siteContent, setSiteContent }) {
               Save Changes
             </button>
             {saved && <span style={{fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Saved — public site updated</span>}
-            <button onClick={()=>setLocal(JSON.parse(JSON.stringify(siteContent)))} style={{background:"none",border:"1px solid var(--border2)",borderRadius:6,padding:"10px 18px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:12,cursor:"pointer"}}>
+            <button onClick={()=>setLocal(JSON.parse(JSON.stringify(siteContent||DEFAULT_SITE_CONTENT)))} style={{background:"none",border:"1px solid var(--border2)",borderRadius:6,padding:"10px 18px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:12,cursor:"pointer"}}>
               Discard Changes
             </button>
           </div>
