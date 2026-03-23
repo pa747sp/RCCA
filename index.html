@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.19 -->
+<!-- RCCA Portal v5.8.20 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -1192,7 +1192,12 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
     }
     return true;
   });
-  function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:String(members.length+1).padStart(3,"0")});setModal("add");}
+  function nextMemberNumber(){
+    const nums=members.map(m=>parseInt(m.memberNumber||"0",10)).filter(n=>!isNaN(n));
+    const max=nums.length?Math.max(...nums):0;
+    return String(max+1).padStart(3,"0");
+  }
+  function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:nextMemberNumber()});setModal("add");}
   function openEdit(m){setForm({...m});setModal({edit:m});}
   async function handleSave(){
     if(!form.name||!form.email)return console.log("Name and email required","error");
@@ -1341,9 +1346,19 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
       </Card>
       {(modal==="add"||modal?.edit)&&(
         <Modal title={modal==="add"?"Add Member":"Edit Member"} onClose={()=>setModal(null)}>
+          {modal==="add"&&(
+            <div style={{background:"#e8f0f8",borderRadius:6,padding:"8px 12px",fontSize:12,color:"var(--blue)",marginBottom:12}}>
+              Member number auto-assigned as <strong>#{nextMemberNumber()}</strong> — edit below if needed.
+            </div>
+          )}
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Full Name" half><Input value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})} placeholder="John Smith"/></Field>
-            <Field label="Member No." half><Input value={form.memberNumber||""} onChange={e=>setForm({...form,memberNumber:e.target.value})}/></Field>
+            <Field label="Member No." half>
+              <Row gap={6}>
+                <Input value={form.memberNumber||""} onChange={e=>setForm({...form,memberNumber:e.target.value})} style={{flex:1}}/>
+                {modal?.edit&&<button onClick={()=>setForm({...form,memberNumber:nextMemberNumber()})} style={{padding:"0 10px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,cursor:"pointer",fontSize:11,color:"var(--text3)",whiteSpace:"nowrap",flexShrink:0}}>Next #</button>}
+              </Row>
+            </Field>
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Email" half><Input type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
@@ -3979,6 +3994,121 @@ function TransfersSection({ transfers }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PROFILE
 // ══════════════════════════════════════════════════════════════════════════════
+// ── MEMBERSHIP SECTION (member view) ─────────────────────────────────────────
+function MembershipSection({user,members,dues}) {
+  const myDues=(dues||[]).filter(d=>d.memberId===user.id).sort((a,b)=>b.year-a.year);
+  const currentDue=myDues.find(d=>d.year===yr);
+  const member=members.find(m=>m.id===user.id)||user;
+
+  const typeColour={Full:"var(--burg)",Associate:"var(--blue)",Honorary:"var(--green)",Junior:"var(--gold2)"}[member.memberType]||"var(--text3)";
+
+  const yearsActive=member.joined?new Date().getFullYear()-new Date(member.joined).getFullYear():0;
+
+  function printCard(){
+    const w=window.open("","_blank");
+    w.document.write(`<html><head><title>RCCA Membership Card</title>
+    <style>
+      body{margin:0;padding:40px;font-family:Georgia,serif;background:#f8f5f0;}
+      .card{width:340px;background:linear-gradient(135deg,#5c0c0e,#8f1a1c);border-radius:12px;padding:24px;color:white;box-shadow:0 8px 32px rgba(0,0,0,.3);}
+      .logo{font-size:11px;letter-spacing:0.15em;opacity:.7;margin-bottom:4px;}
+      .club{font-size:18px;font-weight:700;margin-bottom:2px;}
+      .sub{font-size:11px;font-style:italic;opacity:.8;margin-bottom:20px;}
+      .name{font-size:22px;font-weight:700;margin-bottom:4px;}
+      .num{font-size:13px;opacity:.8;font-family:monospace;margin-bottom:16px;}
+      .row{display:flex;justify-content:space-between;font-size:11px;opacity:.75;margin-top:8px;}
+      .badge{display:inline-block;background:rgba(255,255,255,.2);border-radius:4px;padding:2px 10px;font-size:11px;font-weight:700;letter-spacing:.05em;}
+      @media print{body{padding:0;}button{display:none;}}
+    </style></head><body>
+    <div class="card">
+      <div class="logo">ROVER CAR CLUB</div>
+      <div class="club">of Australia</div>
+      <div class="sub">Est. 1964 · Melbourne</div>
+      <div class="name">${member.name}</div>
+      <div class="num">Member No. ${member.memberNumber||member.id}</div>
+      <div class="badge">${member.memberType||"Full"} Member</div>
+      <div class="row"><span>Member since ${member.joined?new Date(member.joined).getFullYear():""}</span><span>${yr} ${currentDue?.paid?"✓ Inc. Paid":"Inc. Outstanding"}</span></div>
+    </div>
+    <p style="margin-top:20px;font-size:11px;color:#666;font-family:Arial">Printed ${new Date().toLocaleDateString("en-AU")}</p>
+    <button onclick="window.print()" style="margin-top:8px;padding:8px 20px;background:#c0282a;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px">Print Card</button>
+    </body></html>`);
+    w.document.close();
+  }
+
+  return(
+    <div style={{padding:24,maxWidth:700}} className="fade-up">
+      <SectionHeader title="My Membership" subtitle="Your membership details and history"/>
+
+      {/* Membership Card */}
+      <div style={{background:"linear-gradient(135deg,#5c0c0e,#8f1a1c)",borderRadius:12,padding:24,color:"white",marginBottom:20,boxShadow:"0 4px 20px rgba(0,0,0,.2)",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",right:-20,top:-20,width:120,height:120,borderRadius:"50%",background:"rgba(255,255,255,.05)"}}/>
+        <div style={{position:"absolute",right:20,bottom:-30,width:80,height:80,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
+        <div style={{fontSize:10,letterSpacing:"0.15em",opacity:.7,marginBottom:2,fontFamily:"var(--font-m)"}}>ROVER CAR CLUB</div>
+        <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,marginBottom:2}}>of Australia</div>
+        <div style={{fontSize:10,fontStyle:"italic",opacity:.7,marginBottom:20}}>Est. 1964 · Melbourne</div>
+        <div style={{fontFamily:"var(--font-d)",fontSize:26,fontWeight:700,marginBottom:4}}>{member.name}</div>
+        <div style={{fontSize:13,opacity:.8,fontFamily:"var(--font-m)",marginBottom:16}}>Member No. {member.memberNumber||member.id}</div>
+        <Row gap={8} align="center">
+          <span style={{background:"rgba(255,255,255,.2)",borderRadius:4,padding:"2px 10px",fontSize:11,fontWeight:700,letterSpacing:".05em"}}>{member.memberType||"Full"} Member</span>
+          {currentDue?.paid
+            ?<span style={{background:"rgba(30,104,64,.6)",borderRadius:4,padding:"2px 10px",fontSize:11,fontWeight:700}}>✓ {yr} Inc. Paid</span>
+            :<span style={{background:"rgba(192,40,42,.5)",borderRadius:4,padding:"2px 10px",fontSize:11,fontWeight:700}}>{yr} Inc. Outstanding</span>
+          }
+        </Row>
+        <div style={{marginTop:16,fontSize:11,opacity:.6,fontFamily:"var(--font-m)"}}>
+          Member since {member.joined?new Date(member.joined).getFullYear():""}
+          {yearsActive>0&&` · ${yearsActive} year${yearsActive!==1?"s":""} of membership`}
+        </div>
+      </div>
+
+      {/* Details + print */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+        {[
+          ["Member Number","#"+(member.memberNumber||member.id)],
+          ["Membership Type",member.memberType||"Full"],
+          ["Status",member.status||"Active"],
+          ["Member Since",member.joined?new Date(member.joined).toLocaleDateString("en-AU"):"—"],
+          ["State",member.state||"—"],
+          ["Years Active",yearsActive>0?`${yearsActive} year${yearsActive!==1?"s":""}`:"< 1 year"],
+        ].map(([lbl,val])=>(
+          <div key={lbl} style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px"}}>
+            <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginBottom:3}}>{lbl}</div>
+            <div style={{fontSize:14,fontWeight:700,color:"var(--text)"}}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      <Btn variant="ghost" onClick={printCard} style={{marginBottom:24}}>🖨 Print Membership Card</Btn>
+
+      {/* Dues history */}
+      <div style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:20}}>
+        <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:600,marginBottom:14}}>Subscription History</div>
+        {myDues.length===0?(
+          <div style={{fontSize:13,color:"var(--text3)",textAlign:"center",padding:"16px 0"}}>No subscription records found.</div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {myDues.map(d=>(
+              <div key={d.id||d.year} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:d.paid?"var(--bg3)":"#fff5f5",border:`1px solid ${d.paid?"var(--border)":"#fca5a5"}`,borderRadius:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:12}}>
+                  <span style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{d.year}</span>
+                  {d.paid
+                    ?<span style={{fontSize:11,background:"#d1fae5",color:"#065f46",borderRadius:4,padding:"2px 8px",fontWeight:700}}>✓ Paid</span>
+                    :<span style={{fontSize:11,background:"#fee2e2",color:"#991b1b",borderRadius:4,padding:"2px 8px",fontWeight:700}}>Outstanding</span>
+                  }
+                </div>
+                <div style={{fontSize:13,color:"var(--text3)"}}>
+                  {d.amount?`A$${d.amount}`:""}
+                  {d.paidDate&&<span style={{marginLeft:8,fontSize:11}}>paid {new Date(d.paidDate).toLocaleDateString("en-AU")}</span>}
+                  {d.method&&<span style={{marginLeft:8,fontSize:11,color:"var(--text3)"}}>{d.method}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCars }) {
   var fState=useState({...user}); var form=fState[0]; var setForm=fState[1];
   var svState=useState(false); var saved=svState[0]; var setSaved=svState[1];
@@ -6783,6 +6913,7 @@ function App() {
   const PORTAL_NAV_MEMBER = [
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
+    { id:"membership",   label:"My Membership",    icon:"◉" },
     { id:"cars",         label:"My Vehicles",      icon:"◎" },
     { id:"permits",      label:"Club Permits",     icon:"P6" },
     { divider: true, label: "Club Activity" },
@@ -6868,6 +6999,7 @@ function App() {
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
             {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
             {tab==="vehicles"   &&<VehiclesSection {...sp}/>}
+            {tab==="membership" &&<MembershipSection user={user} members={members} dues={dues}/>}
             {tab==="cars"       &&<CarsSection {...sp}/>}
             {tab==="dues"       &&user.role==="admin"&&<DuesSection {...sp}/>}
             {tab==="meetings"   &&<MeetingsSection {...sp}/>}
