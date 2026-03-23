@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rover Car Club of Australia</title>
+  <title>RCCA v5.8.13 FIXED</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -9652,6 +9652,7 @@ function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityD
       <div style={{paddingTop:8}}>
       {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
       {rTab==="quality"&&<QualitySystemSection user={user} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs}/>}
+    </div>
     </div>
   );
 }
