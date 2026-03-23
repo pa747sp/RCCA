@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.7 -->
+<!-- RCCA Portal v5.8.13 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -432,68 +432,17 @@ function Card({ children, style={}, className="", onClick }) {
   return <div className={className} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...style}} onClick={onClick}>{children}</div>;
 }
 
-// ── TOAST NOTIFICATION SYSTEM ────────────────────────────────────────────────
-let _toastFn = null;
-function toast(msg, type="success", duration=3000) {
-  if(_toastFn) _toastFn(msg, type, duration);
-  else if(window._toastFn) window._toastFn(msg, type, duration);
-}
-window.toast = toast;
-
-function ToastContainer() {
-  const [toasts, setToasts] = useState([]);
-  const fnRef = React.useRef(null);
-  fnRef.current = (msg, type, duration) => {
-    const id = Date.now();
-    setToasts(t => [...t, {id, msg, type}]);
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
-  };
-  React.useEffect(() => {
-    _toastFn = fnRef.current;
-    window._toastFn = fnRef.current;
-  });
-  const colours = {
-    success: {bg:"#f0fdf4", border:"#86efac", text:"#166534", icon:"✓"},
-    error:   {bg:"#fef2f2", border:"#fca5a5", text:"#991b1b", icon:"✕"},
-    info:    {bg:"#eff6ff", border:"#93c5fd", text:"#1e40af", icon:"ℹ"},
-    warning: {bg:"#fffbeb", border:"#fcd34d", text:"#92400e", icon:"⚠"},
-  };
-  if(!toasts.length) return null;
-  return (
-    <div style={{position:"fixed",top:16,right:16,zIndex:9999,display:"flex",flexDirection:"column",gap:8,pointerEvents:"none"}}>
-      {toasts.map(t => {
-        const c = colours[t.type] || colours.success;
-        return (
-          <div key={t.id} style={{background:c.bg,border:`1px solid ${c.border}`,borderRadius:8,padding:"10px 16px",
-            fontSize:13,color:c.text,fontFamily:"var(--font-b)",fontWeight:600,
-            display:"flex",alignItems:"center",gap:8,minWidth:220,maxWidth:340,
-            boxShadow:"0 4px 12px rgba(0,0,0,.1)",animation:"fadeInRight .2s ease"}}>
-            <span style={{fontSize:15}}>{c.icon}</span>
-            {t.msg}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function Modal({ title, subtitle, onClose, children, wide=false, extraWide=false }) {
-  const modalRef = React.useRef(null);
   React.useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = e => { if(e.key==="Escape") onClose(); };
     document.addEventListener("keydown", onKey);
-    // Auto-focus first input
-    setTimeout(() => {
-      const first = modalRef.current?.querySelector('input:not([type="hidden"]):not([disabled]),textarea:not([disabled]),select:not([disabled])');
-      if(first) first.focus();
-    }, 50);
     return () => { document.body.style.overflow = prev; document.removeEventListener("keydown", onKey); };
   }, []);
 
   return ReactDOM.createPortal(
-    <div ref={modalRef} style={{
+    <div style={{
       position:"fixed",inset:0,zIndex:9999,display:"flex",
       alignItems:"flex-start",justifyContent:"center",
       padding:"24px 16px 40px",overflowY:"auto",
@@ -1245,8 +1194,8 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
   function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:String(members.length+1).padStart(3,"0")});setModal("add");}
   function openEdit(m){setForm({...m});setModal({edit:m});}
   async function handleSave(){
-    if(!form.name||!form.email)return toast("Name and email required","error");
-    if(modal==="add"&&!form.password)return toast("Password required","error");
+    if(!form.name||!form.email)return console.log("Name and email required","error");
+    if(modal==="add"&&!form.password)return console.log("Password required","error");
     let updated;
     if(modal==="add"){
       const nm={...form,id:uid("M"),avatar:form.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
@@ -1549,9 +1498,9 @@ Leave a field as empty string "" if not visible. Return ONLY the JSON, no other 
       if(parsed.chassis)result.chassis=parsed.chassis;
       onResult(result);
       setDone(true);
-      toast("Rego scanned — review the pre-filled fields");
+      console.log("Rego scanned — review the pre-filled fields");
     } catch(err) {
-      toast("Scan failed — please fill in details manually","error");
+      console.log("Scan failed — please fill in details manually","error");
     }
     setScanning(false);
   }
@@ -1616,15 +1565,15 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   function openEdit(c){setForm(Object.assign({},c));setModal({edit:c});}
   function openTransfer(c){setForm({carId:c.id,toMemberId:""});setModal({transfer:c});}
   async function handleSave(){
-    if(!form.reg||!form.make||!form.model)return toast("Reg, Make and Model required","error");
+    if(!form.reg||!form.make||!form.model)return console.log("Reg, Make and Model required","error");
     var updated=modal==="add"?cars.concat([Object.assign({},form,{id:uid("C"),photos:[]})]):cars.map(function(c){return c.id===form.id?Object.assign({},form):c;});
     setCars(updated);await dbSet(SK.cars,updated);setModal(null);
   }
   async function sc(id,st){var u=cars.map(function(c){return c.id===id?Object.assign({},c,{status:st}):c;});setCars(u);await dbSet(SK.cars,u);setModal(null);}
   async function handleTransfer(){
-    if(!form.toMemberId)return toast("Select recipient","error");
+    if(!form.toMemberId)return console.log("Select recipient","error");
     var car=cars.find(function(c){return c.id===form.carId;});
-    if(car.ownerId===form.toMemberId)return toast("Same member selected","error");
+    if(car.ownerId===form.toMemberId)return console.log("Same member selected","error");
     var t={id:uid("T"),carId:car.id,carDesc:car.year+" "+car.make+" "+car.model,fromId:car.ownerId,fromName:ownerName(car.ownerId),toId:form.toMemberId,toName:ownerName(form.toMemberId),date:today};
     var uc=cars.map(function(c){return c.id===car.id?Object.assign({},c,{ownerId:form.toMemberId}):c;});
     setCars(uc);await dbSet(SK.cars,uc);
@@ -2000,7 +1949,7 @@ function DuesSection({ members, dues, setDues }) {
         <div style={{background:"var(--bg)",border:"1px solid var(--border2)",borderRadius:6,padding:16,fontFamily:"var(--font-m)",fontSize:12,color:"var(--text2)",whiteSpace:"pre-wrap",lineHeight:1.7,maxHeight:360,overflowY:"auto"}}>{genReminder(showReminder.m,showReminder.d)}</div>
         <Row gap={8} justify="flex-end" style={{marginTop:12}}>
           <Btn variant="ghost" onClick={()=>setShowReminder(null)}>Close</Btn>
-          <Btn onClick={()=>{navigator.clipboard?.writeText(genReminder(showReminder.m,showReminder.d)).then(()=>toast("Copied to clipboard","info"));}}>Copy to Clipboard</Btn>
+          <Btn onClick={()=>{navigator.clipboard?.writeText(genReminder(showReminder.m,showReminder.d)).then(()=>console.log("Copied to clipboard","info"));}}>Copy to Clipboard</Btn>
         </Row>
       </Modal>}
     </div>
@@ -2093,7 +2042,7 @@ function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps
   }
 
   async function handleSave() {
-    if (!form.title || !form.date) return toast("Title and date required","error");
+    if (!form.title || !form.date) return console.log("Title and date required","error");
     const items = (form.agendaItems||[]).filter(i=>i.category.trim());
     const u = modal==="add"
       ? [...meetings, {...form, agendaItems:items, id:uid("MT")}]
@@ -2104,7 +2053,7 @@ function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps
   async function saveMinutes() {
     const u = meetings.map(m => m.id===minutesTab ? {...m, agendaItems} : m);
     setMeetings(u); await dbSet(SK.meetings, u); setMinutesTab(null);
-    toast("Minutes saved");
+    console.log("Minutes saved");
   }
 
   async function del(id) {
@@ -2550,7 +2499,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
     const updated=[...(archiveDocs||[]),doc];
     setArchiveDocs(updated); await dbSet(SK.archiveDocs,updated);
     setGenerating(false);
-    toast("Event record submitted for archive review");
+    console.log("Event record submitted for archive review");
   };
 
   const tabBtn=(id,label)=>(
@@ -2869,7 +2818,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
 
   function openAdd(){setForm({title:"",date:today,time:"10:00",location:"",type:"show",status:"upcoming",description:"",organiser:user.id,maxAttendees:"",catering:false});setModal("add");}
   async function handleSave(){
-    if(!form.title||!form.date)return toast("Title and date required","error");
+    if(!form.title||!form.date)return console.log("Title and date required","error");
     const u=modal==="add"?[...events,{...form,id:uid("EV")}]:events.map(e=>e.id===form.id?{...form}:e);
     setEvents(u);await dbSet(SK.events,u);setModal(null);
   }
@@ -3067,7 +3016,7 @@ function TasksSection({ user, members, tasks, setTasks }) {
   function openAdd(status="todo"){setForm({title:"",description:"",status,priority:"medium",assigneeId:user.id,createdBy:user.id,created:today,due:"",tags:""});setModal("add");}
   function openEdit(t){setForm({...t,tags:(t.tags||[]).join(",")});setModal({edit:t});}
   async function save2(){
-    if(!form.title)return toast("Title required","error");
+    if(!form.title)return console.log("Title required","error");
     const t={...form,tags:form.tags?form.tags.split(",").map(s=>s.trim()).filter(Boolean):[]};
     const u=modal==="add"?[...tasks,{...t,id:uid("T")}]:tasks.map(tk=>tk.id===t.id?t:tk);
     setTasks(u);await dbSet(SK.tasks,u);setModal(null);
@@ -3461,7 +3410,7 @@ function MarketplaceSection({ user, members, listings, setListings, cats, messag
   function openAdd(){setForm({type:"sell",category:"parts",title:"",price:"",negotiable:false,description:"",condition:"good",location:`${user.state||"VIC"}`,contact:user.email,sellerName:user.name||"",hideContact:false,status:"pending",created:today,images:[]});setModal("add");}
   function openEdit(l){setForm({...l,images:l.images||[]});setModal({edit:l});}
   async function handleSave(){
-    if(!form.title||!form.description)return toast("Title and description required","error");
+    if(!form.title||!form.description)return console.log("Title and description required","error");
     const newStatus = modal==="add" ? (user.role==="admin"?"active":"pending") : form.status;
     const l={...form,price:form.type==="wanted"?null:(Number(form.price)||null),memberId:form.memberId||user.id,status:newStatus};
     const u=modal==="add"?[...listings,{...l,id:uid("L")}]:listings.map(x=>x.id===l.id?l:x);
@@ -3795,7 +3744,7 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
   }
 
   async function handleSaveItem(){
-    if(!form.name||!form.price)return toast("Name and price required","error");
+    if(!form.name||!form.price)return console.log("Name and price required","error");
     const u=modal==="addItem"?[...shopItems,{...form,id:uid("S"),price:Number(form.price),stock:Number(form.stock)||0,variants:form.variants?form.variants.split(",").map(s=>s.trim()).filter(Boolean):[]}]
       :shopItems.map(x=>x.id===form.id?{...form,price:Number(form.price),stock:Number(form.stock)||0,variants:form.variants?form.variants.split(",").map(s=>s.trim()).filter(Boolean):x.variants}:x);
     setShopItems(u);await dbSet(SK.shopItems,u);setModal(null);
@@ -3861,7 +3810,7 @@ function ShopSection({ user, shopItems, setShopItems, orders, setOrders }) {
                           {item.variants.map(v=><option key={v} value={v}>{v}</option>)}
                         </Select>}
                         <Row gap={6}>
-                          <Btn onClick={()=>{if(item.variants?.length>0&&!sv){toast("Please select a variant","error");return;}addToCart(item,sv);}} style={{flex:1,justifyContent:"center"}} size="sm" variant={item.stock>0?"primary":"ghost"} disabled={item.stock===0}>
+                          <Btn onClick={()=>{if(item.variants?.length>0&&!sv){console.log("Please select a variant","error");return;}addToCart(item,sv);}} style={{flex:1,justifyContent:"center"}} size="sm" variant={item.stock>0?"primary":"ghost"} disabled={item.stock===0}>
                             {item.stock>0?"Add to Cart":"Unavailable"}
                           </Btn>
                           {isAdmin&&<Btn variant="ghost" size="sm" onClick={()=>{setForm({...item,variants:(item.variants||[]).join(",")});setModal({editItem:item});}}>✏</Btn>}
@@ -4032,18 +3981,18 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
   var myCars=cars.filter(function(c){return c.ownerId===user.id;});
   var MAX_CARS=100;
   async function handleSave(){
-    if(!form.name||!form.email)return toast("Name and email required","error");
+    if(!form.name||!form.email)return console.log("Name and email required","error");
     var final=Object.assign({},form,{password:form.newPassword||form.password});delete final.newPassword;
     var u=members.map(function(m){return m.id===user.id?Object.assign({},final):m;});
     setMembers(u);await dbSet(SK.members,u);setUser(Object.assign({},final));setSaved(true);setTimeout(function(){setSaved(false);},2500);
   }
   function openAddCar(){
-    if(myCars.length>=MAX_CARS)return toast(`Maximum ${MAX_CARS} vehicles reached`,"error");
+    if(myCars.length>=MAX_CARS)return console.log(`Maximum ${MAX_CARS} vehicles reached`,"error");
     setCarForm({make:"Rover",model:"",year:new Date().getFullYear(),colour:"",reg:"",chassis:"",status:"active",notes:""});
     setCarModal("add");
   }
   async function saveCar(){
-    if(!carForm.make||!carForm.model)return toast("Make and model required","error");
+    if(!carForm.make||!carForm.model)return console.log("Make and model required","error");
     var isNew=carModal==="add";
     var updated=isNew?cars.concat([Object.assign({},carForm,{id:uid("C"),ownerId:user.id,registered:today,photos:[]})]):cars.map(function(c){return c.id===carForm.id?Object.assign({},carForm):c;});
     setCars(updated);await dbSet(SK.cars,updated);setCarModal(null);
@@ -4167,7 +4116,7 @@ function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...cate
 </script>
 
 <script type="text/babel" data-presets="react">
-const toast = (msg, type='success', dur=3000) => window._toastFn ? window._toastFn(msg,type,dur) : window.toast ? window.toast(msg,type,dur) : null;
+function toast(msg,type,dur){if(window._toastFn)window._toastFn(msg,type,dur);else if(window.toast&&window.toast!==toast)window.toast(msg,type,dur);}
 // ── PAYEE SEARCH ─────────────────────────────────────────────────────────────
 function PayeeSearch({members,contacts,setContacts,onSelect}) {
   const [query,setQuery]=React.useState("");
@@ -4180,7 +4129,7 @@ function PayeeSearch({members,contacts,setContacts,onSelect}) {
   const showDropdown=query.length>0;
 
   async function createAndSelect(){
-    if(!newForm.name.trim())return toast("Name required","error");
+    if(!newForm.name.trim())return console.log("Name required","error");
     const nc={...newForm,id:uid("CT"),createdAt:new Date().toISOString(),active:true};
     const updated=[...(contacts||[]),nc];
     setContacts(updated);await dbSet(SK.contacts,updated);
@@ -4945,11 +4894,11 @@ function NewsAdminSection({ user, news, setNews }) {
   function openAdd(){setForm({title:"",category:"news",body:"",excerpt:"",image:"📰",pinned:false,status:"published",authorId:user.id,authorName:user.name,date:today,slug:""});setModal("add");}
   function openEdit(n){setForm({...n});setModal({edit:n});}
   async function handleSave(){
-    if(!form.title||!form.body)return toast("Title and body required","error");
+    if(!form.title||!form.body)return console.log("Title and body required","error");
     const slug=form.slug||form.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
     const article={...form,slug,excerpt:form.excerpt||form.body.slice(0,160)+"…"};
     const u=modal==="add"?[...news,{...article,id:uid("N")}]:news.map(n=>n.id===article.id?article:n);
-    setNews(u);await dbSet(SK.news,u);toast("News post saved");setModal(null);
+    setNews(u);await dbSet(SK.news,u);console.log("News post saved");setModal(null);
   }
   async function del(id){const u=news.filter(n=>n.id!==id);setNews(u);await dbSet(SK.news,u);setModal(null);setView(null);}
   async function togglePin(id){const u=news.map(n=>n.id===id?{...n,pinned:!n.pinned}:n);setNews(u);await dbSet(SK.news,u);}
@@ -5702,7 +5651,7 @@ function ApplicationsSection({ applications, setApplications, members, setMember
     await dbSet(SK.members, updatedMembers);
     await dbSet(SK.dues, updatedDues);
     setView(null);
-    toast(`${app.name} approved — Member #${mNum} created
+    console.log(`${app.name} approved — Member #${mNum} created
 Temporary password: changeme123
 Please notify them at ${app.email}`);
   }
@@ -5712,7 +5661,7 @@ Please notify them at ${app.email}`);
     setApplications(updatedApps);
     await dbSet(SK.applications, updatedApps);
     setView(null); setDeclineNote("");
-    toast(`Application from ${app.name} declined`,"info");
+    console.log(`Application from ${app.name} declined`,"info");
   }
 
   const inputSt = { width:"100%",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:6,padding:"8px 12px",color:"var(--text)",fontFamily:"var(--font-b)",fontSize:13,outline:"none" };
@@ -6125,9 +6074,9 @@ function BulkImportSection({ members, setMembers, cars, setCars, dues, setDues }
         return obj;
       });
     } else {
-      toast("Please upload .csv, .xlsx or .xls","error");return;
+      console.log("Please upload .csv, .xlsx or .xls","error");return;
     }
-    if(rawRows.length===0){toast("No data rows found","error");return;}
+    if(rawRows.length===0){console.log("No data rows found","error");return;}
     var required=tab==="members"?["name","email"]:["make","model","year"];
     var validated=rawRows.map(function(row,i){
       var errs=[];
@@ -6778,7 +6727,7 @@ function App() {
   },[members]);
 
   const notifs={
-    library: (books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length,
+    library: user?(books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length:0,
     dues: user?.role==="admin"?(dues||[]).filter(d=>d.year===yr&&!d.paid).length:0,
     tasks: (tasks||[]).filter(t=>t.assigneeId===user?.id&&t.status!=="done").length,
     news: user?.role==="admin"?(news||[]).filter(n=>n.status==="draft").length:0,
@@ -6857,7 +6806,6 @@ function App() {
     const navItems = user.role==="admin" ? PORTAL_NAV_ADMIN : PORTAL_NAV_MEMBER;
     return (
       <div style={{display:"flex",height:"100vh",overflow:"hidden"}}>
-        <ToastContainer/>
         {/* Custom sidebar with nav items */}
         <div style={{width:228,flexShrink:0,background:"#ffffff",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,backgroundImage:"linear-gradient(180deg,#f8f0ee 0%,#ffffff 100px)"}}>
           <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)"}}>
@@ -7075,8 +7023,8 @@ function LibrarySection({ user, members, books, setBooks }) {
   }
 
   async function requestBook(book){
-    if(book.requestedBy===user.id){ toast("You've already requested this book","info"); return; }
-    if(book.status!=="available"){ toast("This book is not currently available","info"); return; }
+    if(book.requestedBy===user.id){ console.log("You've already requested this book","info"); return; }
+    if(book.status!=="available"){ console.log("This book is not currently available","info"); return; }
     const updated = allBooks.map(b=>b.id===book.id?{...b,status:"requested",requestedBy:user.id}:b);
     setBooks(updated); await dbSet(SK.books,updated);
   }
@@ -7136,7 +7084,7 @@ function LibrarySection({ user, members, books, setBooks }) {
     const updated = [...allBooks,...importResult.imported];
     setBooks(updated); await dbSet(SK.books,updated);
     setImportText(""); setImportResult(null); setBulkModal(false);
-    toast(`${importResult.imported.length} book(s) imported`);
+    console.log(`${importResult.imported.length} book(s) imported`);
   }
 
   const StatusBadge = ({status})=>(
@@ -7405,7 +7353,7 @@ function CategoriesSection({ categories, setCategories }) {
   async function addItem(){
     const v=newItem.trim(); if(!v)return;
     const list=cats[active]||[];
-    if(list.map(x=>x.toLowerCase()).includes(v.toLowerCase()))return toast("That item already exists","error");
+    if(list.map(x=>x.toLowerCase()).includes(v.toLowerCase()))return console.log("That item already exists","error");
     await persist({...cats,[active]:[...list,v]});
     setNewItem("");
   }
@@ -7543,10 +7491,10 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   const surplus = totalIncome - totalExpenses;
 
   async function saveExpense(){
-    if(!expForm.amount||!expForm.description)return toast("Amount and description required","error");
+    if(!expForm.amount||!expForm.description)return console.log("Amount and description required","error");
     const entry={...expForm,id:uid("EX"),amount:Number(expForm.amount)};
     const u=modal?.edit?(expenses||[]).map(e=>e.id===modal.edit.id?entry:{...e}):[...(expenses||[]),entry];
-    setExpenses(u); await dbSet(SK.expenses,u); toast("Expense saved"); setModal(null);
+    setExpenses(u); await dbSet(SK.expenses,u); console.log("Expense saved"); setModal(null);
     setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   }
   async function delExpense(id){ const u=(expenses||[]).filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
@@ -7587,8 +7535,8 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   function removeLine(i){ setAdhocForm(f=>({...f,lines:f.lines.filter((_,n)=>n!==i)})); }
 
   function printAdhocInvoice(){
-    if(!adhocForm.memberName)return toast("Recipient name required","error");
-    if(!adhocForm.lines.some(l=>l.description&&l.amount))return toast("Add at least one line item","error");
+    if(!adhocForm.memberName)return console.log("Recipient name required","error");
+    if(!adhocForm.lines.some(l=>l.description&&l.amount))return console.log("Add at least one line item","error");
     const num=(fs.invoicePrefix||"RCCA")+"-ADH-"+String(Date.now()).slice(-5);
     const total=adhocForm.lines.reduce((s,l)=>s+(Number(l.amount)||0),0);
     const w=window.open("","_blank","width=800,height=700");
@@ -8107,7 +8055,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
   const pctUsed = c=>Math.min(100,Math.round(daysUsed(c.id)/allowance(c)*100));
 
   async function saveTrip(carId){
-    if(!tripForm.date||!tripForm.purpose)return toast("Date and purpose required","error");
+    if(!tripForm.date||!tripForm.purpose)return console.log("Date and purpose required","error");
     const entry={id:uid("TL"),carId,memberId:user.id,date:tripForm.date,
       startOdo:tripForm.startOdo?Number(tripForm.startOdo):null,
       endOdo:tripForm.endOdo?Number(tripForm.endOdo):null,
@@ -8374,7 +8322,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 
 </script>
 <script type="text/babel" data-presets="react">
-const toast = (msg, type='success', dur=3000) => window._toastFn ? window._toastFn(msg,type,dur) : window.toast ? window.toast(msg,type,dur) : null;
+function toast(msg,type,dur){if(window._toastFn)window._toastFn(msg,type,dur);else if(window.toast&&window.toast!==toast)window.toast(msg,type,dur);}
 // ── PARTS INVENTORY SECTION ──────────────────────────────────────────────────
 function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members}) {
   const isAdmin = user&&user.role==="admin";
@@ -8428,7 +8376,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
       return {...p,requests:[...(p.requests||[]),{memberId:user.id,memberName:user.name,date:new Date().toISOString()}]};
     });
     await saveInv(updated);
-    toast("Request recorded — we'll notify you when available");
+    console.log("Request recorded — we'll notify you when available");
   };
 
   // ── Expression of interest ────────────────────────────────────────────────
@@ -8440,7 +8388,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
       return {...p,eois:[...(p.eois||[]),{memberId:user.id,memberName:user.name,date:new Date().toISOString()}]};
     });
     await saveInv(updated);
-    toast("Expression of interest recorded");
+    console.log("Expression of interest recorded");
   };
 
   // ── CSV upload ────────────────────────────────────────────────────────────
@@ -8465,7 +8413,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
           });
           setCsvPreview(norm.filter(r=>r.name||r['part name']));
           setCsvText('(Excel file loaded: '+file.name+')');
-        }catch(err){toast('Could not read Excel file — please save as .xlsx','error');}
+        }catch(err){console.log('Could not read Excel file — please save as .xlsx','error');}
       };
       reader.readAsArrayBuffer(file);
     } else {
@@ -8515,7 +8463,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
     }));
     await saveInv([...(parts||[]),...newParts]);
     setModal(null);setCsvText('');setCsvPreview([]);
-    toast(`Imported ${newParts.length} parts`);
+    console.log(`Imported ${newParts.length} parts`);
   };
 
   const pts=parts||[];
@@ -8974,10 +8922,10 @@ function CompetitionsSection({user,competitions,setCompetitions,members,cars,eve
   }
 
   async function saveComp(){
-    if(!form.name.trim())return toast("Name required","error");
+    if(!form.name.trim())return console.log("Name required","error");
     if(modal==="new"){
       const nc={...form,id:uid("CP"),createdAt:new Date().toISOString(),createdBy:user.name};
-      await save([...(competitions||[]),nc]);toast("Competition created");
+      await save([...(competitions||[]),nc]);console.log("Competition created");
     } else {
       await save((competitions||[]).map(c=>c.id===form.id?{...form}:c));
       setSelected({...form});
@@ -9050,7 +8998,7 @@ function CompetitionsSection({user,competitions,setCompetitions,members,cars,eve
     const updated=(competitions||[]).map(c=>c.id===comp.id?{...c,status:"completed",finalisedAt:new Date().toISOString()}:c);
     await save(updated);
     setSelected(updated.find(c=>c.id===comp.id));
-    toast(`Results finalised — ${newPts.length} points awarded`);
+    console.log(`Results finalised — ${newPts.length} points awarded`);
   }
 
   const statusColour={upcoming:"var(--blue)",active:"var(--green)",completed:"var(--text3)",draft:"var(--gold)"};
@@ -9127,7 +9075,7 @@ function CompetitionsSection({user,competitions,setCompetitions,members,cars,eve
                       <Field label="Vehicle Description" half><Input value={entryForm.vehicleDesc} onChange={e=>setEntryForm({...entryForm,vehicleDesc:e.target.value})} placeholder="e.g. 1972 Rover P6 3500S"/></Field>
                     </Row>
                     <Row gap={8}>
-                      <Btn onClick={async()=>{if(!entryForm.vehicleDesc.trim())return toast("Vehicle description required","error");await addEntry(comp,{...entryForm});setEntryForm({memberId:"",carId:"",entryNumber:"",vehicleDesc:""});setShowEntryForm(false);}}>Add Entry</Btn>
+                      <Btn onClick={async()=>{if(!entryForm.vehicleDesc.trim())return console.log("Vehicle description required","error");await addEntry(comp,{...entryForm});setEntryForm({memberId:"",carId:"",entryNumber:"",vehicleDesc:""});setShowEntryForm(false);}}>Add Entry</Btn>
                       <Btn variant="ghost" onClick={()=>setShowEntryForm(false)}>Cancel</Btn>
                     </Row>
                   </Card>
@@ -9456,9 +9404,9 @@ function ContactsSection({user,contacts,setContacts}) {
   function openEdit(c){setForm({...c});setModal({edit:c});}
 
   async function handleSave(){
-    if(!form.name.trim())return toast("Name required","error");
+    if(!form.name.trim())return console.log("Name required","error");
     if(modal==="add"){
-      await save([...(contacts||[]),{...form,id:uid("CT"),createdAt:new Date().toISOString()}]);toast("Contact saved");
+      await save([...(contacts||[]),{...form,id:uid("CT"),createdAt:new Date().toISOString()}]);console.log("Contact saved");
     } else {
       await save((contacts||[]).map(c=>c.id===form.id?{...form}:c));
       setView({...form});
@@ -9977,7 +9925,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
   };
 
   const saveEdit=async(id)=>{
-    if(!form.title.trim())return toast("Title is required","error");
+    if(!form.title.trim())return console.log("Title is required","error");
     const updated=(archiveDocs||[]).map(d=>d.id===id?{...d,
       title:form.title,docType:form.docType,year:form.year,
       description:form.description,
@@ -10007,7 +9955,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
   };
 
   const scanWithAI=async()=>{
-    if(!form.fileData&&!form.content){toast("Please upload a file or paste some text first","error");return;}
+    if(!form.fileData&&!form.content){console.log("Please upload a file or paste some text first","error");return;}
     setAiScanning(true);setAiDone(false);
     try{
       // Build message content based on file type
@@ -10089,7 +10037,7 @@ ${textContent}`});
       setAiDone(true);
     } catch(err){
       console.error("AI scan error:",err);
-      toast("AI scan failed — please fill in details manually","error");
+      console.log("AI scan failed — please fill in details manually","error");
     } finally {
       setAiScanning(false);
     }
@@ -10780,7 +10728,7 @@ function MemberPartsCatalogue({user,parts,setParts}) {
     });
     await saveInv(updated);
     setSelected(updated.find(p=>p.id===partId)||null);
-    toast("Request recorded — we'll notify you when available");
+    console.log("Request recorded — we'll notify you when available");
   };
 
   const registerEOI=async(partId)=>{
@@ -10791,7 +10739,7 @@ function MemberPartsCatalogue({user,parts,setParts}) {
     });
     await saveInv(updated);
     setSelected(updated.find(p=>p.id===partId)||null);
-    toast("Expression of interest recorded");
+    console.log("Expression of interest recorded");
   };
 
   const filtered=pts.filter(p=>{
@@ -11195,10 +11143,10 @@ function CustomPagesSection({user,pages,setPages}) {
   };
 
   const savePage=async()=>{
-    if(!form.title.trim())return toast("Title required","error");
+    if(!form.title.trim())return console.log("Title required","error");
     const slug=form.slug||slugify(form.title);
     if(pg.find(p=>p.slug===slug&&(!editing||editing.isNew||p.id!==editing.id))){
-      if(pg.find(p=>p.slug===slug&&(editing?.isNew||!editing||p.id!==editing.id))){toast("URL slug already in use","error");return;}
+      if(pg.find(p=>p.slug===slug&&(editing?.isNew||!editing||p.id!==editing.id))){console.log("URL slug already in use","error");return;}
     }
     if(editing&&!editing.isNew){
       const updated=pg.map(p=>p.id===editing.id?{...p,...form,slug,updatedAt:new Date().toISOString()}:p);
@@ -11878,7 +11826,7 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
 
   const createTasks=async()=>{
     const selected=wfTasks.filter(t=>t.checked&&!t.isRisk);
-    if(!selected.length){toast("Please select at least one task","error");return;}
+    if(!selected.length){console.log("Please select at least one task","error");return;}
     const newTasks=selected.map(t=>({
       id:uid("TK"),title:`${event.title}: ${t.text}`,
       assignee:t.assignee||"",due:t.due||"",
@@ -11890,7 +11838,7 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
     }));
     const updated=[...(tasks||[]),...newTasks];
     setTasks(updated);await dbSet(SK.tasks,updated);
-    toast(`${newTasks.length} task${newTasks.length!==1?"s":""} created`);
+    console.log(`${newTasks.length} task${newTasks.length!==1?"s":""} created`);
     onClose();
   };
 
