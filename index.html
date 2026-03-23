@@ -428,9 +428,9 @@ function Btn({ children, variant="primary", size="md", style={}, ...p }) {
   return <button style={{...base, ...sizes[size||"md"], ...vars[variant||"primary"], ...style}} {...p}>{children}</button>;
 }
 
-const Card = React.forwardRef(function Card({ children, style={}, className="", onClick }, ref) {
-  return <div ref={ref} className={className} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...style}} onClick={onClick}>{children}</div>;
-});
+function Card({ children, style={}, className="", onClick }) {
+  return <div className={className} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...style}} onClick={onClick}>{children}</div>;
+}
 
 // ── TOAST NOTIFICATION SYSTEM ────────────────────────────────────────────────
 let _toastFn = null;
@@ -442,13 +442,16 @@ window.toast = toast;
 
 function ToastContainer() {
   const [toasts, setToasts] = useState([]);
-  const fn = (msg, type, duration) => {
+  const fnRef = React.useRef(null);
+  fnRef.current = (msg, type, duration) => {
     const id = Date.now();
     setToasts(t => [...t, {id, msg, type}]);
     setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), duration);
   };
-  _toastFn = fn;
-  window._toastFn = fn;
+  React.useEffect(() => {
+    _toastFn = fnRef.current;
+    window._toastFn = fnRef.current;
+  });
   const colours = {
     success: {bg:"#f0fdf4", border:"#86efac", text:"#166534", icon:"✓"},
     error:   {bg:"#fef2f2", border:"#fca5a5", text:"#991b1b", icon:"✕"},
@@ -490,7 +493,7 @@ function Modal({ title, subtitle, onClose, children, wide=false, extraWide=false
   }, []);
 
   return ReactDOM.createPortal(
-    <div style={{
+    <div ref={modalRef} style={{
       position:"fixed",inset:0,zIndex:9999,display:"flex",
       alignItems:"flex-start",justifyContent:"center",
       padding:"24px 16px 40px",overflowY:"auto",
@@ -501,7 +504,7 @@ function Modal({ title, subtitle, onClose, children, wide=false, extraWide=false
         flexShrink:0, display:"flex", flexDirection:"column",
         boxShadow:"0 32px 100px rgba(0,0,0,.8), inset 0 1px 0 rgba(201,146,42,.15)",
         marginTop:0
-      }} className="fade-up" onClick={e=>e.stopPropagation()} ref={modalRef}>
+      }} className="fade-up" onClick={e=>e.stopPropagation()}>
         <div style={{
           padding:"18px 24px", borderBottom:"1px solid var(--border)",
           flexShrink:0, background:"linear-gradient(135deg,var(--bg3),var(--bg2))",
