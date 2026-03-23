@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.14 -->
+<!-- RCCA Portal v5.8.15 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -111,6 +111,7 @@ const SK = {
   checkins:"rcca:checkins",
   contacts:"rcca:contacts",
   competitions:"rcca:competitions",
+  pendingCars:"rcca:pendingCars",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -1530,7 +1531,7 @@ Leave a field as empty string "" if not visible. Return ONLY the JSON, no other 
   );
 }
 
-function CarsSection({ user, cars, setCars, members, setTransfers }) {
+function CarsSection({ user, cars, setCars, members, setTransfers, pendingCars, setPendingCars }) {
   var isAdmin=user.role==="admin";
   var sState=useState(""); var search=sState[0]; var setSearch=sState[1];
   var fsState=useState("all"); var fs=fsState[0]; var setFs=fsState[1];
@@ -1542,6 +1543,8 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   var vrState=useState(false); var showReport=vrState[0]; var setShowReport=vrState[1];
   var flState=useState({status:[],make:[],model:[],owner:[],hasPermit:false,yearFrom:"",yearTo:"",regSearch:""});
   var vFilters=flState[0]; var setVFilters=flState[1];
+  // Member submit flow
+  var [showSubmit,setShowSubmit]=useState(false);
   var setVFilter=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=v;return n;});};
   var toggleVArr=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=f[k].includes(v)?f[k].filter(function(x){return x!==v;}):[...f[k],v];return n;});};
   var allMakes=[...new Set(vis.map(function(c){return c.make;}).filter(Boolean))].sort();
@@ -1561,7 +1564,10 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
     return true;
   });
   function ownerName(id){var m=members.find(function(m){return m.id===id;});return m?m.name:"Unknown";}
-  function openAdd(){setForm({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:isAdmin?members[0]?.id:user.id,status:"active",registered:today,notes:""});setModal("add");}
+  function openAdd(){
+    if(!isAdmin){setShowSubmit(true);return;}
+    setForm({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:members[0]?.id,status:"active",registered:today,notes:""});setModal("add");
+  }
   function openEdit(c){setForm(Object.assign({},c));setModal({edit:c});}
   function openTransfer(c){setForm({carId:c.id,toMemberId:""});setModal({transfer:c});}
   async function handleSave(){
@@ -1582,7 +1588,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
   }
   return (
     <div className="fade-up">
-      <SectionHeader title={isAdmin?"Vehicle Register":"My Vehicles"} subtitle={filtered.filter(function(c){return c.status==="active";}).length+" active Rovers"} action={<Row gap={8}>{isAdmin&&<Btn variant="ghost" onClick={function(){setShowReport(function(r){return !r;});}}>📊 Reports</Btn>}<Btn onClick={openAdd}>+ Register Vehicle</Btn></Row>}/>
+      <SectionHeader title={isAdmin?"Vehicle Register":"My Vehicles"} subtitle={filtered.filter(function(c){return c.status==="active";}).length+" active Rovers"} action={<Row gap={8}>{isAdmin&&<Btn variant="ghost" onClick={function(){setShowReport(function(r){return !r;});}}>📊 Reports</Btn>}<Btn onClick={openAdd}>{isAdmin?"+ Register Vehicle":"+ Submit Vehicle"}</Btn></Row>}/>
       {isAdmin&&showReport&&(function(){
         const yr=new Date().getFullYear();
         const active=cars.filter(c=>c.status==="active");
@@ -1874,6 +1880,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers }) {
         </Modal>
       )}
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={function(){setModal(null);}}/>}
+      {showSubmit&&<VehicleSubmitModal user={user} members={members} pendingCars={pendingCars||[]} setPendingCars={setPendingCars} onClose={()=>setShowSubmit(false)}/>}
     </div>
   );
 }
@@ -6668,17 +6675,18 @@ function App() {
   const [suppliers,setSuppliers]=useState([]);
   const [contacts,setContacts]=useState([]);
   const [competitions,setCompetitions]=useState([]);
+  const [pendingCars,setPendingCars]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
   const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -6705,6 +6713,7 @@ function App() {
       setSuppliers(Array.isArray(sup)?sup:[]);
       setContacts(Array.isArray(ct)?ct:[]);
       setCompetitions(Array.isArray(comps)?comps:[]);
+      setPendingCars(Array.isArray(pc)?pc:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
       setCheckins(Array.isArray(ci)?ci:[]);
@@ -6745,7 +6754,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -7970,17 +7979,310 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
 // ── ADMINISTRATION SECTION ────────────────────────────────────────────────────
 
+// ── VEHICLE SUBMIT MODAL ─────────────────────────────────────────────────────
+function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
+  const [form,setForm]=React.useState({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",notes:"",imgData:null,imgName:""});
+  const [scanning,setScanning]=React.useState(false);
+  const [scanned,setScanned]=React.useState(false);
+  const [submitting,setSubmitting]=React.useState(false);
+  const [done,setDone]=React.useState(false);
+  const fileRef=React.useRef();
+
+  function handleFile(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>setForm(f=>({...f,imgData:ev.target.result,imgName:file.name}));
+    r.readAsDataURL(file);
+  }
+
+  async function scan(){
+    if(!form.imgData)return;
+    setScanning(true);
+    try{
+      const base64=form.imgData.split(",")[1];
+      const mediaType=form.imgData.split(";")[0].split(":")[1];
+      const resp=await fetch("/.netlify/functions/scan",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,messages:[{role:"user",content:[
+          {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
+          {type:"text",text:`Extract vehicle details from this registration document and return ONLY a JSON object:\n{"make":"","model":"","year":0,"colour":"","reg":"","chassis":""}\nLeave fields as empty string or 0 if not visible. Return ONLY the JSON.`}
+        ]}]})
+      });
+      const data=await resp.json();
+      const text=data.content?.find(c=>c.type==="text")?.text||"";
+      const parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
+      setForm(f=>({...f,
+        make:parsed.make||f.make,model:parsed.model||f.model,
+        year:parsed.year||f.year,colour:parsed.colour||f.colour,
+        reg:parsed.reg||f.reg,chassis:parsed.chassis||f.chassis
+      }));
+      setScanned(true);
+      toast("Rego scanned — review the pre-filled fields","success");
+    }catch(err){
+      toast("Scan failed — please fill in details manually","error");
+    }
+    setScanning(false);
+  }
+
+  async function submit(){
+    if(!form.make||!form.model)return toast("Make and Model are required","error");
+    setSubmitting(true);
+    const sub={
+      id:uid("PV"),ownerId:user.id,ownerName:user.name,
+      reg:form.reg,make:form.make,model:form.model,year:Number(form.year)||form.year,
+      colour:form.colour,chassis:form.chassis,notes:form.notes,
+      imgData:form.imgData||null,imgName:form.imgName||"",
+      status:"pending",submittedAt:new Date().toISOString()
+    };
+    const updated=[...pendingCars,sub];
+    setPendingCars(updated);
+    await dbSet(SK.pendingCars,updated);
+    setDone(true);
+    setSubmitting(false);
+  }
+
+  if(done) return(
+    <Modal title="Vehicle Submitted" onClose={onClose}>
+      <div style={{textAlign:"center",padding:"24px 0"}}>
+        <div style={{fontSize:48,marginBottom:12}}>✅</div>
+        <div style={{fontFamily:"var(--font-d)",fontSize:18,color:"var(--green)",marginBottom:8}}>Submission received!</div>
+        <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}">Your vehicle has been submitted for committee review. You'll be notified once it's approved and added to the register.</div>
+        <Btn onClick={onClose}>Done</Btn>
+      </div>
+    </Modal>
+  );
+
+  return(
+    <Modal title="Submit Vehicle for Registration" onClose={onClose} wide>
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        {/* Rego scan */}
+        <div style={{background:"linear-gradient(135deg,#f5f0ff,#ede8ff)",border:"1px solid #c4b5f4",borderRadius:8,padding:"12px 16px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <span style={{fontSize:16}}>📷</span>
+            <div style={{fontWeight:700,fontSize:13,color:"#5b21b6"}}>Scan Rego Document</div>
+            <div style={{fontSize:11,color:"#7c3aed",flex:1}}>Upload a photo to auto-fill fields below</div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={handleFile}/>
+          {!form.imgData?(
+            <button onClick={()=>fileRef.current.click()} style={{padding:"7px 16px",background:"white",border:"1px solid #c4b5f4",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,color:"#5b21b6"}}>
+              📎 Choose rego photo or PDF
+            </button>
+          ):(
+            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,color:"#5b21b6",fontWeight:600}}>📎 {form.imgName}</span>
+              <button onClick={scan} disabled={scanning||scanned} style={{padding:"7px 16px",background:scanned?"var(--green)":scanning?"#ddd6fe":"#7c3aed",color:"white",border:"none",borderRadius:6,cursor:scanning||scanned?"default":"pointer",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>
+                {scanning?<><span style={{display:"inline-block",width:12,height:12,border:"2px solid white",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/> Scanning…</>:scanned?"✓ Scanned":"✨ Scan with AI"}
+              </button>
+              {!scanned&&<button onClick={()=>setForm(f=>({...f,imgData:null,imgName:""}))} style={{fontSize:11,color:"#7c3aed",background:"none",border:"none",cursor:"pointer"}}>Remove</button>}
+            </div>
+          )}
+        </div>
+
+        {/* Fields */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {[["Registration Plate","reg"],["Make *","make"],["Model *","model"],["Year","year"],["Colour","colour"],["Chassis / VIN","chassis"]].map(([lbl,key])=>(
+            <div key={key}>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:3}}>{lbl}</label>
+              <input value={form[key]||""} onChange={e=>setForm(f=>({...f,[key]:e.target.value}))}
+                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/>
+            </div>
+          ))}
+        </div>
+        <div>
+          <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:3}}>Additional Notes (optional)</label>
+          <textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} rows={2}
+            placeholder="Any other details the committee should know..."
+            style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/>
+        </div>
+        <div style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px",fontSize:12,color:"var(--text3)"}}>
+          ℹ️ Your submission will be reviewed by the committee. Once approved it will be added to the club vehicle register.
+        </div>
+        <Row gap={8} justify="flex-end">
+          <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+          <Btn onClick={submit} disabled={submitting}>{submitting?"Submitting…":"Submit for Review"}</Btn>
+        </Row>
+      </div>
+    </Modal>
+  );
+}
+
+// ── PENDING VEHICLES SECTION (admin review) ───────────────────────────────────
+function PendingVehiclesSection({user,members,cars,setCars,pendingCars,setPendingCars,messages,setMessages}) {
+  const [selected,setSelected]=React.useState(null);
+  const [rejectNote,setRejectNote]=React.useState("");
+  const [modal,setModal]=React.useState(null);
+
+  const pending=(pendingCars||[]).filter(p=>p.status==="pending");
+  const reviewed=(pendingCars||[]).filter(p=>p.status!=="pending");
+
+  async function approve(sub){
+    const newCar={id:uid("C"),reg:sub.reg,make:sub.make,model:sub.model,year:sub.year,
+      colour:sub.colour,chassis:sub.chassis,ownerId:sub.ownerId,status:"active",
+      registered:new Date().toISOString().slice(0,10),notes:sub.notes||"",photos:[],
+      onPermit:false};
+    const updatedCars=[...cars,newCar];
+    setCars(updatedCars);
+    await dbSet(SK.cars,updatedCars);
+    const updatedPending=(pendingCars||[]).map(p=>p.id===sub.id?{...p,status:"approved",reviewedAt:new Date().toISOString(),reviewedBy:user.name}:p);
+    setPendingCars(updatedPending);
+    await dbSet(SK.pendingCars,updatedPending);
+    // Send message to member
+    const msg={id:uid("M"),fromId:user.id,fromName:user.name,toMemberId:sub.ownerId,
+      subject:"Vehicle Registration Approved",
+      body:`Your ${sub.year} ${sub.make} ${sub.model} has been approved and added to the vehicle register.`,
+      read:false,createdAt:new Date().toISOString()};
+    const updMsgs=[...(messages||[]),msg];
+    setMessages(updMsgs);await dbSet(SK.messages,updMsgs);
+    toast(`${sub.make} ${sub.model} approved and added to register`,"success");
+    setSelected(null);setModal(null);
+  }
+
+  async function reject(sub){
+    if(!rejectNote.trim())return toast("Please add a rejection note","error");
+    const updatedPending=(pendingCars||[]).map(p=>p.id===sub.id?{...p,status:"rejected",rejectNote,reviewedAt:new Date().toISOString(),reviewedBy:user.name}:p);
+    setPendingCars(updatedPending);
+    await dbSet(SK.pendingCars,updatedPending);
+    const msg={id:uid("M"),fromId:user.id,fromName:user.name,toMemberId:sub.ownerId,
+      subject:"Vehicle Registration Update",
+      body:`Your ${sub.year} ${sub.make} ${sub.model} submission could not be approved at this time.\n\nReason: ${rejectNote}\n\nPlease contact the committee if you have any questions.`,
+      read:false,createdAt:new Date().toISOString()};
+    const updMsgs=[...(messages||[]),msg];
+    setMessages(updMsgs);await dbSet(SK.messages,updMsgs);
+    toast("Submission rejected — member notified","info");
+    setSelected(null);setModal(null);setRejectNote("");
+  }
+
+  const statusBadge=s=>({
+    pending:{bg:"#fef3c7",color:"#92400e",label:"Pending"},
+    approved:{bg:"#d1fae5",color:"#065f46",label:"Approved"},
+    rejected:{bg:"#fee2e2",color:"#991b1b",label:"Rejected"},
+  }[s]||{bg:"var(--bg3)",color:"var(--text3)",label:s});
+
+  return(
+    <div style={{padding:24}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div>
+          <h2 style={{fontFamily:"var(--font-d)",fontSize:22,color:"var(--burg)",margin:"0 0 4px"}}>Pending Vehicle Submissions</h2>
+          <div style={{fontSize:13,color:"var(--text3)"}}>{pending.length} awaiting review</div>
+        </div>
+      </div>
+
+      {pending.length===0&&reviewed.length===0&&(
+        <div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>🚗</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>No submissions yet</div>
+          <div style={{fontSize:13}}>When members submit vehicles for registration they'll appear here for review.</div>
+        </div>
+      )}
+
+      {pending.length>0&&(
+        <div style={{marginBottom:32}}>
+          <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+            Awaiting Review
+            <span style={{background:"var(--burg)",color:"white",borderRadius:10,fontSize:11,padding:"1px 8px"}}>{pending.length}</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {pending.map(sub=>(
+              <div key={sub.id} style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:16,boxShadow:"0 1px 4px rgba(0,0,0,.06)"}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,color:"var(--text)",marginBottom:4}}>
+                      {sub.year} {sub.make} {sub.model}
+                      {sub.reg&&<span style={{marginLeft:8,fontSize:12,background:"var(--bg3)",padding:"2px 8px",borderRadius:4,fontFamily:"var(--font-m)",color:"var(--text2)"}}>{sub.reg}</span>}
+                    </div>
+                    <div style={{fontSize:12,color:"var(--text3)",marginBottom:8}}>
+                      Submitted by <strong>{sub.ownerName}</strong> · {new Date(sub.submittedAt).toLocaleDateString("en-AU")}
+                    </div>
+                    <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:12,color:"var(--text2)"}}>
+                      {sub.colour&&<span>🎨 {sub.colour}</span>}
+                      {sub.chassis&&<span>🔩 {sub.chassis}</span>}
+                    </div>
+                    {sub.notes&&<div style={{marginTop:8,fontSize:12,color:"var(--text3)",fontStyle:"italic"}}>"{sub.notes}"</div>}
+                  </div>
+                  {sub.imgData&&sub.imgData.startsWith("data:image")&&(
+                    <img src={sub.imgData} alt="rego doc" style={{width:80,height:60,objectFit:"cover",borderRadius:6,border:"1px solid var(--border)",flexShrink:0,cursor:"pointer"}} onClick={()=>setModal({preview:sub})}/>
+                  )}
+                </div>
+                <div style={{display:"flex",gap:8,marginTop:14}}>
+                  <Btn onClick={()=>approve(sub)}>✓ Approve</Btn>
+                  <Btn variant="ghost" onClick={()=>{setSelected(sub);setModal({reject:sub});setRejectNote("");}}>✗ Reject</Btn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {reviewed.length>0&&(
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:"var(--text3)",marginBottom:12}}>Previously Reviewed ({reviewed.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {[...reviewed].reverse().map(sub=>{
+              const badge=statusBadge(sub.status);
+              return(
+                <div key={sub.id} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"10px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                  <div style={{fontSize:13,color:"var(--text2)"}}>
+                    <strong>{sub.year} {sub.make} {sub.model}</strong>
+                    {sub.reg&&<span style={{marginLeft:8,fontSize:11,color:"var(--text3)"}}>{sub.reg}</span>}
+                    <span style={{marginLeft:12,fontSize:11,color:"var(--text3)"}}>by {sub.ownerName} · {new Date(sub.submittedAt).toLocaleDateString("en-AU")}</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {sub.rejectNote&&<span style={{fontSize:11,color:"var(--text3)",fontStyle:"italic",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>"{sub.rejectNote}"</span>}
+                    <span style={{background:badge.bg,color:badge.color,borderRadius:4,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{badge.label}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Reject modal */}
+      {modal?.reject&&(
+        <Modal title="Reject Submission" onClose={()=>{setModal(null);setRejectNote("");}}>
+          <div style={{marginBottom:12,fontSize:14,color:"var(--text2)"}}>
+            Rejecting: <strong>{modal.reject.year} {modal.reject.make} {modal.reject.model}</strong>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Reason for rejection <span style={{color:"var(--burg)"}}>*</span></label>
+            <textarea value={rejectNote} onChange={e=>setRejectNote(e.target.value)} rows={3}
+              placeholder="e.g. Rego document unclear, please resubmit with a clearer photo..."
+              style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>This note will be sent to the member.</div>
+          </div>
+          <Row gap={8} justify="flex-end">
+            <Btn variant="ghost" onClick={()=>{setModal(null);setRejectNote("");}}>Cancel</Btn>
+            <Btn variant="danger" onClick={()=>reject(modal.reject)}>Reject & Notify Member</Btn>
+          </Row>
+        </Modal>
+      )}
+
+      {/* Image preview modal */}
+      {modal?.preview&&(
+        <Modal title="Rego Document" onClose={()=>setModal(null)} wide>
+          <img src={modal.preview.imgData} alt="rego doc" style={{width:"100%",borderRadius:6,maxHeight:500,objectFit:"contain"}}/>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 function VehiclesSection(sp) {
+  const isAdmin=sp.user&&sp.user.role==="admin";
+  const pendingCount=(sp.pendingCars||[]).filter(p=>p.status==="pending").length;
   const [vTab,setVTab]=React.useState("register");
-  const tabBtn=(id,label)=>(
+  const tabBtn=(id,label,badge)=>(
     <button onClick={()=>setVTab(id)} style={{
       padding:"10px 24px",background:vTab===id?"white":"transparent",border:"none",
       borderBottom:vTab===id?"3px solid var(--burg)":"3px solid transparent",
       color:vTab===id?"var(--burg)":"var(--text3)",
       fontWeight:vTab===id?700:500,cursor:"pointer",fontSize:14,
       fontFamily:"var(--font-b)",transition:"all .15s",marginBottom:-2,
+      position:"relative",display:"inline-flex",alignItems:"center",gap:6,
     }}>
       {label}
+      {badge>0&&<span style={{background:"var(--burg)",color:"white",borderRadius:10,fontSize:10,fontWeight:700,padding:"1px 6px",fontFamily:"var(--font-m)"}}>{badge}</span>}
     </button>
   );
   return(
@@ -7989,11 +8291,13 @@ function VehiclesSection(sp) {
         {tabBtn("register","Vehicle Register")}
         {tabBtn("permits","Club Permits")}
         {tabBtn("transfers","Transfer History")}
+        {isAdmin&&tabBtn("pending","Pending Submissions",pendingCount)}
       </div>
       <div style={{paddingTop:8}}>
       {vTab==="register"&&<CarsSection {...sp}/>}
       {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
       {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
+      {vTab==="pending"&&isAdmin&&<PendingVehiclesSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} messages={sp.messages} setMessages={sp.setMessages}/>}
       </div>
     </div>
   );
