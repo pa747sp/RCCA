@@ -429,7 +429,7 @@ function Btn({ children, variant="primary", size="md", style={}, ...p }) {
 }
 
 const Card = React.forwardRef(function Card({ children, style={}, className="", onClick }, ref) {
-  return <div ref={ref} className={`card ${className}`} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...style}} onClick={onClick}>{children}</div>;
+  return <div ref={ref} className={className} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...style}} onClick={onClick}>{children}</div>;
 });
 
 // ── TOAST NOTIFICATION SYSTEM ────────────────────────────────────────────────
