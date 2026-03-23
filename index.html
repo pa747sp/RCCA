@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.18 -->
+<!-- RCCA Portal v5.8.19 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -7992,7 +7992,33 @@ function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
     const file=e.target.files[0];
     if(!file)return;
     const r=new FileReader();
-    r.onload=ev=>setForm(f=>({...f,imgData:ev.target.result,imgName:file.name}));
+    r.onload=ev=>{
+      const dataUrl=ev.target.result;
+      const isPDF=file.type==="application/pdf";
+      if(isPDF){
+        // For PDFs, store as-is but warn if too large
+        const sizeKB=Math.round(dataUrl.length*0.75/1024);
+        if(sizeKB>700){
+          toast("PDF is large ("+sizeKB+"KB) — try a photo of the document instead for best results","warning");
+        }
+        setForm(f=>({...f,imgData:dataUrl,imgName:file.name}));
+      } else {
+        // For images, compress to max 800px wide and 0.7 quality
+        const img=new window.Image();
+        img.onload=()=>{
+          const maxW=800;
+          const scale=img.width>maxW?maxW/img.width:1;
+          const canvas=document.createElement("canvas");
+          canvas.width=Math.round(img.width*scale);
+          canvas.height=Math.round(img.height*scale);
+          const ctx=canvas.getContext("2d");
+          ctx.drawImage(img,0,0,canvas.width,canvas.height);
+          const compressed=canvas.toDataURL("image/jpeg",0.7);
+          setForm(f=>({...f,imgData:compressed,imgName:file.name}));
+        };
+        img.src=dataUrl;
+      }
+    };
     r.readAsDataURL(file);
   }
 
