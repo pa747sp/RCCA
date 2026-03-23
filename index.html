@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.17 -->
+<!-- RCCA Portal v5.8.18 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -8002,10 +8002,14 @@ function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
     try{
       const base64=form.imgData.split(",")[1];
       const mediaType=form.imgData.split(";")[0].split(":")[1];
+      const isPDF=mediaType==="application/pdf";
+      const contentBlock=isPDF
+        ?{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}}
+        :{type:"image",source:{type:"base64",media_type:mediaType,data:base64}};
       const resp=await fetch("/.netlify/functions/scan",{
         method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,messages:[{role:"user",content:[
-          {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
+          contentBlock,
           {type:"text",text:`Extract vehicle details from this registration document and return ONLY a JSON object:\n{"make":"","model":"","year":0,"colour":"","reg":"","chassis":""}\nLeave fields as empty string or 0 if not visible. Return ONLY the JSON.`}
         ]}]})
       });
@@ -8020,6 +8024,7 @@ function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
       setScanned(true);
       toast("Rego scanned — review the pre-filled fields","success");
     }catch(err){
+      console.error("Scan error:",err);
       toast("Scan failed — please fill in details manually","error");
     }
     setScanning(false);
