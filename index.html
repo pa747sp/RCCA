@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.23 -->
+<!-- RCCA Portal v5.8.24 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -7311,7 +7311,7 @@ function App() {
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
-            {tab==="records"    &&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints}/>}
+            {tab==="records"    &&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
             {tab==="recognition"&&<RecognitionSection {...sp}/>}
@@ -10393,7 +10393,7 @@ function AddReviewInline({supplierId,onAdd}) {
 
 // ── QUALITY SYSTEM SECTION ───────────────────────────────────────────────────
 // ── RECORDS SECTION (tabbed wrapper) ─────────────────────────────────────────
-function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints}) {
+function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityDocs,points,setPoints,books,setBooks}) {
   const [rTab,setRTab]=React.useState("archive");
   const tabBtn=(id,label)=>(
     <button onClick={()=>setRTab(id)} style={{
