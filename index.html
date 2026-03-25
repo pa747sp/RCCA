@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.21 -->
+<!-- RCCA Portal v5.8.23 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -112,6 +112,7 @@ const SK = {
   contacts:"rcca:contacts",
   competitions:"rcca:competitions",
   pendingCars:"rcca:pendingCars",
+  incidents:"rcca:incidents",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -3029,6 +3030,293 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
 // TASKS (Kanban + List)
 // ══════════════════════════════════════════════════════════════════════════════
 const COLS=[{id:"todo",label:"To Do",colour:"var(--text3)"},{id:"inprogress",label:"In Progress",colour:"var(--blue2)"},{id:"done",label:"Done",colour:"var(--green2)"}];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INCIDENT REPORTS
+// ══════════════════════════════════════════════════════════════════════════════
+function IncidentsSection({user,members,events,cars,incidents,setIncidents,messages,setMessages}) {
+  const isAdmin=user.role==="admin";
+  const [view,setView]=useState("list");
+  const [selected,setSelected]=useState(null);
+  const [showForm,setShowForm]=useState(false);
+  const [statusFilter,setStatusFilter]=useState("all");
+
+  const BLANK={
+    title:"",type:"Vehicle",date:today,time:"",location:"",
+    eventId:"",memberId:"",vehicleId:"",
+    description:"",injuries:"",damage:"",witnesses:"",actionTaken:"",
+    fileData:null,fileName:"",fileType:"",
+    status:"open",submittedBy:user.id,submittedByName:user.name,
+  };
+  const [form,setForm]=useState({...BLANK});
+  const fileRef=React.useRef();
+
+  const myIncidents=isAdmin?incidents:(incidents||[]).filter(i=>i.submittedBy===user.id);
+  const filtered=statusFilter==="all"?myIncidents:myIncidents.filter(i=>i.status===statusFilter);
+
+  function handleFile(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    const r=new FileReader();
+    r.onload=ev=>setForm(f=>({...f,fileData:ev.target.result,fileName:file.name,fileType:file.type}));
+    r.readAsDataURL(file);
+  }
+
+  async function submit(){
+    if(!form.title||!form.description)return toast("Title and description are required","error");
+    const inc={...form,id:uid("IR"),createdAt:new Date().toISOString()};
+    const updated=[...(incidents||[]),inc];
+    setIncidents(updated);
+    await dbSet(SK.incidents,updated);
+    // Notify admins
+    if(!isAdmin){
+      const admins=members.filter(m=>m.role==="admin");
+      const msgs=[...(messages||[])];
+      admins.forEach(a=>{
+        msgs.push({id:uid("M"),fromId:user.id,fromName:user.name,toMemberId:a.id,
+          subject:"New Incident Report: "+form.title,
+          body:`${user.name} has submitted an incident report.\n\nTitle: ${form.title}\nType: ${form.type}\nDate: ${form.date}\n\nPlease log in to review it in the Incident Reports section.`,
+          read:false,createdAt:new Date().toISOString()});
+      });
+      setMessages(msgs);await dbSet(SK.messages,msgs);
+    }
+    toast("Incident report submitted","success");
+    setShowForm(false);
+    setForm({...BLANK});
+  }
+
+  async function updateStatus(id,status){
+    const updated=(incidents||[]).map(i=>i.id===id?{...i,status,reviewedBy:user.name,reviewedAt:new Date().toISOString()}:i);
+    setIncidents(updated);
+    await dbSet(SK.incidents,updated);
+    if(selected?.id===id)setSelected({...selected,status,reviewedBy:user.name});
+    toast(`Status updated to ${status}`,"success");
+  }
+
+  const statusColour={
+    open:{bg:"#fee2e2",color:"#991b1b",label:"Open"},
+    "under review":{bg:"#fef3c7",color:"#92400e",label:"Under Review"},
+    closed:{bg:"#d1fae5",color:"#065f46",label:"Closed"},
+  };
+
+  const typeIcon={"Vehicle":"🚗","Personal Injury":"🏥","Property Damage":"🏚","Other":"📋"};
+
+  if(selected) return(
+    <div style={{padding:24,maxWidth:760}} className="fade-up">
+      <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--blue)",fontSize:13,fontFamily:"var(--font-b)",padding:0,marginBottom:16}}>← Back to list</button>
+      <div style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:16,gap:12}}>
+          <div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--text)",marginBottom:6}}>{typeIcon[selected.type]||"📋"} {selected.title}</div>
+            <Row gap={8} wrap>
+              <span style={{background:statusColour[selected.status]?.bg||"var(--bg3)",color:statusColour[selected.status]?.color||"var(--text3)",borderRadius:4,fontSize:11,fontWeight:700,padding:"2px 8px"}}>{statusColour[selected.status]?.label||selected.status}</span>
+              <span style={{fontSize:12,color:"var(--text3)"}}>{selected.type}</span>
+              <span style={{fontSize:12,color:"var(--text3)"}}>{selected.date}{selected.time&&" at "+selected.time}</span>
+            </Row>
+          </div>
+          {isAdmin&&(
+            <Row gap={6}>
+              {["open","under review","closed"].map(s=>(
+                <button key={s} onClick={()=>updateStatus(selected.id,s)}
+                  style={{padding:"5px 10px",borderRadius:6,border:"1px solid var(--border)",background:selected.status===s?"var(--burg)":"white",color:selected.status===s?"white":"var(--text2)",cursor:"pointer",fontSize:11,fontWeight:600,textTransform:"capitalize"}}>
+                  {s}
+                </button>
+              ))}
+            </Row>
+          )}
+        </div>
+
+        {[
+          ["Location",selected.location],
+          ["Submitted by",selected.submittedByName],
+          ["Linked Event",selected.eventId?(events||[]).find(e=>e.id===selected.eventId)?.title||selected.eventId:null],
+          ["Linked Member",selected.memberId?members.find(m=>m.id===selected.memberId)?.name||selected.memberId:null],
+          ["Linked Vehicle",selected.vehicleId?((cars||[]).find(c=>c.id===selected.vehicleId)||({})).make?`${(cars||[]).find(c=>c.id===selected.vehicleId)?.year} ${(cars||[]).find(c=>c.id===selected.vehicleId)?.make} ${(cars||[]).find(c=>c.id===selected.vehicleId)?.model}`:null:null],
+        ].filter(([,v])=>v).map(([lbl,val])=>(
+          <div key={lbl} style={{marginBottom:10}}>
+            <div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:2}}>{lbl}</div>
+            <div style={{fontSize:13,color:"var(--text)"}}>{val}</div>
+          </div>
+        ))}
+
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:4}}>Description</div>
+          <div style={{fontSize:13,color:"var(--text)",lineHeight:1.6,background:"var(--bg3)",borderRadius:6,padding:"10px 14px",whiteSpace:"pre-wrap"}}>{selected.description}</div>
+        </div>
+        {selected.injuries&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:4}}>Injuries</div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>{selected.injuries}</div></div>}
+        {selected.damage&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:4}}>Damage</div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>{selected.damage}</div></div>}
+        {selected.witnesses&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:4}}>Witnesses</div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>{selected.witnesses}</div></div>}
+        {selected.actionTaken&&<div style={{marginBottom:10}}><div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:4}}>Action Taken</div><div style={{fontSize:13,color:"var(--text)",lineHeight:1.6}}>{selected.actionTaken}</div></div>}
+
+        {selected.fileData&&(
+          <div style={{marginTop:16}}>
+            <div style={{fontSize:11,fontWeight:600,color:"var(--text3)",marginBottom:8}}>Attached File</div>
+            {selected.fileType?.startsWith("image/")&&(
+              <img src={selected.fileData} alt="attachment" style={{maxWidth:"100%",maxHeight:400,borderRadius:6,border:"1px solid var(--border)",marginBottom:8}}/>
+            )}
+            <a href={selected.fileData} download={selected.fileName||"attachment"}
+              style={{display:"inline-flex",alignItems:"center",gap:6,padding:"7px 14px",background:"var(--burg)",color:"white",borderRadius:6,textDecoration:"none",fontSize:12,fontWeight:700}}>
+              📥 Download {selected.fileName||"Attachment"}
+            </a>
+          </div>
+        )}
+
+        {selected.reviewedBy&&(
+          <div style={{marginTop:16,fontSize:11,color:"var(--text3)"}}>
+            Reviewed by {selected.reviewedBy} · {selected.reviewedAt?new Date(selected.reviewedAt).toLocaleDateString("en-AU"):""}
+          </div>
+        )}
+        <div style={{marginTop:4,fontSize:11,color:"var(--text3)"}}>
+          Submitted {new Date(selected.createdAt).toLocaleDateString("en-AU")} by {selected.submittedByName}
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{padding:24,maxWidth:860}} className="fade-up">
+      <SectionHeader title="Incident Reports" subtitle={`${filtered.length} report${filtered.length!==1?"s":""}`}
+        action={<Btn onClick={()=>setShowForm(true)}>+ Report Incident</Btn>}/>
+
+      {/* Status filter */}
+      <Row gap={6} style={{marginBottom:16}}>
+        {["all","open","under review","closed"].map(s=>(
+          <button key={s} onClick={()=>setStatusFilter(s)} style={{padding:"5px 14px",borderRadius:20,border:"1px solid var(--border)",background:statusFilter===s?"var(--burg)":"white",color:statusFilter===s?"white":"var(--text2)",cursor:"pointer",fontSize:12,fontWeight:600,textTransform:"capitalize"}}>
+            {s==="all"?"All":statusColour[s]?.label||s}
+            {s!=="all"&&<span style={{marginLeft:4,opacity:.7}}>{myIncidents.filter(i=>i.status===s).length}</span>}
+          </button>
+        ))}
+      </Row>
+
+      {filtered.length===0?(
+        <div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📋</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>{statusFilter==="all"?"No incidents reported":"No "+statusFilter+" incidents"}</div>
+          <div style={{fontSize:13}}>Use the button above to report an incident.</div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {[...filtered].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(inc=>{
+            const sc=statusColour[inc.status]||{bg:"var(--bg3)",color:"var(--text3)",label:inc.status};
+            return(
+              <div key={inc.id} onClick={()=>setSelected(inc)}
+                style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:"14px 18px",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)",transition:"box-shadow .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,.1)"}
+                onMouseLeave={e=>e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.05)"}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:4}}>
+                      {typeIcon[inc.type]||"📋"} {inc.title}
+                    </div>
+                    <Row gap={8} wrap>
+                      <span style={{background:sc.bg,color:sc.color,borderRadius:4,fontSize:10,fontWeight:700,padding:"1px 7px"}}>{sc.label}</span>
+                      <span style={{fontSize:11,color:"var(--text3)"}}>{inc.type}</span>
+                      <span style={{fontSize:11,color:"var(--text3)"}}>{inc.date}</span>
+                      {inc.location&&<span style={{fontSize:11,color:"var(--text3)"}}>📍 {inc.location}</span>}
+                    </Row>
+                  </div>
+                  <div style={{fontSize:11,color:"var(--text3)",textAlign:"right",flexShrink:0}}>
+                    <div>{inc.submittedByName}</div>
+                    <div>{new Date(inc.createdAt).toLocaleDateString("en-AU")}</div>
+                  </div>
+                </div>
+                {inc.description&&<div style={{fontSize:12,color:"var(--text3)",marginTop:8,lineHeight:1.5,overflow:"hidden",textOverflow:"ellipsis",display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical"}}>{inc.description}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Submit form modal */}
+      {showForm&&(
+        <Modal title="Report an Incident" onClose={()=>{setShowForm(false);setForm({...BLANK});}} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:6,padding:"10px 14px",fontSize:12,color:"#991b1b"}}>
+              ⚠️ For medical emergencies call <strong>000</strong> first. This form is for record-keeping purposes only.
+            </div>
+            <Row gap={10}>
+              <Field label="Incident Title *" style={{flex:2}}>
+                <Input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Brief description of the incident"/>
+              </Field>
+              <Field label="Type" style={{flex:1}}>
+                <Select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))}>
+                  {["Vehicle","Personal Injury","Property Damage","Other"].map(t=><option key={t}>{t}</option>)}
+                </Select>
+              </Field>
+            </Row>
+            <Row gap={10}>
+              <Field label="Date *" half><Input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/></Field>
+              <Field label="Time (approx)" half><Input type="time" value={form.time} onChange={e=>setForm(f=>({...f,time:e.target.value}))}/></Field>
+            </Row>
+            <Field label="Location"><Input value={form.location} onChange={e=>setForm(f=>({...f,location:e.target.value}))} placeholder="Where did this occur?"/></Field>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+              <Field label="Linked Event (optional)">
+                <Select value={form.eventId} onChange={e=>setForm(f=>({...f,eventId:e.target.value}))}>
+                  <option value="">None</option>
+                  {(events||[]).filter(e=>e.status!=="cancelled").slice(0,30).map(e=><option key={e.id} value={e.id}>{e.title}</option>)}
+                </Select>
+              </Field>
+              <Field label="Linked Member (optional)">
+                <Select value={form.memberId} onChange={e=>setForm(f=>({...f,memberId:e.target.value}))}>
+                  <option value="">None</option>
+                  {members.filter(m=>m.status==="active").map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+                </Select>
+              </Field>
+              <Field label="Linked Vehicle (optional)">
+                <Select value={form.vehicleId} onChange={e=>setForm(f=>({...f,vehicleId:e.target.value}))}>
+                  <option value="">None</option>
+                  {(cars||[]).filter(c=>c.status==="active").map(c=><option key={c.id} value={c.id}>{c.year} {c.make} {c.model}</option>)}
+                </Select>
+              </Field>
+            </div>
+
+            <Field label="Description *">
+              <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={4}
+                placeholder="Describe what happened in detail..."
+                style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/>
+            </Field>
+            <Row gap={10}>
+              <Field label="Injuries (if any)" style={{flex:1}}>
+                <Input value={form.injuries} onChange={e=>setForm(f=>({...f,injuries:e.target.value}))} placeholder="Describe any injuries"/>
+              </Field>
+              <Field label="Damage (if any)" style={{flex:1}}>
+                <Input value={form.damage} onChange={e=>setForm(f=>({...f,damage:e.target.value}))} placeholder="Describe any damage"/>
+              </Field>
+            </Row>
+            <Field label="Witnesses (optional)">
+              <Input value={form.witnesses} onChange={e=>setForm(f=>({...f,witnesses:e.target.value}))} placeholder="Names of any witnesses"/>
+            </Field>
+            <Field label="Immediate action taken (optional)">
+              <Input value={form.actionTaken} onChange={e=>setForm(f=>({...f,actionTaken:e.target.value}))} placeholder="What was done at the time?"/>
+            </Field>
+
+            {/* File upload */}
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Attach photo or document (optional)</label>
+              <input ref={fileRef} type="file" style={{display:"none"}} onChange={handleFile}/>
+              {!form.fileData?(
+                <button onClick={()=>fileRef.current.click()} style={{padding:"7px 16px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,color:"var(--text2)"}}>
+                  📎 Choose file
+                </button>
+              ):(
+                <Row gap={8}>
+                  <span style={{fontSize:12,color:"var(--green)",fontWeight:600}}>📎 {form.fileName}</span>
+                  <button onClick={()=>setForm(f=>({...f,fileData:null,fileName:"",fileType:""}))} style={{fontSize:11,color:"var(--text3)",background:"none",border:"none",cursor:"pointer"}}>Remove</button>
+                </Row>
+              )}
+            </div>
+
+            <Row gap={8} justify="flex-end" style={{marginTop:4}}>
+              <Btn variant="ghost" onClick={()=>{setShowForm(false);setForm({...BLANK});}}>Cancel</Btn>
+              <Btn onClick={submit}>Submit Report</Btn>
+            </Row>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 function TasksSection({ user, members, tasks, setTasks }) {
   const isAdmin=user.role==="admin";
@@ -6806,17 +7094,18 @@ function App() {
   const [contacts,setContacts]=useState([]);
   const [competitions,setCompetitions]=useState([]);
   const [pendingCars,setPendingCars]=useState([]);
+  const [incidents,setIncidents]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
   const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -6844,6 +7133,7 @@ function App() {
       setContacts(Array.isArray(ct)?ct:[]);
       setCompetitions(Array.isArray(comps)?comps:[]);
       setPendingCars(Array.isArray(pc)?pc:[]);
+      setIncidents(Array.isArray(inc)?inc:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
       setCheckins(Array.isArray(ci)?ci:[]);
@@ -6884,7 +7174,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -6897,6 +7187,7 @@ function App() {
     { id:"meetings",     label:"Meetings",         icon:"◆" },
     { id:"events",       label:"Events & Shows",   icon:"★" },
     { id:"tasks",        label:"Tasks",            icon:"☑" },
+    { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
     { divider: true, label: "Commerce" },
     { id:"commerce",     label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Website" },
@@ -6920,6 +7211,7 @@ function App() {
     { id:"meetings",     label:"Meetings",         icon:"◆" },
     { id:"events",       label:"Events & Shows",   icon:"★" },
     { id:"tasks",        label:"Tasks",            icon:"☑" },
+    { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
     { divider: true, label: "Commerce" },
     { id:"shop",         label:"Club Shop",        icon:"⊕" },
     { id:"spare",        label:"Spare Parts",      icon:"🔧" },
@@ -7006,6 +7298,7 @@ function App() {
             {tab==="meetings"   &&<MeetingsSection {...sp}/>}
             {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
             {tab==="tasks"      &&<TasksSection {...sp}/>}
+            {tab==="incidents"   &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
             {tab==="commerce"   &&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
             {tab==="spare"      &&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
@@ -7019,7 +7312,7 @@ function App() {
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
             {tab==="records"    &&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints}/>}
-            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
+            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
             {tab==="recognition"&&<RecognitionSection {...sp}/>}
             {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
@@ -10120,7 +10413,7 @@ function RecordsSection({user,archiveDocs,setArchiveDocs,qualityDocs,setQualityD
         {tabBtn("quality","Quality System")}
       </div>
       <div style={{paddingTop:8}}>
-      {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints}/>}
+      {rTab==="archive"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
       {rTab==="quality"&&<QualitySystemSection user={user} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs}/>}
     </div>
     </div>
@@ -10366,7 +10659,7 @@ function QualitySystemSection({user,qualityDocs,setQualityDocs}) {
 
 
 // ── CLUB ARCHIVE SECTION ─────────────────────────────────────────────────────
-function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) {
+function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints,books,setBooks}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("browse");
   const [search,setSearch]=React.useState("");
@@ -10379,7 +10672,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
   const [aiScanning,setAiScanning]=React.useState(false);
   const [aiDone,setAiDone]=React.useState(false);
 
-  const docTypes=["Meeting Minutes","AGM Minutes","Financial Report","Newsletter","Event Record","Correspondence","Membership Record","Photograph","Event Programme","Historical Document","Other"];
+  const docTypes=["Meeting Minutes","AGM Minutes","Financial Report","Newsletter","Event Record","Correspondence","Membership Record","Photograph","Event Programme","Historical Document","Library Book","Other"];
   const visLabels={admin:"Admin Only",members:"Members",public:"Public"};
 
   const save=async(docs)=>{setArchiveDocs(docs);await dbSet(SK.archiveDocs,docs);};
@@ -10435,17 +10728,10 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints}) 
       const isPDF=form.fileType==='application/pdf';
       const isText=!isImage&&!isPDF;
 
-      const systemPrompt=`You are an archivist for the Rover Car Club of Australia (RCCA), a Victorian car club founded in 1964 specialising in Rover vehicles. Analyse the provided document and return ONLY a JSON object with these fields:
-{
-  "title": "concise descriptive title for this document",
-  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Other",
-  "year": "4-digit year if determinable, else empty string",
-  "description": "2-3 sentence summary of what this document contains",
-  "tags": "comma-separated list of relevant tags (e.g. model names like P6 SD1, topics like club permits AGM finances, people's surnames if prominent)",
-  "people": "comma-separated list of names mentioned if any",
-  "rovers": "comma-separated list of Rover models mentioned if any"
-}
-Return ONLY the JSON object. No preamble, no explanation, no markdown fences.`;
+      const isLibraryBook=form.docType==="Library Book";
+      const systemPrompt=isLibraryBook
+        ?`You are a librarian cataloguing a book for the Rover Car Club of Australia library. Analyse the provided document (book cover, title page, or description) and return ONLY a JSON object:\n{\n  "title": "full book title",\n  "author": "author name(s)",\n  "year": "4-digit publication year if visible, else empty string",\n  "publisher": "publisher name if visible, else empty string",\n  "isbn": "ISBN if visible, else empty string",\n  "description": "1-2 sentence description of what the book covers",\n  "tags": "comma-separated relevant tags"\n}\nReturn ONLY the JSON. No preamble, no markdown fences.`
+        :`You are an archivist for the Rover Car Club of Australia (RCCA). Analyse the provided document and return ONLY a JSON object:\n{\n  "title": "concise descriptive title",\n  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Library Book, Other",\n  "year": "4-digit year if determinable, else empty string",\n  "description": "2-3 sentence summary",\n  "tags": "comma-separated relevant tags",\n  "people": "comma-separated names mentioned if any",\n  "rovers": "comma-separated Rover models mentioned if any"\n}\nReturn ONLY the JSON object. No preamble, no markdown fences.`;
 
       if(form.fileData&&(isImage||isPDF)){
         // Send as vision/document
@@ -10496,15 +10782,28 @@ ${textContent}`});
       ].filter(Boolean).join(", ");
 
       // Pre-fill form with AI suggestions
-      setForm(f=>({
-        ...f,
-        title:result.title||f.title,
-        docType:result.docType||f.docType,
-        year:result.year||f.year,
-        description:result.description||f.description,
-        tags:allTags||f.tags,
-        content:f.content||(result.people?`People mentioned: ${result.people}`:""),
-      }));
+      if(isLibraryBook){
+        setForm(f=>({
+          ...f,
+          title:result.title||f.title,
+          year:result.year||f.year,
+          description:result.description||f.description,
+          tags:result.tags||f.tags,
+          author:result.author||f.author||"",
+          publisher:result.publisher||f.publisher||"",
+          isbn:result.isbn||f.isbn||"",
+        }));
+      } else {
+        setForm(f=>({
+          ...f,
+          title:result.title||f.title,
+          docType:result.docType||f.docType,
+          year:result.year||f.year,
+          description:result.description||f.description,
+          tags:allTags||f.tags,
+          content:f.content||(result.people?`People mentioned: ${result.people}`:""),
+        }));
+      }
       setAiDone(true);
     } catch(err){
       console.error("AI scan error:",err);
@@ -10544,9 +10843,40 @@ ${textContent}`});
   };
 
   const approveDoc=async(id)=>{
+    const doc=(archiveDocs||[]).find(d=>d.id===id);
     const updated=(archiveDocs||[]).map(d=>d.id===id?{...d,status:"Archived",approvedBy:user.name,approvedAt:new Date().toISOString()}:d);
     await save(updated);
     if(selected&&selected.id===id)setSelected(updated.find(d=>d.id===id));
+    // Auto-create library entry for Library Book docs
+    if(doc&&doc.docType==="Library Book"&&setBooks){
+      const existing=(books||[]).find(b=>b.title&&b.title.toLowerCase()===doc.title.toLowerCase());
+      if(!existing){
+        const newBook={
+          id:uid("B"),
+          title:doc.title||"Untitled",
+          author:doc.author||doc.submittedBy||"",
+          category:"Club Archive",
+          isbn:doc.isbn||"",
+          year:doc.year||"",
+          publisher:doc.publisher||"",
+          description:doc.description||"",
+          copies:1,
+          status:"available",
+          borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,
+          notes:"Added from archive — "+doc.approvedBy,
+          archiveDocId:id,
+          fileData:doc.fileData||null,
+          fileName:doc.fileName||"",
+          fileType:doc.fileType||"",
+        };
+        const updatedBooks=[...(books||[]),newBook];
+        setBooks(updatedBooks);
+        await dbSet(SK.books,updatedBooks);
+        toast("Library Book approved — added to the library catalogue","success");
+      } else {
+        toast("Approved — a library entry for this title already exists","info");
+      }
+    }
   };
 
   const deleteDoc=async(id)=>{await save((archiveDocs||[]).filter(d=>d.id!==id));setSelected(null);};
@@ -10770,6 +11100,18 @@ ${textContent}`});
                 <option value="public">Public</option>
               </select></div>
             </div>
+            {form.docType==="Library Book"&&(
+              <div style={{background:"#f0f7ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#1a4a7a",marginBottom:10}}>📚 Library Book Details</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                  {[["Author","author"],["Publisher","publisher"],["ISBN","isbn"]].map(([lbl,key])=>(
+                    <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:3}}>{lbl}</label>
+                    <input value={form[key]||""} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+                  ))}
+                </div>
+                <div style={{fontSize:11,color:"#1a4a7a",marginTop:8}}>ℹ️ When approved, this will automatically be added to the club library catalogue.</div>
+              </div>
+            )}
             <div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Description</label>
             <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} rows={2} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical"}}/></div>
             <div>
