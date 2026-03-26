@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.25 -->
+<!-- RCCA Portal v5.8.26 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -7428,7 +7428,7 @@ function LibrarySection({ user, members, books, setBooks }) {
   const [importResult,setImportResult] = useState(null);
   const [bulkModal,setBulkModal] = useState(false);
 
-  const BLANK = {title:"",author:"",category:"History",isbn:"",year:"",publisher:"",description:"",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:""};
+  const BLANK = {title:"",author:"",category:"History",isbn:"",year:"",publisher:"",description:"",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:"",photos:[]};
   const CATS = ["History","Technical","Biography","Racing","Restoration","Club Archive","Magazine","Other"];
   const STATUS_COLOURS = {available:"var(--green)",requested:"#b87a00",borrowed:"var(--burg)",overdue:"#8f1a1c",returned:"var(--text3)"};
   const STATUS_LABELS = {available:"Available",requested:"Requested",borrowed:"On Loan",overdue:"OVERDUE",returned:"Returned"};
@@ -7580,9 +7580,19 @@ function LibrarySection({ user, members, books, setBooks }) {
                         <span style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",padding:"2px 7px",borderRadius:8,fontFamily:"var(--font-m)",fontWeight:600}}>{b.category}</span>
                       </Row>
                     </div>
-                    <div style={{fontSize:32,opacity:.5,flexShrink:0}}>📖</div>
+                    {b.photos&&b.photos.length>0
+                      ?<img src={b.photos[0]} alt="cover" style={{width:56,height:70,objectFit:"cover",borderRadius:4,border:"1px solid var(--border)",flexShrink:0}}/>
+                      :<div style={{fontSize:32,opacity:.5,flexShrink:0}}>📖</div>
+                    }
                   </div>
                   {b.description&&<div style={{fontSize:12,color:"var(--text2)",lineHeight:1.6}}>{b.description.slice(0,120)}{b.description.length>120?"…":""}</div>}
+                  {b.photos&&b.photos.length>1&&(
+                    <Row gap={6}>
+                      {b.photos.slice(1).map((p,i)=>(
+                        <img key={i} src={p} alt={`Photo ${i+2}`} style={{width:48,height:48,objectFit:"cover",borderRadius:4,border:"1px solid var(--border)",cursor:"pointer"}} onClick={()=>setModal({photoView:{photos:b.photos,idx:i+1}})}/>
+                      ))}
+                    </Row>
+                  )}
                   {(b.status==="borrowed"||b.status==="overdue")&&(
                     <div style={{fontSize:11,color:b.status==="overdue"?"var(--burg)":"var(--text3)",fontFamily:"var(--font-m)",background:b.status==="overdue"?"rgba(192,40,42,.07)":"var(--bg3)",padding:"5px 8px",borderRadius:5}}>
                       {isAdmin||isMyLoan?<span>Borrowed by: {borrowerName(b.borrowedBy)} · Due: {b.dueDate}</span>:<span>Due back: {b.dueDate}</span>}
@@ -7719,6 +7729,45 @@ function LibrarySection({ user, members, books, setBooks }) {
           <Field label="Description" style={{gridColumn:"1/-1"}}><Textarea value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} rows={3} placeholder="Brief description…"/></Field>
           <Field label="Notes (internal)" style={{gridColumn:"1/-1"}}><Input value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Condition, location, etc."/></Field>
           {modal==="edit"&&<Field label="Status"><Select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}>{Object.keys(STATUS_LABELS).map(s=><option key={s} value={s}>{STATUS_LABELS[s]}</option>)}</Select></Field>}
+          <div style={{gridColumn:"1/-1"}}>
+            <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:6}}>Photos <span style={{fontWeight:400,color:"var(--text3)"}}>(up to 3 — cover, spine, key pages)</span></label>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-start"}}>
+              {(form.photos||[]).map((p,i)=>(
+                <div key={i} style={{position:"relative",width:90,height:90,borderRadius:6,overflow:"hidden",border:"1px solid var(--border)",flexShrink:0}}>
+                  <img src={p} alt={`Photo ${i+1}`} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  <button onClick={()=>setForm(f=>({...f,photos:(f.photos||[]).filter((_,j)=>j!==i)}))}
+                    style={{position:"absolute",top:2,right:2,background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",width:20,height:20,color:"white",cursor:"pointer",fontSize:13,lineHeight:"20px",textAlign:"center",padding:0}}>×</button>
+                </div>
+              ))}
+              {(form.photos||[]).length<3&&(
+                <label style={{width:90,height:90,borderRadius:6,border:"2px dashed var(--border)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",background:"var(--bg3)",flexShrink:0}}>
+                  <span style={{fontSize:22,color:"var(--text3)"}}>+</span>
+                  <span style={{fontSize:10,color:"var(--text3)"}}>Add photo</span>
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                    const file=e.target.files[0];
+                    if(!file)return;
+                    const r=new FileReader();
+                    r.onload=ev=>{
+                      const img=new window.Image();
+                      img.onload=()=>{
+                        const maxW=800;
+                        const scale=img.width>maxW?maxW/img.width:1;
+                        const canvas=document.createElement("canvas");
+                        canvas.width=Math.round(img.width*scale);
+                        canvas.height=Math.round(img.height*scale);
+                        canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+                        const compressed=canvas.toDataURL("image/jpeg",0.8);
+                        setForm(f=>({...f,photos:[...(f.photos||[]),compressed]}));
+                      };
+                      img.src=ev.target.result;
+                    };
+                    r.readAsDataURL(file);
+                    e.target.value="";
+                  }}/>
+                </label>
+              )}
+            </div>
+          </div>
         </div>
         <Row gap={8} justify="flex-end" style={{marginTop:16}}>
           <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
@@ -7757,6 +7806,15 @@ function LibrarySection({ user, members, books, setBooks }) {
       </Modal>}
 
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
+      {modal?.photoView&&(
+        <Modal title="Book Photos" onClose={()=>setModal(null)} wide>
+          <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center"}}>
+            {modal.photoView.photos.map((p,i)=>(
+              <img key={i} src={p} alt={`Photo ${i+1}`} style={{maxWidth:"100%",maxHeight:420,objectFit:"contain",borderRadius:6,border:"1px solid var(--border)"}}/>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
