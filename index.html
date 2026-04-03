@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.27 -->
+<!-- RCCA Portal v5.8.28 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -11061,7 +11061,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints,bo
       const isLibraryBook=form.docType==="Library Book";
       const systemPrompt=isLibraryBook
         ?`You are a librarian cataloguing a book for the Rover Car Club of Australia library. Analyse the provided document (book cover, title page, or description) and return ONLY a JSON object:\n{\n  "title": "full book title",\n  "author": "author name(s)",\n  "year": "4-digit publication year if visible, else empty string",\n  "publisher": "publisher name if visible, else empty string",\n  "isbn": "ISBN if visible, else empty string",\n  "description": "1-2 sentence description of what the book covers",\n  "dewey": "Dewey Decimal Classification code — suggest the most appropriate code based on the subject matter (e.g. 629.222 for British motor cars, 629.28 for auto repair/maintenance, 796.72 for motor racing, 920 for biography)",\n  "tags": "comma-separated relevant tags"\n}\nReturn ONLY the JSON. No preamble, no markdown fences.`
-        :`You are an archivist for the Rover Car Club of Australia (RCCA). Analyse the provided document and return ONLY a JSON object:\n{\n  "title": "concise descriptive title",\n  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Library Book, Other",\n  "year": "4-digit year if determinable, else empty string",\n  "description": "2-3 sentence summary",\n  "tags": "comma-separated relevant tags",\n  "people": "comma-separated names mentioned if any",\n  "rovers": "comma-separated Rover models mentioned if any"\n}\nReturn ONLY the JSON object. No preamble, no markdown fences.`;
+        :`You are an archivist for the Rover Car Club of Australia (RCCA). Analyse the provided document and return ONLY a JSON object:\n{\n  "title": "concise descriptive title",\n  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Library Book, Other",\n  "year": "4-digit year if determinable, else empty string",\n  "description": "2-3 sentence summary",\n  "tags": "comma-separated relevant tags",\n  "people": "comma-separated names mentioned if any",\n  "rovers": "comma-separated Rover models mentioned if any",\n  "author": "if this is a book, the author name(s), else empty string",\n  "publisher": "if this is a book, the publisher name, else empty string",\n  "isbn": "if this is a book, the ISBN number, else empty string",\n  "dewey": "if this is a book, suggest the most appropriate Dewey Decimal code (e.g. 629.28 for auto repair/workshop manuals, 629.222 for British motor cars, 796.72 for motor racing, 920 for biography), else empty string"\n}\nReturn ONLY the JSON object. No preamble, no markdown fences.`;
 
       if(form.fileData&&(isImage||isPDF)){
         // Send as vision/document
@@ -11132,6 +11132,10 @@ ${textContent}`});
           description:result.description||f.description,
           tags:allTags||f.tags,
           content:f.content||(result.people?`People mentioned: ${result.people}`:""),
+          author:result.author||f.author||"",
+          publisher:result.publisher||f.publisher||"",
+          isbn:result.isbn||f.isbn||"",
+          dewey:result.dewey||f.dewey||"",
         }));
       }
       setAiDone(true);
