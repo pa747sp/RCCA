@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.26 -->
+<!-- RCCA Portal v5.8.27 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -7428,7 +7428,7 @@ function LibrarySection({ user, members, books, setBooks }) {
   const [importResult,setImportResult] = useState(null);
   const [bulkModal,setBulkModal] = useState(false);
 
-  const BLANK = {title:"",author:"",category:"History",isbn:"",year:"",publisher:"",description:"",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:"",photos:[]};
+  const BLANK = {title:"",author:"",category:"History",isbn:"",year:"",publisher:"",description:"",copies:1,status:"available",borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,notes:"",dewey:"",photos:[]};
   const CATS = ["History","Technical","Biography","Racing","Restoration","Club Archive","Magazine","Other"];
   const STATUS_COLOURS = {available:"var(--green)",requested:"#b87a00",borrowed:"var(--burg)",overdue:"#8f1a1c",returned:"var(--text3)"};
   const STATUS_LABELS = {available:"Available",requested:"Requested",borrowed:"On Loan",overdue:"OVERDUE",returned:"Returned"};
@@ -7574,7 +7574,7 @@ function LibrarySection({ user, members, books, setBooks }) {
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
                     <div style={{flex:1}}>
                       <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:3,lineHeight:1.3}}>{b.title}</div>
-                      <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}{b.year?" · "+b.year:""}</div>
+                      <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{b.author}{b.year?" · "+b.year:""}{b.dewey&&<span style={{marginLeft:8,fontSize:10,fontFamily:"var(--font-m)",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"1px 5px",color:"var(--text3)"}}>{b.dewey}</span>}</div>
                       <Row gap={6} wrap>
                         <StatusBadge status={b.status}/>
                         <span style={{fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",padding:"2px 7px",borderRadius:8,fontFamily:"var(--font-m)",fontWeight:600}}>{b.category}</span>
@@ -7725,6 +7725,7 @@ function LibrarySection({ user, members, books, setBooks }) {
           <Field label="ISBN"><Input value={form.isbn||""} onChange={e=>setForm({...form,isbn:e.target.value})} placeholder="978-…"/></Field>
           <Field label="Year Published"><Input type="number" value={form.year||""} onChange={e=>setForm({...form,year:e.target.value})} placeholder="e.g. 2001"/></Field>
           <Field label="Publisher"><Input value={form.publisher||""} onChange={e=>setForm({...form,publisher:e.target.value})}/></Field>
+          <Field label="Dewey Decimal"><Input value={form.dewey||""} onChange={e=>setForm({...form,dewey:e.target.value})} placeholder="e.g. 629.222"/></Field>
           <Field label="Copies"><Input type="number" min="1" value={form.copies||1} onChange={e=>setForm({...form,copies:Number(e.target.value)})}/></Field>
           <Field label="Description" style={{gridColumn:"1/-1"}}><Textarea value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} rows={3} placeholder="Brief description…"/></Field>
           <Field label="Notes (internal)" style={{gridColumn:"1/-1"}}><Input value={form.notes||""} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Condition, location, etc."/></Field>
@@ -9635,12 +9636,264 @@ function CommerceSection(sp) {
 }
 
 // ── WEBSITE SECTION ──────────────────────────────────────────────────────────
+// ── NEWSLETTER BUILDER ───────────────────────────────────────────────────────
+function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts}) {
+  const [presidentsMsg,setPresidentsMsg]=React.useState("");
+  const [notices,setNotices]=React.useState("");
+  const [lastSent,setLastSent]=React.useState(()=>{
+    // Default to 30 days ago
+    const d=new Date();d.setDate(d.getDate()-30);
+    return d.toISOString().slice(0,10);
+  });
+  const [preview,setPreview]=React.useState(false);
+  const [copied,setCopied]=React.useState(false);
+
+  const now=new Date();
+  const todayStr=now.toISOString().slice(0,10);
+
+  // Auto-populate data
+  const upcomingEvents=(events||[])
+    .filter(e=>e.date>=todayStr&&e.status!=="cancelled")
+    .sort((a,b)=>a.date.localeCompare(b.date))
+    .slice(0,4);
+
+  const lastEvent=(events||[])
+    .filter(e=>e.date<todayStr&&e.status!=="cancelled")
+    .sort((a,b)=>b.date.localeCompare(a.date))[0];
+
+  const newMembers=(members||[])
+    .filter(m=>m.joined>=lastSent&&m.status==="active")
+    .sort((a,b)=>a.joined.localeCompare(b.joined));
+
+  // Featured book - random from available
+  const availableBooks=(books||[]).filter(b=>b.status==="available");
+  const featuredBook=React.useMemo(()=>{
+    if(!availableBooks.length)return null;
+    return availableBooks[Math.floor(Math.random()*availableBooks.length)];
+  },[books]);
+
+  // From the archives - random approved doc
+  const approvedDocs=(archiveDocs||[]).filter(d=>d.status==="Archived"||d.status==="filed");
+  const archiveFeature=React.useMemo(()=>{
+    if(!approvedDocs.length)return null;
+    return approvedDocs[Math.floor(Math.random()*approvedDocs.length)];
+  },[archiveDocs]);
+
+  // New marketplace listings since last newsletter (still active)
+  const newListings=(listings||[])
+    .filter(l=>l.status==="active"&&l.created>=lastSent)
+    .sort((a,b)=>b.created.localeCompare(a.created))
+    .slice(0,4);
+
+  // Parts in stock
+  const inStockParts=(parts||[])
+    .filter(p=>p.status==="in_stock"||(!p.status&&p.qty>0))
+    .slice(0,4);
+
+  function monthYear(){
+    return now.toLocaleDateString("en-AU",{month:"long",year:"numeric"});
+  }
+
+  function generateHTML(){
+    const eventsHTML=upcomingEvents.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📅 Upcoming Events</h2>
+      ${upcomingEvents.map(e=>`
+        <div style="background:#f8f5f0;border-left:4px solid #c0282a;padding:10px 14px;margin-bottom:10px;border-radius:0 6px 6px 0">
+          <div style="font-weight:700;font-size:15px;color:#1a1210">${e.title}</div>
+          <div style="font-size:13px;color:#666;margin-top:3px">${new Date(e.date).toLocaleDateString("en-AU",{weekday:"long",day:"numeric",month:"long"})}${e.time?" at "+e.time:""}${e.location?" · "+e.location:""}</div>
+          ${e.description?`<div style="font-size:12px;color:#444;margin-top:4px">${e.description.slice(0,120)}${e.description.length>120?"…":""}</div>`:""}
+        </div>`).join("")}
+    `:"";
+
+    const recapHTML=lastEvent?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🏁 Last Event Recap</h2>
+      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:15px;color:#1a1210">${lastEvent.title}</div>
+        <div style="font-size:13px;color:#666;margin-top:3px">${new Date(lastEvent.date).toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"})}</div>
+        ${lastEvent.description?`<div style="font-size:13px;color:#444;margin-top:8px;line-height:1.6">${lastEvent.description.slice(0,300)}${lastEvent.description.length>300?"…":""}</div>`:""}
+      </div>
+    `:"";
+
+    const membersHTML=newMembers.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">👋 Welcome New Members</h2>
+      <p style="font-size:14px;color:#444;line-height:1.6">Please join us in welcoming our newest members to the Rover Car Club of Australia:</p>
+      <ul style="font-size:14px;color:#444;line-height:2">
+        ${newMembers.map(m=>`<li><strong>${m.name}</strong>${m.state?" ("+m.state+")":""}</li>`).join("")}
+      </ul>
+    `:"";
+
+    const bookHTML=featuredBook?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📚 Featured Library Book</h2>
+      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px;display:flex;gap:14px">
+        <div>
+          <div style="font-weight:700;font-size:15px;color:#1a1210">${featuredBook.title}</div>
+          <div style="font-size:13px;color:#666;margin-top:2px">${featuredBook.author}${featuredBook.year?" · "+featuredBook.year:""}${featuredBook.dewey?` · <span style="font-family:monospace;font-size:11px">${featuredBook.dewey}</span>`:""}</div>
+          ${featuredBook.description?`<div style="font-size:13px;color:#444;margin-top:8px;line-height:1.6">${featuredBook.description}</div>`:""}
+          <div style="font-size:12px;color:#1e6840;font-weight:700;margin-top:8px">✓ Currently available — log in to request</div>
+        </div>
+      </div>
+    `:"";
+
+    const archiveHTML=archiveFeature?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🗂 From the Archives</h2>
+      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:15px;color:#1a1210">${archiveFeature.title}</div>
+        <div style="font-size:12px;color:#666;margin-top:2px">${archiveFeature.docType}${archiveFeature.year?" · "+archiveFeature.year:""}</div>
+        ${archiveFeature.description?`<div style="font-size:13px;color:#444;margin-top:8px;line-height:1.6">${archiveFeature.description.slice(0,200)}${archiveFeature.description.length>200?"…":""}</div>`:""}
+        <div style="font-size:12px;color:#1a4a7a;margin-top:8px">Log in to the member portal to view the full document →</div>
+      </div>
+    `:"";
+
+    const listingsHTML=newListings.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🔄 New Marketplace Listings</h2>
+      ${newListings.map(l=>`
+        <div style="border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin-bottom:8px;background:white">
+          <div style="font-weight:700;font-size:14px;color:#1a1210">${l.title}</div>
+          <div style="font-size:13px;color:#666;margin-top:2px">${l.category}${l.price?" · A$"+l.price:""}${l.condition?" · "+l.condition:""}</div>
+          ${l.description?`<div style="font-size:12px;color:#444;margin-top:4px">${l.description.slice(0,100)}${l.description.length>100?"…":""}</div>`:""}
+        </div>`).join("")}
+      <p style="font-size:12px;color:#666">Log in to the member portal to view all listings and make enquiries.</p>
+    `:"";
+
+    const partsHTML=inStockParts.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🔧 Parts Available</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="background:#5c0c0e;color:white">
+          <th style="padding:8px 10px;text-align:left">Part</th>
+          <th style="padding:8px 10px;text-align:left">Condition</th>
+          <th style="padding:8px 10px;text-align:right">Member Price</th>
+        </tr>
+        ${inStockParts.map((p,i)=>`
+          <tr style="background:${i%2===0?"#f8f5f0":"white"}">
+            <td style="padding:7px 10px;border-bottom:1px solid #ddd">${p.name}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #ddd">${p.condition||"—"}</td>
+            <td style="padding:7px 10px;border-bottom:1px solid #ddd;text-align:right">${p.memberPrice?"A$"+p.memberPrice:"POA"}</td>
+          </tr>`).join("")}
+      </table>
+      <p style="font-size:12px;color:#666;margin-top:8px">Log in to the member portal to view full parts catalogue and place orders.</p>
+    `:"";
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>RCCA Newsletter — ${monthYear()}</title></head>
+<body style="margin:0;padding:0;background:#f0ece6;font-family:Georgia,serif">
+  <div style="max-width:620px;margin:0 auto;background:white;box-shadow:0 2px 16px rgba(0,0,0,.1)">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#5c0c0e,#8f1a1c);padding:32px 32px 24px;text-align:center">
+      <div style="font-size:11px;letter-spacing:0.2em;color:rgba(255,255,255,.7);margin-bottom:4px">ROVER CAR CLUB OF AUSTRALIA</div>
+      <div style="font-size:28px;font-weight:700;color:white;margin-bottom:4px">Viking Torque</div>
+      <div style="font-size:13px;color:rgba(255,255,255,.8);font-style:italic">${monthYear()} Newsletter</div>
+    </div>
+    <!-- Body -->
+    <div style="padding:28px 32px">
+      ${presidentsMsg?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📝 President's Message</h2>
+      <div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:20px;white-space:pre-wrap">${presidentsMsg}</div>
+      `:""}
+      ${notices?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📢 Club Notices</h2>
+      <div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:20px;white-space:pre-wrap">${notices}</div>
+      `:""}
+      ${eventsHTML}
+      ${recapHTML}
+      ${membersHTML}
+      ${bookHTML}
+      ${archiveHTML}
+      ${listingsHTML}
+      ${partsHTML}
+    </div>
+    <!-- Footer -->
+    <div style="background:#1a1210;padding:20px 32px;text-align:center">
+      <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.8">
+        Rover Car Club of Australia · Est. 1964 · Melbourne<br/>
+        <a href="https://rcca.netlify.app" style="color:#c9922a">rcca.netlify.app</a> · Member portal login required to view full content
+      </div>
+    </div>
+  </div>
+</body></html>`;
+  }
+
+  function copyHTML(){
+    navigator.clipboard.writeText(generateHTML()).then(()=>{
+      setCopied(true);setTimeout(()=>setCopied(false),2500);
+    });
+  }
+
+  function openPreview(){
+    const w=window.open("","_blank");
+    w.document.write(generateHTML());
+    w.document.close();
+  }
+
+  return(
+    <div style={{padding:24,maxWidth:800}} className="fade-up">
+      <SectionHeader title="Newsletter Builder" subtitle={`${monthYear()} — auto-populated from portal data`}/>
+
+      {/* Last sent date */}
+      <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",marginBottom:20,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <div style={{fontSize:13,color:"var(--text2)"}}>
+          <strong>Showing new content since:</strong>
+        </div>
+        <input type="date" value={lastSent} onChange={e=>setLastSent(e.target.value)}
+          style={{padding:"6px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13}}/>
+        <div style={{fontSize:12,color:"var(--text3)"}}>New members: {newMembers.length} · New listings: {newListings.length}</div>
+      </div>
+
+      {/* Manual sections */}
+      <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:20}}>
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:"var(--text)",display:"block",marginBottom:6}}>📝 President's Message</label>
+          <textarea value={presidentsMsg} onChange={e=>setPresidentsMsg(e.target.value)} rows={5}
+            placeholder="Write the president's message here..."
+            style={{width:"100%",padding:"10px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"Georgia,serif",lineHeight:1.7}}/>
+        </div>
+        <div>
+          <label style={{fontSize:13,fontWeight:700,color:"var(--text)",display:"block",marginBottom:6}}>📢 Club Notices</label>
+          <textarea value={notices} onChange={e=>setNotices(e.target.value)} rows={3}
+            placeholder="Any committee announcements, reminders or notices..."
+            style={{width:"100%",padding:"10px 12px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"Georgia,serif",lineHeight:1.7}}/>
+        </div>
+      </div>
+
+      {/* Auto-populated preview cards */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12}}>Auto-populated sections:</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {[
+            {label:"📅 Upcoming Events",val:upcomingEvents.length+" events",ok:upcomingEvents.length>0},
+            {label:"🏁 Last Event Recap",val:lastEvent?lastEvent.title:"None found",ok:!!lastEvent},
+            {label:"👋 New Members",val:newMembers.length+" since "+lastSent,ok:newMembers.length>0},
+            {label:"📚 Featured Book",val:featuredBook?featuredBook.title:"None available",ok:!!featuredBook},
+            {label:"🗂 From the Archives",val:archiveFeature?archiveFeature.title:"None available",ok:!!archiveFeature},
+            {label:"🔄 New Listings",val:newListings.length+" active since "+lastSent,ok:newListings.length>0},
+            {label:"🔧 Parts Available",val:inStockParts.length+" in stock",ok:inStockParts.length>0},
+          ].map(({label,val,ok})=>(
+            <div key={label} style={{background:ok?"#f0fdf4":"var(--bg3)",border:`1px solid ${ok?"#86efac":"var(--border)"}`,borderRadius:6,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>{label}</div>
+              <div style={{fontSize:11,color:ok?"var(--green)":"var(--text3)",textAlign:"right",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <Row gap={10}>
+        <Btn onClick={openPreview}>👁 Preview Newsletter</Btn>
+        <Btn variant="ghost" onClick={copyHTML}>{copied?"✓ Copied!":"📋 Copy HTML"}</Btn>
+      </Row>
+      <div style={{fontSize:12,color:"var(--text3)",marginTop:10}}>
+        Copy the HTML and paste into Mailchimp, Campaign Monitor, or your email client. Preview opens in a new tab.
+      </div>
+    </div>
+  );
+}
+
 function WebsiteSection(sp) {
-  const {user,siteContent,setSiteContent,news,setNews,pages,setPages,gallery,setGallery} = sp;
+  const {user,siteContent,setSiteContent,news,setNews,pages,setPages,gallery,setGallery,members,events,books,archiveDocs,listings,parts} = sp;
   const [tab,setTab]=React.useState("site");
   const tabs=[
     {id:"site",label:"Site Content",count:0},
     {id:"news",label:"News",count:(news||[]).filter(n=>n.status==="draft").length},
+    {id:"newsletter",label:"Newsletter",count:0},
     {id:"pages",label:"Custom Pages",count:0},
     {id:"gallery",label:"Photo Gallery",count:0},
   ];
@@ -9650,6 +9903,7 @@ function WebsiteSection(sp) {
       <div style={{height:20}}/>
       {tab==="site"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
       {tab==="news"&&<NewsAdminSection user={user} news={news} setNews={setNews}/>}
+      {tab==="newsletter"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
       {tab==="pages"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
       {tab==="gallery"&&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
     </div>
@@ -10806,7 +11060,7 @@ function ClubArchiveSection({user,archiveDocs,setArchiveDocs,points,setPoints,bo
 
       const isLibraryBook=form.docType==="Library Book";
       const systemPrompt=isLibraryBook
-        ?`You are a librarian cataloguing a book for the Rover Car Club of Australia library. Analyse the provided document (book cover, title page, or description) and return ONLY a JSON object:\n{\n  "title": "full book title",\n  "author": "author name(s)",\n  "year": "4-digit publication year if visible, else empty string",\n  "publisher": "publisher name if visible, else empty string",\n  "isbn": "ISBN if visible, else empty string",\n  "description": "1-2 sentence description of what the book covers",\n  "tags": "comma-separated relevant tags"\n}\nReturn ONLY the JSON. No preamble, no markdown fences.`
+        ?`You are a librarian cataloguing a book for the Rover Car Club of Australia library. Analyse the provided document (book cover, title page, or description) and return ONLY a JSON object:\n{\n  "title": "full book title",\n  "author": "author name(s)",\n  "year": "4-digit publication year if visible, else empty string",\n  "publisher": "publisher name if visible, else empty string",\n  "isbn": "ISBN if visible, else empty string",\n  "description": "1-2 sentence description of what the book covers",\n  "dewey": "Dewey Decimal Classification code — suggest the most appropriate code based on the subject matter (e.g. 629.222 for British motor cars, 629.28 for auto repair/maintenance, 796.72 for motor racing, 920 for biography)",\n  "tags": "comma-separated relevant tags"\n}\nReturn ONLY the JSON. No preamble, no markdown fences.`
         :`You are an archivist for the Rover Car Club of Australia (RCCA). Analyse the provided document and return ONLY a JSON object:\n{\n  "title": "concise descriptive title",\n  "docType": "one of: Meeting Minutes, AGM Minutes, Financial Report, Newsletter, Event Record, Correspondence, Membership Record, Photograph, Event Programme, Historical Document, Library Book, Other",\n  "year": "4-digit year if determinable, else empty string",\n  "description": "2-3 sentence summary",\n  "tags": "comma-separated relevant tags",\n  "people": "comma-separated names mentioned if any",\n  "rovers": "comma-separated Rover models mentioned if any"\n}\nReturn ONLY the JSON object. No preamble, no markdown fences.`;
 
       if(form.fileData&&(isImage||isPDF)){
@@ -10940,6 +11194,7 @@ ${textContent}`});
           status:"available",
           borrowedBy:null,borrowedDate:null,dueDate:null,requestedBy:null,
           notes:"Added from archive — "+doc.approvedBy,
+          dewey:doc.dewey||"",
           archiveDocId:id,
           fileData:doc.fileData||null,
           fileName:doc.fileName||"",
@@ -11180,9 +11435,10 @@ ${textContent}`});
               <div style={{background:"#f0f7ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"12px 14px"}}>
                 <div style={{fontSize:12,fontWeight:700,color:"#1a4a7a",marginBottom:10}}>📚 Library Book Details</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                  {[["Author","author"],["Publisher","publisher"],["ISBN","isbn"]].map(([lbl,key])=>(
+                  {[["Author","author"],["Publisher","publisher"],["ISBN","isbn"],["Dewey Decimal Code","dewey"]].map(([lbl,key])=>(
                     <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:3}}>{lbl}</label>
-                    <input value={form[key]||""} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>
+                    <input value={form[key]||""} onChange={e=>setForm({...form,[key]:e.target.value})} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}
+                      placeholder={key==="dewey"?"e.g. 629.222":""}/></div>
                   ))}
                 </div>
                 <div style={{fontSize:11,color:"#1a4a7a",marginTop:8}}>ℹ️ When approved, this will automatically be added to the club library catalogue.</div>
