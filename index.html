@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.29 -->
+<!-- RCCA Portal v5.8.30 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -211,19 +211,19 @@ const today = new Date().toISOString().split("T")[0];
 const SEED_MEMBERS = [
   { id:"M001", name:"Geoffrey Harrington", email:"admin@rcca.com.au", password:"admin123",
     phone:"0412 345 678", joined:`${yr-5}-03-15`, status:"active", memberType:"Full",
-    role:"admin", bio:"Founding member and club president. Collector of pre-war Rovers.", avatar:"GH",
+    role:"admin", position:"President", bio:"Founding member and club president. Collector of pre-war Rovers.", avatar:"GH",
     state:"VIC", memberNumber:"001" },
   { id:"M002", name:"Patricia Wyndham", email:"patricia@rcca.com.au", password:"member123",
     phone:"0423 456 789", joined:`${yr-3}-07-22`, status:"active", memberType:"Full",
-    role:"member", bio:"P6 3500S enthusiast. Fully restored 1972 model.", avatar:"PW",
+    role:"member", position:"Secretary", bio:"P6 3500S enthusiast. Fully restored 1972 model.", avatar:"PW",
     state:"NSW", memberNumber:"002" },
   { id:"M003", name:"Bruce Callahan", email:"bruce@rcca.com.au", password:"member123",
     phone:"0434 567 890", joined:`${yr-4}-11-01`, status:"active", memberType:"Associate",
-    role:"member", bio:"Land Rover and early Rover P4 collector.", avatar:"BC",
+    role:"member", position:"Treasurer", bio:"Land Rover and early Rover P4 collector.", avatar:"BC",
     state:"QLD", memberNumber:"003" },
   { id:"M004", name:"Diane Ashworth", email:"diane@rcca.com.au", password:"member123",
     phone:"0445 678 901", joined:`${yr-2}-05-10`, status:"active", memberType:"Full",
-    role:"member", bio:"SD1 Vitesse owner, concours judge.", avatar:"DA",
+    role:"member", position:"Technical Officer", bio:"SD1 Vitesse owner, concours judge.", avatar:"DA",
     state:"SA", memberNumber:"004" },
 ];
 
@@ -1376,6 +1376,12 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Type" half><Select value={form.memberType||"Full"} onChange={e=>setForm({...form,memberType:e.target.value})}>{["Full","Associate","Honorary","Junior","Life"].map(t=><option key={t}>{t}</option>)}</Select></Field>
             <Field label="Role" half><Select value={form.role||"member"} onChange={e=>setForm({...form,role:e.target.value})}><option value="member">Member</option><option value="admin">Admin</option></Select></Field>
+            <Field label="Committee Position" half>
+              <Select value={form.position||""} onChange={e=>setForm({...form,position:e.target.value})}>
+                <option value="">None</option>
+                {["President","Vice President","Secretary","Treasurer","Public Officer","Committee Member","Technical Officer","Social Officer","Membership Officer","Editor","Webmaster","Other"].map(p=><option key={p}>{p}</option>)}
+              </Select>
+            </Field>
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
@@ -7181,6 +7187,7 @@ function App() {
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"members",      label:"Members",          icon:"◉" },
+    { id:"committee",    label:"Committee",         icon:"👥" },
     { divider: true, label: "Vehicles" },
     { id:"vehicles",     label:"Vehicles",         icon:"◎" },
     { divider: true, label: "Club Activity" },
@@ -7192,6 +7199,7 @@ function App() {
     { id:"commerce",     label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Website" },
     { id:"website",      label:"Website",          icon:"🌐" },
+    { id:"newsletter",   label:"Newsletter",       icon:"📰" },
     { divider: true, label: "Club Records" },
     { id:"records",      label:"Club Records",     icon:"📚" },
     { divider: true, label: "Recognition" },
@@ -7205,6 +7213,7 @@ function App() {
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"membership",   label:"My Membership",    icon:"◉" },
+    { id:"committee",    label:"Committee",         icon:"👥" },
     { id:"cars",         label:"My Vehicles",      icon:"◎" },
     { id:"permits",      label:"Club Permits",     icon:"P6" },
     { divider: true, label: "Club Activity" },
@@ -7307,6 +7316,8 @@ function App() {
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
             {tab==="website"    &&user.role==="admin"&&<WebsiteSection {...sp} setTab={setTab}/>}
+            {tab==="newsletter" &&user.role==="admin"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
+            {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
@@ -9636,17 +9647,66 @@ function CommerceSection(sp) {
 }
 
 // ── WEBSITE SECTION ──────────────────────────────────────────────────────────
+// ── COMMITTEE SECTION ────────────────────────────────────────────────────────
+function CommitteeSection({members,user}) {
+  const POSITION_ORDER=["President","Vice President","Secretary","Treasurer","Public Officer","Technical Officer","Social Officer","Membership Officer","Editor","Webmaster","Committee Member","Other"];
+  const committee=(members||[])
+    .filter(m=>m.position&&m.status==="active")
+    .sort((a,b)=>{
+      const ai=POSITION_ORDER.indexOf(a.position);
+      const bi=POSITION_ORDER.indexOf(b.position);
+      return (ai===-1?99:ai)-(bi===-1?99:bi);
+    });
+
+  return(
+    <div style={{padding:24,maxWidth:760}} className="fade-up">
+      <SectionHeader title="Your Committee" subtitle={`${committee.length} committee member${committee.length!==1?"s":""}`}/>
+      {committee.length===0?(
+        <div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>👥</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>No committee positions assigned yet</div>
+          <div style={{fontSize:13}}>Admins can assign positions in the Members section.</div>
+        </div>
+      ):(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:14}}>
+          {committee.map(m=>(
+            <div key={m.id} style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:20,textAlign:"center",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
+              <Avatar name={m.name} size={56} style={{margin:"0 auto 10px"}}/>
+              <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",marginBottom:4}}>{m.name}</div>
+              <div style={{display:"inline-block",background:"var(--burg)",color:"white",borderRadius:4,fontSize:11,fontWeight:700,padding:"2px 10px",marginBottom:8,letterSpacing:".03em"}}>{m.position}</div>
+              {m.state&&<div style={{fontSize:12,color:"var(--text3)",marginBottom:4}}>{m.state}</div>}
+              {m.email&&<div style={{fontSize:11,color:"var(--blue)",wordBreak:"break-all"}}>{m.email}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── NEWSLETTER BUILDER ───────────────────────────────────────────────────────
 function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts}) {
   const [presidentsMsg,setPresidentsMsg]=React.useState("");
   const [notices,setNotices]=React.useState("");
   const [lastSent,setLastSent]=React.useState(()=>{
-    // Default to 30 days ago
     const d=new Date();d.setDate(d.getDate()-30);
     return d.toISOString().slice(0,10);
   });
-  const [preview,setPreview]=React.useState(false);
   const [copied,setCopied]=React.useState(false);
+  const [sections,setSections]=React.useState({
+    events:true, recap:true, members:true, book:true,
+    archive:true, listings:true, parts:true, committee:true
+  });
+  const toggleSection=k=>setSections(s=>({...s,[k]:!s[k]}));
+
+  const POSITION_ORDER=["President","Vice President","Secretary","Treasurer","Public Officer","Technical Officer","Social Officer","Membership Officer","Editor","Webmaster","Committee Member","Other"];
+  const committee=(members||[])
+    .filter(m=>m.position&&m.status==="active")
+    .sort((a,b)=>{
+      const ai=POSITION_ORDER.indexOf(a.position);
+      const bi=POSITION_ORDER.indexOf(b.position);
+      return (ai===-1?99:ai)-(bi===-1?99:bi);
+    });
 
   const now=new Date();
   const todayStr=now.toISOString().slice(0,10);
@@ -9695,7 +9755,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
   }
 
   function generateHTML(){
-    const eventsHTML=upcomingEvents.length?`
+    const eventsHTML=sections.events&&upcomingEvents.length?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📅 Upcoming Events</h2>
       ${upcomingEvents.map(e=>`
         <div style="background:#f8f5f0;border-left:4px solid #c0282a;padding:10px 14px;margin-bottom:10px;border-radius:0 6px 6px 0">
@@ -9705,7 +9765,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
         </div>`).join("")}
     `:"";
 
-    const recapHTML=lastEvent?`
+    const recapHTML=sections.recap&&lastEvent?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🏁 Last Event Recap</h2>
       <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
         <div style="font-weight:700;font-size:15px;color:#1a1210">${lastEvent.title}</div>
@@ -9714,7 +9774,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       </div>
     `:"";
 
-    const membersHTML=newMembers.length?`
+    const membersHTML=sections.members&&newMembers.length?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">👋 Welcome New Members</h2>
       <p style="font-size:14px;color:#444;line-height:1.6">Please join us in welcoming our newest members to the Rover Car Club of Australia:</p>
       <ul style="font-size:14px;color:#444;line-height:2">
@@ -9722,19 +9782,17 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       </ul>
     `:"";
 
-    const bookHTML=featuredBook?`
+    const bookHTML=sections.book&&featuredBook?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📚 Featured Library Book</h2>
-      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px;display:flex;gap:14px">
-        <div>
-          <div style="font-weight:700;font-size:15px;color:#1a1210">${featuredBook.title}</div>
-          <div style="font-size:13px;color:#666;margin-top:2px">${featuredBook.author}${featuredBook.year?" · "+featuredBook.year:""}${featuredBook.dewey?` · <span style="font-family:monospace;font-size:11px">${featuredBook.dewey}</span>`:""}</div>
-          ${featuredBook.description?`<div style="font-size:13px;color:#444;margin-top:8px;line-height:1.6">${featuredBook.description}</div>`:""}
-          <div style="font-size:12px;color:#1e6840;font-weight:700;margin-top:8px">✓ Currently available — log in to request</div>
-        </div>
+      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:15px;color:#1a1210">${featuredBook.title}</div>
+        <div style="font-size:13px;color:#666;margin-top:2px">${featuredBook.author}${featuredBook.year?" · "+featuredBook.year:""}${featuredBook.dewey?` · <span style="font-family:monospace;font-size:11px">${featuredBook.dewey}</span>`:""}</div>
+        ${featuredBook.description?`<div style="font-size:13px;color:#444;margin-top:8px;line-height:1.6">${featuredBook.description}</div>`:""}
+        <div style="font-size:12px;color:#1e6840;font-weight:700;margin-top:8px">✓ Currently available — log in to request</div>
       </div>
     `:"";
 
-    const archiveHTML=archiveFeature?`
+    const archiveHTML=sections.archive&&archiveFeature?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🗂 From the Archives</h2>
       <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
         <div style="font-weight:700;font-size:15px;color:#1a1210">${archiveFeature.title}</div>
@@ -9744,7 +9802,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       </div>
     `:"";
 
-    const listingsHTML=newListings.length?`
+    const listingsHTML=sections.listings&&newListings.length?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🔄 New Marketplace Listings</h2>
       ${newListings.map(l=>`
         <div style="border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin-bottom:8px;background:white">
@@ -9755,7 +9813,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       <p style="font-size:12px;color:#666">Log in to the member portal to view all listings and make enquiries.</p>
     `:"";
 
-    const partsHTML=inStockParts.length?`
+    const partsHTML=sections.parts&&inStockParts.length?`
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🔧 Parts Available</h2>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <tr style="background:#5c0c0e;color:white">
@@ -9771,6 +9829,18 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
           </tr>`).join("")}
       </table>
       <p style="font-size:12px;color:#666;margin-top:8px">Log in to the member portal to view full parts catalogue and place orders.</p>
+    `:"";
+
+    const committeeHTML=sections.committee&&committee.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">👥 Your Committee</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+        ${committee.map((m,i)=>`
+          <tr style="background:${i%2===0?"#f8f5f0":"white"}">
+            <td style="padding:8px 10px;border-bottom:1px solid #ddd;font-weight:700;color:#1a1210">${m.position}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #ddd;color:#444">${m.name}</td>
+            <td style="padding:8px 10px;border-bottom:1px solid #ddd;color:#666;font-size:12px">${m.email||""}</td>
+          </tr>`).join("")}
+      </table>
     `:"";
 
     return `<!DOCTYPE html>
@@ -9800,6 +9870,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       ${archiveHTML}
       ${listingsHTML}
       ${partsHTML}
+      ${committeeHTML}
     </div>
     <!-- Footer -->
     <div style="background:#1a1210;padding:20px 32px;text-align:center">
@@ -9854,22 +9925,36 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
         </div>
       </div>
 
-      {/* Auto-populated preview cards */}
+      {/* Toggleable sections */}
       <div style={{marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12}}>Auto-populated sections:</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12}}>Include sections:</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
           {[
-            {label:"📅 Upcoming Events",val:upcomingEvents.length+" events",ok:upcomingEvents.length>0},
-            {label:"🏁 Last Event Recap",val:lastEvent?lastEvent.title:"None found",ok:!!lastEvent},
-            {label:"👋 New Members",val:newMembers.length+" since "+lastSent,ok:newMembers.length>0},
-            {label:"📚 Featured Book",val:featuredBook?featuredBook.title:"None available",ok:!!featuredBook},
-            {label:"🗂 From the Archives",val:archiveFeature?archiveFeature.title:"None available",ok:!!archiveFeature},
-            {label:"🔄 New Listings",val:newListings.length+" active since "+lastSent,ok:newListings.length>0},
-            {label:"🔧 Parts Available",val:inStockParts.length+" in stock",ok:inStockParts.length>0},
-          ].map(({label,val,ok})=>(
-            <div key={label} style={{background:ok?"#f0fdf4":"var(--bg3)",border:`1px solid ${ok?"#86efac":"var(--border)"}`,borderRadius:6,padding:"8px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-              <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>{label}</div>
-              <div style={{fontSize:11,color:ok?"var(--green)":"var(--text3)",textAlign:"right",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
+            {key:"events",label:"📅 Upcoming Events",val:upcomingEvents.length+" events",ok:upcomingEvents.length>0},
+            {key:"recap",label:"🏁 Last Event Recap",val:lastEvent?lastEvent.title.slice(0,30)+"…":"None found",ok:!!lastEvent},
+            {key:"members",label:"👋 New Members",val:newMembers.length+" since "+lastSent,ok:newMembers.length>0},
+            {key:"book",label:"📚 Featured Book",val:featuredBook?featuredBook.title.slice(0,30)+"…":"None available",ok:!!featuredBook},
+            {key:"archive",label:"🗂 From the Archives",val:archiveFeature?archiveFeature.title.slice(0,30)+"…":"None available",ok:!!archiveFeature},
+            {key:"listings",label:"🔄 New Listings",val:newListings.length+" active since "+lastSent,ok:newListings.length>0},
+            {key:"parts",label:"🔧 Parts Available",val:inStockParts.length+" in stock",ok:inStockParts.length>0},
+            {key:"committee",label:"👥 Committee",val:committee.length+" members",ok:committee.length>0},
+          ].map(({key,label,val,ok})=>(
+            <div key={key} onClick={()=>toggleSection(key)}
+              style={{background:sections[key]?(ok?"#f0fdf4":"#f0f7ff"):"var(--bg3)",
+                border:`1px solid ${sections[key]?(ok?"#86efac":"#bfdbfe"):"var(--border)"}`,
+                borderRadius:6,padding:"8px 12px",cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,
+                opacity:sections[key]?1:0.5,transition:"all .15s"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:16,height:16,borderRadius:3,border:`2px solid ${sections[key]?"var(--burg)":"var(--border)"}`,
+                  background:sections[key]?"var(--burg)":"white",flexShrink:0,
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {sections[key]&&<span style={{color:"white",fontSize:10,lineHeight:1}}>✓</span>}
+                </div>
+                <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>{label}</div>
+              </div>
+              <div style={{fontSize:11,color:ok?"var(--green)":"var(--text3)",textAlign:"right",
+                maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{val}</div>
             </div>
           ))}
         </div>
