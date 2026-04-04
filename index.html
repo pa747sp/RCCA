@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.30 -->
+<!-- RCCA Portal v5.8.32 -->
 <!-- RCCA v5.5 -->
 <html lang="en">
 <head>
@@ -113,6 +113,7 @@ const SK = {
   competitions:"rcca:competitions",
   pendingCars:"rcca:pendingCars",
   incidents:"rcca:incidents",
+  polls:"rcca:polls",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -3036,6 +3037,285 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
 // TASKS (Kanban + List)
 // ══════════════════════════════════════════════════════════════════════════════
 const COLS=[{id:"todo",label:"To Do",colour:"var(--text3)"},{id:"inprogress",label:"In Progress",colour:"var(--blue2)"},{id:"done",label:"Done",colour:"var(--green2)"}];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// POLLS & SURVEYS
+// ══════════════════════════════════════════════════════════════════════════════
+function PollsSection({user,members,polls,setPolls}) {
+  const isAdmin=user.role==="admin";
+  const [view,setView]=React.useState("list");
+  const [selected,setSelected]=React.useState(null);
+  const [showForm,setShowForm]=React.useState(false);
+  const [form,setForm]=React.useState({question:"",description:"",options:["",""],multiChoice:false,status:"active",expiresAt:""});
+  const [optionInput,setOptionInput]=React.useState("");
+
+  const activePolls=(polls||[]).filter(p=>p.status==="active");
+  const closedPolls=(polls||[]).filter(p=>p.status==="closed");
+
+  function addOption(){
+    if(form.options.length>=10)return;
+    setForm(f=>({...f,options:[...f.options,""]}));
+  }
+  function updateOption(i,val){
+    setForm(f=>({...f,options:f.options.map((o,j)=>j===i?val:o)}));
+  }
+  function removeOption(i){
+    if(form.options.length<=2)return;
+    setForm(f=>({...f,options:f.options.filter((_,j)=>j!==i)}));
+  }
+
+  async function createPoll(){
+    const opts=form.options.map(o=>o.trim()).filter(Boolean);
+    if(!form.question.trim())return toast("Question is required","error");
+    if(opts.length<2)return toast("At least 2 options required","error");
+    const poll={
+      id:uid("PL"),
+      question:form.question.trim(),
+      description:form.description.trim(),
+      options:opts.map((o,i)=>({id:"opt"+i,text:o,votes:[]})),
+      multiChoice:form.multiChoice,
+      status:"active",
+      createdBy:user.id,
+      createdByName:user.name,
+      createdAt:new Date().toISOString(),
+      expiresAt:form.expiresAt||null,
+    };
+    const updated=[...(polls||[]),poll];
+    setPolls(updated);await dbSet(SK.polls,updated);
+    toast("Poll created","success");
+    setShowForm(false);
+    setForm({question:"",description:"",options:["",""],multiChoice:false,status:"active",expiresAt:""});
+  }
+
+  async function vote(poll,optionIds){
+    // optionIds is array for multi-choice, single item for single
+    const updated=(polls||[]).map(p=>{
+      if(p.id!==poll.id)return p;
+      const newOpts=p.options.map(o=>{
+        if(optionIds.includes(o.id)){
+          // Add vote if not already voted
+          if(!(o.votes||[]).includes(user.id)){
+            return {...o,votes:[...(o.votes||[]),user.id]};
+          }
+        } else if(!p.multiChoice){
+          // Remove vote from other options for single choice
+          return {...o,votes:(o.votes||[]).filter(v=>v!==user.id)};
+        }
+        return o;
+      });
+      return {...p,options:newOpts};
+    });
+    setPolls(updated);await dbSet(SK.polls,updated);
+    // Update selected
+    if(selected&&selected.id===poll.id)setSelected(updated.find(p=>p.id===poll.id));
+  }
+
+  async function closePoll(id){
+    const updated=(polls||[]).map(p=>p.id===id?{...p,status:"closed",closedAt:new Date().toISOString()}:p);
+    setPolls(updated);await dbSet(SK.polls,updated);
+    if(selected?.id===id)setSelected(updated.find(p=>p.id===id));
+    toast("Poll closed","success");
+  }
+
+  async function deletePoll(id){
+    const updated=(polls||[]).filter(p=>p.id!==id);
+    setPolls(updated);await dbSet(SK.polls,updated);
+    setSelected(null);
+    toast("Poll deleted","info");
+  }
+
+  function hasVoted(poll){
+    return poll.options.some(o=>(o.votes||[]).includes(user.id));
+  }
+  function userVotes(poll){
+    return poll.options.filter(o=>(o.votes||[]).includes(user.id)).map(o=>o.id);
+  }
+  function totalVotes(poll){
+    return poll.options.reduce((s,o)=>s+(o.votes||[]).length,0);
+  }
+  function pct(option,poll){
+    const total=totalVotes(poll);
+    if(!total)return 0;
+    return Math.round(((option.votes||[]).length/total)*100);
+  }
+
+  if(selected) return(
+    <div style={{padding:24,maxWidth:680}} className="fade-up">
+      <button onClick={()=>setSelected(null)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--blue)",fontSize:13,fontFamily:"var(--font-b)",padding:0,marginBottom:16}}>← Back to polls</button>
+      <div style={{background:"white",border:"1px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:16}}>
+          <div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:20,color:"var(--text)",marginBottom:6}}>{selected.question}</div>
+            {selected.description&&<div style={{fontSize:13,color:"var(--text3)",marginBottom:6}}>{selected.description}</div>}
+            <Row gap={8}>
+              <span style={{fontSize:11,background:selected.status==="active"?"#d1fae5":"var(--bg3)",color:selected.status==="active"?"#065f46":"var(--text3)",borderRadius:4,padding:"2px 8px",fontWeight:700}}>{selected.status==="active"?"Active":"Closed"}</span>
+              <span style={{fontSize:11,color:"var(--text3)"}}>{totalVotes(selected)} vote{totalVotes(selected)!==1?"s":""}</span>
+              {selected.multiChoice&&<span style={{fontSize:11,color:"var(--text3)"}}>Multiple choice</span>}
+            </Row>
+          </div>
+          {isAdmin&&selected.status==="active"&&(
+            <Row gap={6}>
+              <Btn variant="ghost" size="sm" onClick={()=>closePoll(selected.id)}>Close Poll</Btn>
+              <Btn variant="danger" size="sm" onClick={()=>deletePoll(selected.id)}>Delete</Btn>
+            </Row>
+          )}
+        </div>
+
+        {/* Voting or results */}
+        {!hasVoted(selected)&&selected.status==="active"?(
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:"var(--text)",marginBottom:10}}>Cast your vote:</div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {selected.options.map(opt=>(
+                <button key={opt.id} onClick={()=>vote(selected,[opt.id])}
+                  style={{padding:"10px 16px",borderRadius:8,border:"2px solid var(--border)",background:"white",cursor:"pointer",textAlign:"left",fontSize:14,color:"var(--text)",transition:"all .15s",fontFamily:"var(--font-b)"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--burg)";e.currentTarget.style.background="#fff5f5";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.background="white";}}>
+                  {opt.text}
+                </button>
+              ))}
+            </div>
+          </div>
+        ):(
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:"var(--text)",marginBottom:10}}>
+              {hasVoted(selected)?"Your vote has been recorded — here are the results:":"Results:"}
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+              {selected.options.sort((a,b)=>(b.votes||[]).length-(a.votes||[]).length).map(opt=>{
+                const p=pct(opt,selected);
+                const voted=userVotes(selected).includes(opt.id);
+                return(
+                  <div key={opt.id}>
+                    <Row justify="space-between" style={{marginBottom:4}}>
+                      <span style={{fontSize:13,color:"var(--text)",fontWeight:voted?700:400}}>
+                        {voted&&"✓ "}{opt.text}
+                      </span>
+                      <span style={{fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{(opt.votes||[]).length} vote{(opt.votes||[]).length!==1?"s":""} · {p}%</span>
+                    </Row>
+                    <div style={{height:8,borderRadius:4,background:"var(--bg3)",overflow:"hidden"}}>
+                      <div style={{height:"100%",width:p+"%",background:voted?"var(--burg)":"var(--blue)",borderRadius:4,transition:"width .4s ease"}}/>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {isAdmin&&(
+              <div style={{fontSize:12,color:"var(--text3)",borderTop:"1px solid var(--border)",paddingTop:12,marginTop:4}}>
+                Created by {selected.createdByName} · {new Date(selected.createdAt).toLocaleDateString("en-AU")}
+                {selected.closedAt&&` · Closed ${new Date(selected.closedAt).toLocaleDateString("en-AU")}`}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{padding:24,maxWidth:860}} className="fade-up">
+      <SectionHeader title="Polls & Surveys" subtitle={`${activePolls.length} active`}
+        action={isAdmin&&<Btn onClick={()=>setShowForm(true)}>+ Create Poll</Btn>}/>
+
+      {activePolls.length===0&&closedPolls.length===0&&(
+        <div style={{textAlign:"center",padding:"48px 0",color:"var(--text3)"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📊</div>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:6}}>No polls yet</div>
+          {isAdmin&&<div style={{fontSize:13}}>Create a poll to get member feedback.</div>}
+        </div>
+      )}
+
+      {activePolls.length>0&&(
+        <div style={{marginBottom:28}}>
+          <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:12}}>Active Polls</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {activePolls.map(poll=>(
+              <div key={poll.id} onClick={()=>setSelected(poll)}
+                style={{background:"white",border:`2px solid ${hasVoted(poll)?"var(--border)":"var(--burg)"}`,borderRadius:10,padding:"16px 20px",cursor:"pointer",boxShadow:"0 1px 4px rgba(0,0,0,.05)",transition:"box-shadow .15s"}}
+                onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,.1)"}
+                onMouseLeave={e=>e.currentTarget.style.boxShadow="0 1px 4px rgba(0,0,0,.05)"}>
+                <Row justify="space-between" align="flex-start">
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:15,color:"var(--text)",marginBottom:6}}>{poll.question}</div>
+                    {poll.description&&<div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>{poll.description}</div>}
+                    <Row gap={8}>
+                      <span style={{fontSize:11,color:"var(--text3)"}}>{poll.options.length} options · {totalVotes(poll)} votes</span>
+                      {poll.multiChoice&&<span style={{fontSize:11,color:"var(--text3)"}}>Multiple choice</span>}
+                    </Row>
+                  </div>
+                  <span style={{fontSize:12,fontWeight:700,color:hasVoted(poll)?"var(--green)":"var(--burg)",flexShrink:0,marginLeft:12}}>
+                    {hasVoted(poll)?"✓ Voted":"Vote now →"}
+                  </span>
+                </Row>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {closedPolls.length>0&&(
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:"var(--text3)",marginBottom:12}}>Closed Polls ({closedPolls.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {[...closedPolls].reverse().map(poll=>(
+              <div key={poll.id} onClick={()=>setSelected(poll)}
+                style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--text2)"}}>{poll.question}</div>
+                  <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{totalVotes(poll)} votes · closed {poll.closedAt?new Date(poll.closedAt).toLocaleDateString("en-AU"):""}</div>
+                </div>
+                <span style={{fontSize:12,color:"var(--text3)"}}>View results →</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Create poll modal */}
+      {showForm&&(
+        <Modal title="Create Poll" onClose={()=>setShowForm(false)} wide>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Field label="Question *">
+              <Input value={form.question} onChange={e=>setForm(f=>({...f,question:e.target.value}))} placeholder="What would you like to ask members?"/>
+            </Field>
+            <Field label="Description (optional)">
+              <Input value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Add context or instructions"/>
+            </Field>
+            <div>
+              <label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:8}}>Answer Options *</label>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {form.options.map((opt,i)=>(
+                  <Row key={i} gap={6}>
+                    <Input value={opt} onChange={e=>updateOption(i,e.target.value)} placeholder={`Option ${i+1}`} style={{flex:1}}/>
+                    {form.options.length>2&&(
+                      <button onClick={()=>removeOption(i)} style={{padding:"0 10px",background:"#fee2e2",border:"none",borderRadius:6,color:"#991b1b",cursor:"pointer",fontSize:16,flexShrink:0}}>×</button>
+                    )}
+                  </Row>
+                ))}
+                {form.options.length<10&&(
+                  <button onClick={addOption} style={{padding:"7px",background:"var(--bg3)",border:"1px dashed var(--border)",borderRadius:6,cursor:"pointer",fontSize:12,color:"var(--text3)",fontWeight:600}}>+ Add option</button>
+                )}
+              </div>
+            </div>
+            <Row gap={16}>
+              <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}}>
+                <input type="checkbox" checked={form.multiChoice} onChange={e=>setForm(f=>({...f,multiChoice:e.target.checked}))} style={{accentColor:"var(--burg)"}}/>
+                Allow multiple choice
+              </label>
+            </Row>
+            <Field label="Expires (optional)">
+              <Input type="date" value={form.expiresAt} onChange={e=>setForm(f=>({...f,expiresAt:e.target.value}))}/>
+            </Field>
+            <Row gap={8} justify="flex-end">
+              <Btn variant="ghost" onClick={()=>setShowForm(false)}>Cancel</Btn>
+              <Btn onClick={createPoll}>Create Poll</Btn>
+            </Row>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // INCIDENT REPORTS
@@ -7101,17 +7381,18 @@ function App() {
   const [competitions,setCompetitions]=useState([]);
   const [pendingCars,setPendingCars]=useState([]);
   const [incidents,setIncidents]=useState([]);
+  const [polls,setPolls]=useState([]);
   const [pages,setPages]=useState([]);
   const [gallery,setGallery]=useState([]);
   const [checkins,setCheckins]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
-        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents)
+        dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents),dbGet(SK.polls)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -7140,6 +7421,7 @@ function App() {
       setCompetitions(Array.isArray(comps)?comps:[]);
       setPendingCars(Array.isArray(pc)?pc:[]);
       setIncidents(Array.isArray(inc)?inc:[]);
+      setPolls(Array.isArray(pl)?pl:[]);
       setPages(Array.isArray(pgs)?pgs:[]);
       setGallery(Array.isArray(gal)?gal:[]);
       setCheckins(Array.isArray(ci)?ci:[]);
@@ -7180,7 +7462,7 @@ function App() {
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -7195,6 +7477,7 @@ function App() {
     { id:"events",       label:"Events & Shows",   icon:"★" },
     { id:"tasks",        label:"Tasks",            icon:"☑" },
     { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
+    { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
     { divider: true, label: "Commerce" },
     { id:"commerce",     label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Website" },
@@ -7221,6 +7504,7 @@ function App() {
     { id:"events",       label:"Events & Shows",   icon:"★" },
     { id:"tasks",        label:"Tasks",            icon:"☑" },
     { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
+    { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
     { divider: true, label: "Commerce" },
     { id:"shop",         label:"Club Shop",        icon:"⊕" },
     { id:"spare",        label:"Spare Parts",      icon:"🔧" },
@@ -7308,6 +7592,7 @@ function App() {
             {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
             {tab==="tasks"      &&<TasksSection {...sp}/>}
             {tab==="incidents"   &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
+            {tab==="polls"       &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
             {tab==="commerce"   &&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
             {tab==="spare"      &&<MemberPartsCatalogue user={user} parts={parts} setParts={setParts}/>}
@@ -7316,7 +7601,7 @@ function App() {
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
             {tab==="website"    &&user.role==="admin"&&<WebsiteSection {...sp} setTab={setTab}/>}
-            {tab==="newsletter" &&user.role==="admin"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
+            {tab==="newsletter" &&user.role==="admin"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts} points={points} competitions={competitions} polls={polls}/>}
             {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
@@ -9685,9 +9970,24 @@ function CommitteeSection({members,user}) {
 }
 
 // ── NEWSLETTER BUILDER ───────────────────────────────────────────────────────
-function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts}) {
+function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts,points,competitions,polls}) {
   const [presidentsMsg,setPresidentsMsg]=React.useState("");
   const [notices,setNotices]=React.useState("");
+  const [featureItems,setFeatureItems]=React.useState([]);
+  function addFeature(type="article"){setFeatureItems(f=>[...f,{id:uid("FI"),type,title:"",subtitle:"",body:"",imgData:null,imgCaption:""}]);}
+  function addImageBlock(){addFeature("image");}
+  function updateFeature(id,field,val){setFeatureItems(f=>f.map(x=>x.id===id?{...x,[field]:val}:x));}
+  function removeFeature(id){setFeatureItems(f=>f.filter(x=>x.id!==id));}
+  function moveFeature(id,dir){
+    setFeatureItems(f=>{
+      const i=f.findIndex(x=>x.id===id);
+      if(dir===-1&&i===0)return f;
+      if(dir===1&&i===f.length-1)return f;
+      const arr=[...f];
+      [arr[i],arr[i+dir]]=[arr[i+dir],arr[i]];
+      return arr;
+    });
+  }
   const [lastSent,setLastSent]=React.useState(()=>{
     const d=new Date();d.setDate(d.getDate()-30);
     return d.toISOString().slice(0,10);
@@ -9695,7 +9995,8 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
   const [copied,setCopied]=React.useState(false);
   const [sections,setSections]=React.useState({
     events:true, recap:true, members:true, book:true,
-    archive:true, listings:true, parts:true, committee:true
+    archive:true, listings:true, parts:true, committee:true,
+    competition:true, leaderboard:true, poll:true
   });
   const toggleSection=k=>setSections(s=>({...s,[k]:!s[k]}));
 
@@ -9750,6 +10051,30 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
     .filter(p=>p.status==="in_stock"||(!p.status&&p.qty>0))
     .slice(0,4);
 
+  // Latest finalised competition
+  const latestComp=(competitions||[])
+    .filter(c=>c.status==="finalised"||c.status==="completed")
+    .sort((a,b)=>b.date?.localeCompare(a.date||"")||0)[0];
+
+  // Points leaderboard top 10
+  const leaderboard=React.useMemo(()=>{
+    const totals={};
+    (points||[]).forEach(p=>{
+      totals[p.memberId]=(totals[p.memberId]||0)+(p.points||0);
+    });
+    return Object.entries(totals)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,10)
+      .map(([memberId,pts])=>({
+        member:(members||[]).find(m=>m.id===memberId),
+        pts
+      }))
+      .filter(x=>x.member);
+  },[points,members]);
+
+  // Active poll for newsletter link
+  const activePoll=(polls||[]).find(p=>p.status==="active");
+
   function monthYear(){
     return now.toLocaleDateString("en-AU",{month:"long",year:"numeric"});
   }
@@ -9778,7 +10103,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">👋 Welcome New Members</h2>
       <p style="font-size:14px;color:#444;line-height:1.6">Please join us in welcoming our newest members to the Rover Car Club of Australia:</p>
       <ul style="font-size:14px;color:#444;line-height:2">
-        ${newMembers.map(m=>`<li><strong>${m.name}</strong>${m.state?" ("+m.state+")":""}</li>`).join("")}
+        ${newMembers.map(m=>`<li>${m.name}${m.state?" ("+m.state+")":""}</li>`).join("")}
       </ul>
     `:"";
 
@@ -9843,6 +10168,55 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       </table>
     `:"";
 
+    const competitionHTML=sections.competition&&latestComp?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🏆 Latest Competition Results</h2>
+      <div style="background:#f8f5f0;padding:14px;border-radius:6px;margin-bottom:16px">
+        <div style="font-weight:700;font-size:15px;color:#1a1210;margin-bottom:4px">${latestComp.name}</div>
+        <div style="font-size:12px;color:#666;margin-bottom:10px">${latestComp.type}${latestComp.date?" · "+new Date(latestComp.date).toLocaleDateString("en-AU"):""}</div>
+        ${latestComp.entries&&latestComp.entries.length?`
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr style="background:#5c0c0e;color:white">
+            <th style="padding:6px 10px;text-align:left">Place</th>
+            <th style="padding:6px 10px;text-align:left">Member</th>
+            <th style="padding:6px 10px;text-align:right">Score</th>
+          </tr>
+          ${[...latestComp.entries].sort((a,b)=>(a.rank||99)-(b.rank||99)).slice(0,5).map((e,i)=>`
+          <tr style="background:${i%2===0?"#f8f5f0":"white"}">
+            <td style="padding:6px 10px;border-bottom:1px solid #ddd;font-weight:${i<3?"700":"400"}">${i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #ddd">${e.memberName||e.memberId||"—"}</td>
+            <td style="padding:6px 10px;border-bottom:1px solid #ddd;text-align:right">${e.totalScore||e.score||"—"}</td>
+          </tr>`).join("")}
+        </table>`:"No results recorded yet"}
+      </div>
+    `:"";
+
+    const leaderboardHTML=sections.leaderboard&&leaderboard.length?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">🏅 Points Leaderboard</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px">
+        <tr style="background:#5c0c0e;color:white">
+          <th style="padding:8px 10px;text-align:left">Rank</th>
+          <th style="padding:8px 10px;text-align:left">Member</th>
+          <th style="padding:8px 10px;text-align:right">Points</th>
+        </tr>
+        ${leaderboard.map((row,i)=>`
+        <tr style="background:${i%2===0?"#f8f5f0":"white"}">
+          <td style="padding:7px 10px;border-bottom:1px solid #ddd;font-weight:${i<3?"700":"400"}">${i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #ddd">${row.member.name}</td>
+          <td style="padding:7px 10px;border-bottom:1px solid #ddd;text-align:right;font-weight:700;color:#8f1a1c">${row.pts}</td>
+        </tr>`).join("")}
+      </table>
+    `:"";
+
+    const pollHTML=sections.poll&&activePoll?`
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">📊 Member Poll</h2>
+      <div style="background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin-bottom:16px;text-align:center">
+        <div style="font-weight:700;font-size:15px;color:#1a4a7a;margin-bottom:8px">${activePoll.question}</div>
+        ${activePoll.description?`<div style="font-size:13px;color:#666;margin-bottom:12px">${activePoll.description}</div>`:""}
+        <div style="font-size:13px;color:#1a4a7a">Log in to the member portal to cast your vote →</div>
+        <div style="font-size:11px;color:#666;margin-top:6px">${activePoll.options.length} options · ${activePoll.options.reduce((s,o)=>s+(o.votes||[]).length,0)} votes so far</div>
+      </div>
+    `:"";
+
     return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>RCCA Newsletter — ${monthYear()}</title></head>
 <body style="margin:0;padding:0;background:#f0ece6;font-family:Georgia,serif">
@@ -9866,11 +10240,27 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
       ${eventsHTML}
       ${recapHTML}
       ${membersHTML}
+      ${competitionHTML}
+      ${leaderboardHTML}
       ${bookHTML}
       ${archiveHTML}
       ${listingsHTML}
       ${partsHTML}
       ${committeeHTML}
+      ${pollHTML}
+      ${featureItems.filter(f=>f.title||f.body||f.imgData).map(f=>{
+        if(f.type==="image") return `
+      <div style="text-align:center;margin-bottom:20px">
+        ${f.imgData?`<img src="${f.imgData}" alt="${f.imgCaption||"Image"}" style="max-width:100%;border-radius:6px;margin-bottom:8px"/>`:""}
+        ${f.imgCaption?`<div style="font-size:12px;color:#666;font-style:italic">${f.imgCaption}</div>`:""}
+      </div>`;
+        return `
+      <h2 style="color:#8f1a1c;border-bottom:2px solid #c0282a;padding-bottom:6px">${f.title||"Feature"}</h2>
+      ${f.subtitle?`<div style="font-size:13px;color:#666;font-style:italic;margin-bottom:10px">${f.subtitle}</div>`:""}
+      ${f.imgData?`<img src="${f.imgData}" alt="${f.imgCaption||f.title||"Image"}" style="max-width:100%;border-radius:6px;margin-bottom:${f.imgCaption?"4px":"12px"}"/>`:""}
+      ${f.imgCaption?`<div style="font-size:12px;color:#666;font-style:italic;margin-bottom:10px">${f.imgCaption}</div>`:""}
+      <div style="font-size:14px;color:#444;line-height:1.8;margin-bottom:20px;white-space:pre-wrap">${f.body}</div>
+      `;}).join("")}
     </div>
     <!-- Footer -->
     <div style="background:#1a1210;padding:20px 32px;text-align:center">
@@ -9925,6 +10315,85 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
         </div>
       </div>
 
+      {/* Feature Items */}
+      <div style={{marginBottom:20}}>
+        <Row justify="space-between" align="center" style={{marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>✨ Feature Items</div>
+          <Row gap={6}>
+            <Btn size="sm" variant="ghost" onClick={addImageBlock}>🖼 Add Image</Btn>
+            <Btn size="sm" onClick={()=>addFeature("article")}>+ Add Article</Btn>
+          </Row>
+        </Row>
+        {featureItems.length===0&&(
+          <div style={{background:"var(--bg3)",border:"1px dashed var(--border)",borderRadius:6,padding:"14px",textAlign:"center",fontSize:12,color:"var(--text3)"}}>
+            No feature items yet — add articles or standalone images
+          </div>
+        )}
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {featureItems.map((item,idx)=>(
+            <div key={item.id} style={{background:"white",border:`1px solid ${item.type==="image"?"#bfdbfe":"var(--border)"}`,borderRadius:8,padding:14}}>
+              <Row justify="space-between" align="center" style={{marginBottom:10}}>
+                <div style={{fontSize:12,fontWeight:700,color:item.type==="image"?"#1a4a7a":"var(--burg)"}}>
+                  {item.type==="image"?"🖼 Image Block":`✨ Article ${idx+1}`}
+                </div>
+                <Row gap={4}>
+                  <button onClick={()=>moveFeature(item.id,-1)} disabled={idx===0}
+                    style={{padding:"2px 8px",borderRadius:4,border:"1px solid var(--border)",background:"var(--bg3)",cursor:idx===0?"default":"pointer",opacity:idx===0?.4:1,fontSize:12}}>↑</button>
+                  <button onClick={()=>moveFeature(item.id,1)} disabled={idx===featureItems.length-1}
+                    style={{padding:"2px 8px",borderRadius:4,border:"1px solid var(--border)",background:"var(--bg3)",cursor:idx===featureItems.length-1?"default":"pointer",opacity:idx===featureItems.length-1?.4:1,fontSize:12}}>↓</button>
+                  <button onClick={()=>removeFeature(item.id)}
+                    style={{padding:"2px 8px",borderRadius:4,border:"1px solid var(--border)",background:"#fee2e2",color:"#991b1b",cursor:"pointer",fontSize:12}}>✕</button>
+                </Row>
+              </Row>
+              {item.type!=="image"&&<>
+                <input value={item.title} onChange={e=>updateFeature(item.id,"title",e.target.value)}
+                  placeholder="Article title (e.g. Technical Tip, Member Spotlight...)"
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",marginBottom:6}}/>
+                <input value={item.subtitle} onChange={e=>updateFeature(item.id,"subtitle",e.target.value)}
+                  placeholder="Subtitle or byline (optional)"
+                  style={{width:"100%",padding:"7px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box",marginBottom:6,color:"#666"}}/>
+              </>}
+              {/* Image upload */}
+              <div style={{marginBottom:6}}>
+                {item.imgData?(
+                  <div style={{position:"relative",marginBottom:6}}>
+                    <img src={item.imgData} alt="preview" style={{maxWidth:"100%",maxHeight:160,objectFit:"cover",borderRadius:6,border:"1px solid var(--border)"}}/>
+                    <button onClick={()=>updateFeature(item.id,"imgData",null)}
+                      style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.6)",border:"none",borderRadius:"50%",width:22,height:22,color:"white",cursor:"pointer",fontSize:14,lineHeight:"22px",textAlign:"center",padding:0}}>×</button>
+                  </div>
+                ):(
+                  <label style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",background:"var(--bg3)",border:"1px dashed var(--border)",borderRadius:6,cursor:"pointer",fontSize:12,color:"var(--text3)"}}>
+                    📷 {item.type==="image"?"Upload image":"Add image (optional)"}
+                    <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                      const file=e.target.files[0];if(!file)return;
+                      const r=new FileReader();
+                      r.onload=ev=>{
+                        const img=new window.Image();
+                        img.onload=()=>{
+                          const maxW=800;const scale=img.width>maxW?maxW/img.width:1;
+                          const canvas=document.createElement("canvas");
+                          canvas.width=Math.round(img.width*scale);canvas.height=Math.round(img.height*scale);
+                          canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+                          updateFeature(item.id,"imgData",canvas.toDataURL("image/jpeg",0.8));
+                        };img.src=ev.target.result;
+                      };r.readAsDataURL(file);e.target.value="";
+                    }}/>
+                  </label>
+                )}
+              </div>
+              <input value={item.imgCaption||""} onChange={e=>updateFeature(item.id,"imgCaption",e.target.value)}
+                placeholder="Image caption (optional)"
+                style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:12,boxSizing:"border-box",marginBottom:item.type==="image"?0:6,color:"#666"}}/>
+              {item.type!=="image"&&(
+                <textarea value={item.body} onChange={e=>updateFeature(item.id,"body",e.target.value)}
+                  placeholder="Write your article content here..."
+                  rows={5} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box",resize:"vertical",fontFamily:"Georgia,serif",lineHeight:1.7}}/>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Toggleable sections */}
       <div style={{marginBottom:20}}>
         <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12}}>Include sections:</div>
@@ -9938,6 +10407,9 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
             {key:"listings",label:"🔄 New Listings",val:newListings.length+" active since "+lastSent,ok:newListings.length>0},
             {key:"parts",label:"🔧 Parts Available",val:inStockParts.length+" in stock",ok:inStockParts.length>0},
             {key:"committee",label:"👥 Committee",val:committee.length+" members",ok:committee.length>0},
+            {key:"competition",label:"🏆 Competition Results",val:latestComp?latestComp.name.slice(0,25)+"…":"None finalised",ok:!!latestComp},
+            {key:"leaderboard",label:"🏅 Points Leaderboard",val:leaderboard.length+" members",ok:leaderboard.length>0},
+            {key:"poll",label:"📊 Active Poll",val:activePoll?activePoll.question.slice(0,25)+"…":"No active poll",ok:!!activePoll},
           ].map(({key,label,val,ok})=>(
             <div key={key} onClick={()=>toggleSection(key)}
               style={{background:sections[key]?(ok?"#f0fdf4":"#f0f7ff"):"var(--bg3)",
