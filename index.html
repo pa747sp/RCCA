@@ -7411,7 +7411,328 @@ function ArchiveSection({user,archiveDocs,setArchiveDocs}) {
 }
 
 
-function App() {
+function App() {// ══════════════════════════════════════════════════════════════════════════════
+// MEMBERSHIP TYPES SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+function MembershipTypesSection({ user, members, dues }) {
+  const [types, setTypes] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [form, setForm] = useState({});
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const stored = await dbGet("rcca:membershipTypes");
+      if (stored && stored.length) {
+        setTypes(stored);
+      } else {
+        const seeded = (CLUB_CONFIG.membershipTypes || []).map(t => ({
+          ...t,
+          status: "active",
+          noExpiry: false,
+        }));
+        setTypes(seeded);
+        await dbSet("rcca:membershipTypes", seeded);
+      }
+    })();
+  }, []);
+
+  const saveTypes = async (updated) => {
+    setTypes(updated);
+    await dbSet("rcca:membershipTypes", updated);
+  };
+
+  const memberCount = (typeId) =>
+    (members || []).filter(m => m.status === "active" && (m.memberType || "").toLowerCase() === typeId.toLowerCase()).length;
+
+  const active    = types.filter(t => t.status === "active").length;
+  const suspended = types.filter(t => t.status === "suspended").length;
+  const revoked   = types.filter(t => t.status === "revoked").length;
+
+  function openAdd() {
+    setForm({
+      id: uid("MT"),
+      label: "",
+      description: "",
+      pricingNew: 0,
+      pricingRenewal: 0,
+      durationMonths: 12,
+      noExpiry: false,
+      expiryType: "rolling",
+      fixedExpiryDate: null,
+      ageLimitMin: null,
+      ageLimitMax: null,
+      availableToNew: true,
+      availableToExisting: true,
+      availableOnline: true,
+      status: "active",
+    });
+    setModal("add");
+  }
+
+  function openEdit(t) {
+    setForm({ ...t });
+    setModal({ edit: t });
+  }
+
+  async function handleSave() {
+    if (!form.label.trim()) return;
+    const isDup = types.some(t =>
+      t.label.trim().toLowerCase() === form.label.trim().toLowerCase() && t.id !== form.id
+    );
+    if (isDup) return;
+    const updated = modal === "add"
+      ? [...types, { ...form }]
+      : types.map(t => t.id === form.id ? { ...form } : t);
+    await saveTypes(updated);
+    setModal(null);
+  }
+
+  async function handleSuspend(t) {
+    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "suspended" } : x));
+    setConfirmAction(null);
+  }
+
+  async function handleReinstate(t) {
+    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "active" } : x));
+  }
+
+  async function handleRevoke(t) {
+    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "revoked" } : x));
+    setConfirmAction(null);
+  }
+
+  async function handleDelete(t) {
+    if (memberCount(t.id) > 0) return;
+    await saveTypes(types.filter(x => x.id !== t.id));
+    setConfirmAction(null);
+  }
+
+  const statusBadge = (status) => {
+    const map = {
+      active:    { bg: "#d4f0e0", color: "#1a6040", border: "#a0d8b8", label: "ACTIVE" },
+      suspended: { bg: "#fdecd0", color: "#7a4010", border: "#f0c890", label: "SUSPENDED" },
+      revoked:   { bg: "#fdd8d8", color: "#8f1a1a", border: "#f0a8a8", label: "REVOKED" },
+    };
+    const s = map[status] || map.active;
+    return (
+      <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+        fontSize: 9.5, fontFamily: "var(--font-m)", padding: "2px 8px",
+        borderRadius: 4, letterSpacing: "0.1em", whiteSpace: "nowrap", fontWeight: 500 }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  const pill = (label, on) => (
+    <span key={label} style={{
+      fontSize: 10, fontFamily: "var(--font-m)", padding: "2px 7px", borderRadius: 3,
+      background: on ? "rgba(30,104,64,.12)" : "var(--bg3)",
+      color: on ? "var(--green)" : "var(--text4)",
+      border: `1px solid ${on ? "var(--green2)" : "var(--border)"}`,
+      textDecoration: on ? "none" : "line-through",
+    }}>{label}</span>
+  );
+
+  return (
+    <div className="fade-up">
+      <SectionHeader
+        title="Membership Types"
+        subtitle={`${types.length} type${types.length !== 1 ? "s" : ""} configured`}
+        action={<Btn onClick={openAdd}>+ Add Type</Btn>}
+      />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 22 }}>
+        <StatCard label="Total Types" value={types.length} icon="◈" />
+        <StatCard label="Active"      value={active}       icon="●" colour="var(--green2)" />
+        <StatCard label="Suspended"   value={suspended}    icon="⏸" colour="var(--gold2)" />
+        <StatCard label="Revoked"     value={revoked}      icon="✕" colour="var(--red2)" />
+      </div>
+
+      {types.length === 0 && (
+        <EmptyState icon="◈" text="No membership types configured" sub="Add your first membership type to get started" />
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
+        {types.map(t => {
+          const count = memberCount(t.id);
+          const isRevoked   = t.status === "revoked";
+          const isSuspended = t.status === "suspended";
+          return (
+            <Card key={t.id} style={{
+              padding: 0, overflow: "hidden", opacity: isRevoked ? 0.6 : 1,
+              borderTop: `3px solid ${isRevoked ? "var(--red2)" : isSuspended ? "var(--gold)" : "var(--burg)"}`,
+            }}>
+              <div style={{ padding: 18 }}>
+                <Row justify="space-between" align="flex-start" style={{ marginBottom: 10 }}>
+                  <div style={{ flex: 1, marginRight: 12 }}>
+                    <div style={{ fontFamily: "var(--font-d)", fontSize: 16, fontWeight: 700, color: "var(--gold3)", marginBottom: 4 }}>{t.label}</div>
+                    {t.description && <div style={{ fontSize: 12, color: "var(--text3)", lineHeight: 1.5 }}>{t.description}</div>}
+                  </div>
+                  {statusBadge(t.status)}
+                </Row>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  {[["New member", t.pricingNew], ["Renewal", t.pricingRenewal]].map(([lbl, val]) => (
+                    <div key={lbl} style={{ background: "var(--bg3)", borderRadius: 6, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 9.5, fontFamily: "var(--font-m)", color: "var(--text3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>{lbl}</div>
+                      <div style={{ fontFamily: "var(--font-m)", fontSize: 17, fontWeight: 700, color: "var(--gold2)" }}>
+                        {val > 0 ? `A$${val}` : <span style={{ fontSize: 12, color: "var(--text3)" }}>Free</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Row gap={6} style={{ marginBottom: 10, flexWrap: "wrap" }}>
+                  {t.noExpiry ? (
+                    <span style={{ fontSize: 11, fontFamily: "var(--font-m)", background: "#e8d8f8", color: "#5a1a8a", border: "1px solid #c0a0d8", padding: "2px 8px", borderRadius: 4 }}>∞ No expiry (Life)</span>
+                  ) : (
+                    <span style={{ fontSize: 11, fontFamily: "var(--font-m)", background: "var(--bg3)", color: "var(--text2)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 4 }}>
+                      {t.durationMonths}mo · {t.expiryType === "fixed" ? `Fixed ${t.fixedExpiryDate || ""}` : "Rolling"}
+                    </span>
+                  )}
+                  {(t.ageLimitMin || t.ageLimitMax) && (
+                    <span style={{ fontSize: 11, fontFamily: "var(--font-m)", background: "var(--bg3)", color: "var(--text2)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 4 }}>
+                      Age {t.ageLimitMin || "any"}–{t.ageLimitMax || "any"}
+                    </span>
+                  )}
+                </Row>
+                <Row gap={5} style={{ marginBottom: 14, flexWrap: "wrap" }}>
+                  {pill("New members",     t.availableToNew)}
+                  {pill("Renewing",        t.availableToExisting)}
+                  {pill("Online / public", t.availableOnline)}
+                </Row>
+                <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "var(--font-m)", marginBottom: 14 }}>
+                  {count} active member{count !== 1 ? "s" : ""} on this type
+                </div>
+                <Row gap={6} wrap>
+                  <Btn variant="ghost" size="sm" onClick={() => openEdit(t)}>Edit</Btn>
+                  {t.status === "active" && (
+                    <Btn variant="ghost" size="sm" onClick={() => setConfirmAction({ type: "suspend", target: t })}>Suspend</Btn>
+                  )}
+                  {t.status === "suspended" && (
+                    <Btn variant="success" size="sm" onClick={() => handleReinstate(t)}>Reinstate</Btn>
+                  )}
+                  {t.status !== "revoked" && (
+                    <Btn variant="danger" size="sm" onClick={() => setConfirmAction({ type: "revoke", target: t })}>Revoke</Btn>
+                  )}
+                  {count === 0 && (
+                    <Btn variant="danger" size="sm" onClick={() => setConfirmAction({ type: "delete", target: t })}>Delete</Btn>
+                  )}
+                </Row>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {(modal === "add" || modal?.edit) && (
+        <Modal title={modal === "add" ? "Add Membership Type" : `Edit — ${modal.edit.label}`} onClose={() => setModal(null)} wide>
+          <Field label="Type Label *">
+            <Input value={form.label || ""} onChange={e => setForm({ ...form, label: e.target.value })} placeholder="e.g. Full Membership, Junior, Life Member" />
+          </Field>
+          <Field label="Description">
+            <Textarea value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Brief description shown to members…" style={{ minHeight: 60 }} />
+          </Field>
+          <Row gap={12} wrap style={{ justifyContent: "space-between" }}>
+            <Field label="New Member Price (A$)" half>
+              <Input type="number" min="0" value={form.pricingNew ?? 0} onChange={e => setForm({ ...form, pricingNew: Number(e.target.value) || 0 })} />
+            </Field>
+            <Field label="Renewal Price (A$)" half>
+              <Input type="number" min="0" value={form.pricingRenewal ?? 0} onChange={e => setForm({ ...form, pricingRenewal: Number(e.target.value) || 0 })} />
+            </Field>
+          </Row>
+          <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontFamily: "var(--font-m)", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--burg)", marginBottom: 12, fontWeight: 700 }}>Duration & Expiry</div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, color: "var(--text2)", fontWeight: 600, marginBottom: 12 }}>
+              <input type="checkbox" checked={!!form.noExpiry} onChange={e => setForm({ ...form, noExpiry: e.target.checked })} style={{ width: 17, height: 17, accentColor: "var(--burg)" }} />
+              No expiry — Life Membership (does not renew)
+            </label>
+            {!form.noExpiry && (
+              <Row gap={12} wrap style={{ justifyContent: "space-between" }}>
+                <Field label="Duration (months)" half>
+                  <Input type="number" min="1" value={form.durationMonths || 12} onChange={e => setForm({ ...form, durationMonths: Number(e.target.value) || 12 })} />
+                </Field>
+                <Field label="Expiry Type" half>
+                  <Select value={form.expiryType || "rolling"} onChange={e => setForm({ ...form, expiryType: e.target.value })}>
+                    <option value="rolling">Rolling (from join/renewal date)</option>
+                    <option value="fixed">Fixed (same date each year)</option>
+                  </Select>
+                </Field>
+                {form.expiryType === "fixed" && (
+                  <Field label="Fixed Expiry Date (MM-DD)" half>
+                    <Input value={form.fixedExpiryDate || ""} onChange={e => setForm({ ...form, fixedExpiryDate: e.target.value })} placeholder="e.g. 06-30" />
+                  </Field>
+                )}
+              </Row>
+            )}
+          </div>
+          <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontFamily: "var(--font-m)", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--burg)", marginBottom: 12, fontWeight: 700 }}>
+              Age Limits <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, color: "var(--text3)", fontSize: 11 }}>(leave blank for no limit)</span>
+            </div>
+            <Row gap={12} wrap style={{ justifyContent: "space-between" }}>
+              <Field label="Minimum Age" half>
+                <Input type="number" min="0" max="120" value={form.ageLimitMin ?? ""} onChange={e => setForm({ ...form, ageLimitMin: e.target.value === "" ? null : Number(e.target.value) })} placeholder="e.g. 18" />
+              </Field>
+              <Field label="Maximum Age" half>
+                <Input type="number" min="0" max="120" value={form.ageLimitMax ?? ""} onChange={e => setForm({ ...form, ageLimitMax: e.target.value === "" ? null : Number(e.target.value) })} placeholder="e.g. 25 for Junior" />
+              </Field>
+            </Row>
+          </div>
+          <div style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginBottom: 14 }}>
+            <div style={{ fontSize: 10, fontFamily: "var(--font-m)", textTransform: "uppercase", letterSpacing: "0.1em", color: "var(--burg)", marginBottom: 12, fontWeight: 700 }}>Availability</div>
+            {[
+              ["availableToNew",      "Available to new members (joining for the first time)"],
+              ["availableToExisting", "Available to existing members (renewal)"],
+              ["availableOnline",     "Available online / publicly — uncheck for admin-only assignment"],
+            ].map(([key, label]) => (
+              <label key={key} style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", fontSize: 13, color: "var(--text2)", marginBottom: 10, lineHeight: 1.5 }}>
+                <input type="checkbox" checked={!!form[key]} onChange={e => setForm({ ...form, [key]: e.target.checked })} style={{ width: 16, height: 16, marginTop: 2, accentColor: "var(--burg)", flexShrink: 0 }} />
+                {label}
+              </label>
+            ))}
+          </div>
+          {modal?.edit && (
+            <Field label="Status">
+              <Select value={form.status || "active"} onChange={e => setForm({ ...form, status: e.target.value })}>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended (no new sign-ups)</option>
+                <option value="revoked">Revoked</option>
+              </Select>
+            </Field>
+          )}
+          <Row gap={8} justify="flex-end">
+            <Btn variant="ghost" onClick={() => setModal(null)}>Cancel</Btn>
+            <Btn onClick={handleSave}>Save Membership Type</Btn>
+          </Row>
+        </Modal>
+      )}
+
+      {confirmAction?.type === "suspend" && (
+        <Confirm
+          message={`Suspend "${confirmAction.target.label}"? New sign-ups will be blocked. Existing members are unaffected.`}
+          confirmLabel="Suspend" variant="danger"
+          onConfirm={() => handleSuspend(confirmAction.target)}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+      {confirmAction?.type === "revoke" && (
+        <Confirm
+          message={`Revoke "${confirmAction.target.label}"? The ${memberCount(confirmAction.target.id)} member${memberCount(confirmAction.target.id) !== 1 ? "s" : ""} on this type will need to be reassigned.`}
+          confirmLabel="Revoke" variant="danger"
+          onConfirm={() => handleRevoke(confirmAction.target)}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+      {confirmAction?.type === "delete" && (
+        <Confirm
+          message={`Permanently delete "${confirmAction.target.label}"? This cannot be undone.`}
+          confirmLabel="Delete" variant="danger"
+          onConfirm={() => handleDelete(confirmAction.target)}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+    </div>
+  );
+}
   const [loading,setLoading]=useState(true);
   const [user,setUser]=useState(null);
   const [tab,setTab]=useState("dashboard");
