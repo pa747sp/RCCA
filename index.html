@@ -13,7 +13,6 @@
 </head>
 <body>
   <div id="root"></div>
-<script type="text/babel" data-presets="react">
 // ── Club Configuration ──────────────────────────────────────────
 const CLUB_CONFIG = {
   // Identity
@@ -7657,6 +7656,7 @@ function App() {
           <div className="slide-r" key={tab}>
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
+ {tab==="membershipTypes"&&user.role==="admin"&&<MembershipTypesSection user={user} members={members} dues={dues}/>}
             {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
             {tab==="vehicles"   &&<VehiclesSection {...sp}/>}
             {tab==="membership" &&<MembershipSection user={user} members={members} dues={dues}/>}
