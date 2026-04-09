@@ -7412,9 +7412,6 @@ function ArchiveSection({user,archiveDocs,setArchiveDocs}) {
 }
 
 
-function App() {// ══════════════════════════════════════════════════════════════════════════════
-// MEMBERSHIP TYPES SECTION
-// ══════════════════════════════════════════════════════════════════════════════
 function MembershipTypesSection({ user, members, dues }) {
   const [types, setTypes] = useState([]);
   const [modal, setModal] = useState(null);
@@ -7734,6 +7731,10 @@ function MembershipTypesSection({ user, members, dues }) {
     </div>
   );
 }
+function App() {// ══════════════════════════════════════════════════════════════════════════════
+// MEMBERSHIP TYPES SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+
   const [loading,setLoading]=useState(true);
   const [user,setUser]=useState(null);
   const [tab,setTab]=useState("dashboard");
