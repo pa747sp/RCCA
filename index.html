@@ -5778,6 +5778,16 @@ function NewsAdminSection({ user, news, setNews }) {
 // PUBLIC MEMBERSHIP PAGE
 // ══════════════════════════════════════════════════════════════════════════════
 function PublicMembership({ onLoginClick, onApply }) {
+  const [types, setTypes] = useState([]);
+  useEffect(() => {
+    (async () => {
+      const stored = await dbGet(CLUB_CONFIG.clubId + ":membershipTypes");
+      if (stored && stored.length) {
+        setTypes(stored.filter(t => t.status === "active" && t.availableOnline));
+      }
+    })();
+  }, []);
+
   return (
     <div>
       <div style={{background:"linear-gradient(160deg,var(--burg-xdk),var(--burg))",padding:"72px 24px 52px",textAlign:"center"}}>
@@ -5793,20 +5803,28 @@ function PublicMembership({ onLoginClick, onApply }) {
         <div style={{marginBottom:56}}>
           <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.15em",marginBottom:10}}>Membership Types</div>
           <h2 style={{fontFamily:"var(--font-d)",fontSize:30,color:"var(--text)",fontWeight:700,marginBottom:24}}>Choose your membership</h2>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
-            {CLUB_CONFIG.membershipTypes.filter(t=>t.availableToNew).map(t=>(
-              <div key={t.id} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
-                <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--text)",fontWeight:700,marginBottom:8}}>{t.label}</div>
-                <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:12}}>
-                  <span style={{fontFamily:"var(--font-d)",fontSize:32,color:"var(--burg)",fontWeight:700}}>
-                    {t.pricingNew>0?`A$${t.pricingNew}`:"Contact us"}
-                  </span>
-                  {t.pricingNew>0&&<span style={{fontSize:13,color:"var(--text3)"}}>per year</span>}
+          {types.length === 0 ? (
+            <div style={{color:"var(--text3)",fontSize:14,padding:"24px 0"}}>Membership information coming soon.</div>
+          ) : (
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
+              {types.map(t=>(
+                <div key={t.id} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
+                  <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--text)",fontWeight:700,marginBottom:8}}>{t.label}</div>
+                  {t.description&&<div style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.7,marginBottom:16}}>{t.description}</div>}
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[["New member",t.pricingNew],["Renewal",t.pricingRenewal]].map(([lbl,val])=>(
+                      <div key={lbl} style={{background:"var(--bg3)",borderRadius:6,padding:"8px 12px"}}>
+                        <div style={{fontSize:9.5,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:3}}>{lbl}</div>
+                        <div style={{fontFamily:"var(--font-m)",fontSize:17,fontWeight:700,color:"var(--burg)"}}>
+                          {val>0?`A$${val}`:<span style={{fontSize:12,color:"var(--text3)"}}>Free</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.7}}>{t.description}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Benefits */}
