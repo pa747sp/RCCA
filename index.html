@@ -7434,7 +7434,7 @@ function MembershipTypesSection({ user, members, dues }) {
 
   useEffect(() => {
     (async () => {
-      const stored = await dbGet("rcca:membershipTypes");
+      const stored = await dbGet(CLUB_CONFIG.clubId+":membershipTypes");
       if (stored && stored.length) {
         setTypes(stored);
       } else {
@@ -7444,14 +7444,14 @@ function MembershipTypesSection({ user, members, dues }) {
           noExpiry: false,
         }));
         setTypes(seeded);
-        await dbSet("rcca:membershipTypes", seeded);
+        await dbSet(CLUB_CONFIG.clubId+":membershipTypes", seeded);
       }
     })();
   }, []);
 
   const saveTypes = async (updated) => {
     setTypes(updated);
-    await dbSet("rcca:membershipTypes", updated);
+    await dbSet(CLUB_CONFIG.clubId+":membershipTypes", updated);
   };
 
   const memberCount = (typeId) =>
