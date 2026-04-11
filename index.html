@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- RCCA Portal v5.8.32 -->
-<!-- RCCA v5.5 -->
+<!-- Club Portal v5.8.32 — TorqueClub -->
+
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rover Car Club of Australia</title>
+  <title>${CLUB_CONFIG.name} Members Portal</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -17,32 +17,32 @@
 // ── Club Configuration ──────────────────────────────────────────
 const CLUB_CONFIG = {
   // Identity
-  clubId:        "rcca",
-  name:          "Rover Car Club of Australia",
-  shortName:     "RCCA",
-  foundedYear:   1964,
+  clubId:        "demo",
+  name:          "Classic Motoring Club of Australia",
+  shortName:     "CMCA",
+  foundedYear:   1965,
   state:         "VIC",
   abn:           "",
 
   // Branding
-  primaryColour:   "#c0282a",
-  secondaryColour: "#8f1a1c",
-  accentColour:    "#8f1a1c",
-  goldColour:      "#8f1a1c",
+  primaryColour:   "#2A3A4A",
+  secondaryColour: "#1a2a3a",
+  accentColour:    "#C9922A",
+  goldColour:      "#C9922A",
 
   // Venue & contact
-  venue:        "MSAC, Melbourne",
-  address:      "PO Box 6049, Wantirna VIC 3152",
+  venue:        "Club Rooms, Melbourne",
+  address:      "PO Box 100, Melbourne VIC 3000",
   phone:        "",
-  website:      "www.rovercarclubaust.asn.au",
-  emailGeneral: "secretary@rcca.com.au",
-  emailMembership: "membership@rcca.com.au",
-  emailEvents:  "events@rcca.com.au",
-  emailTech:    "technical@rcca.com.au",
-  emailMerchandise: "merchandise@rcca.com.au",
+  website:      "demo.torqueclub.com.au",
+  emailGeneral: "info@demo.torqueclub.com.au",
+  emailMembership: "membership@demo.torqueclub.com.au",
+  emailEvents:  "events@demo.torqueclub.com.au",
+  emailTech:    "technical@demo.torqueclub.com.au",
+  emailMerchandise: "merchandise@demo.torqueclub.com.au",
 
   // Newsletters
-  newsletterNames: ["Viking Torque", "Small Torque"],
+  newsletterNames: ["Club Torque", "Club Notes"],
 
   // Membership types
   membershipTypes: [
@@ -77,6 +77,12 @@ const CLUB_CONFIG = {
       availableOnline:     true,
     },
   ],
+
+  // Vehicle default (used in forms)
+  vehicleMake:   "",
+
+  // Demo mode — set true on TC demo portal
+  demoMode:      true,
 
   // Feature flags
   features: {
@@ -165,69 +171,70 @@ ST.textContent = `
 document.head.appendChild(ST);
 
 // ── Storage ───────────────────────────────────────────────────────────────────
+const _id = CLUB_CONFIG.clubId;
 const SK = {
-  members:"rcca:members", cars:"rcca:cars", transfers:"rcca:transfers",
-  meetings:"rcca:meetings", events:"rcca:events", tasks:"rcca:tasks",
-  dues:"rcca:dues", rsvps:"rcca:rsvps", listings:"rcca:listings",
-  shopItems:"rcca:shopItems", orders:"rcca:orders", cart:"rcca:cart",
-  news:"rcca:news", siteContent:"rcca:siteContent", applications:"rcca:applications",
-  books:"rcca:books",
-  parts:"rcca:parts", partsInventory:"rcca:partsInventory",
-  qualityDocs:"rcca:qualityDocs", archiveDocs:"rcca:archiveDocs",
-  emailDrafts:"rcca:emailDrafts", points:"rcca:points", forum:"rcca:forum",
-  suppliers:"rcca:suppliers",
-  pages:"rcca:pages",
-  gallery:"rcca:gallery",
-  expenses:"rcca:expenses", finSettings:"rcca:finSettings",
-  permits:"rcca:permits", tripLogs:"rcca:tripLogs",
-  categories:"rcca:categories", messages:"rcca:messages",
-  checkins:"rcca:checkins",
-  contacts:"rcca:contacts",
-  competitions:"rcca:competitions",
-  pendingCars:"rcca:pendingCars",
-  incidents:"rcca:incidents",
-  polls:"rcca:polls",
+  members:_id+":members", cars:_id+":cars", transfers:_id+":transfers",
+  meetings:_id+":meetings", events:_id+":events", tasks:_id+":tasks",
+  dues:_id+":dues", rsvps:_id+":rsvps", listings:_id+":listings",
+  shopItems:_id+":shopItems", orders:_id+":orders", cart:_id+":cart",
+  news:_id+":news", siteContent:_id+":siteContent", applications:_id+":applications",
+  books:_id+":books",
+  parts:_id+":parts", partsInventory:_id+":partsInventory",
+  qualityDocs:_id+":qualityDocs", archiveDocs:_id+":archiveDocs",
+  emailDrafts:_id+":emailDrafts", points:_id+":points", forum:_id+":forum",
+  suppliers:_id+":suppliers",
+  pages:_id+":pages",
+  gallery:_id+":gallery",
+  expenses:_id+":expenses", finSettings:_id+":finSettings",
+  permits:_id+":permits", tripLogs:_id+":tripLogs",
+  categories:_id+":categories", messages:_id+":messages",
+  checkins:_id+":checkins",
+  contacts:_id+":contacts",
+  competitions:_id+":competitions",
+  pendingCars:_id+":pendingCars",
+  incidents:_id+":incidents",
+  polls:_id+":polls",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
 const DEFAULT_SITE_CONTENT = {
   hero: {
-    tagline: "Australia's premier club for enthusiasts, collectors, and restorers of the Rover marque. ~250 members in every state and territory.",
+    tagline: CLUB_CONFIG.name + " — connecting enthusiasts, collectors, and restorers across Australia.",
     ctaLabel: "Members Login",
     ctaSecondary: "About the Club",
   },
   stats: [
-    { value:"1964", label:"Founded" },
+    { value:String(CLUB_CONFIG.foundedYear), label:"Founded" },
     { value:"All States", label:"& Territories" },
-    { value:"Biennial", label:"National Rove" },
-    { value:"~250", label:"Members" },
+    { value:"Annual", label:"National Event" },
+    { value:"Members", label:"Nationwide" },
   ],
   about: {
-    heading: "A Proud Legacy of Rover Motoring",
-    para1: "The Rover Car Club of Australia was founded in Melbourne in 1964 by a small group of enthusiasts passionate about preserving the Rover marque. Today we are a national organisation with members in every state and territory.",
-    para2: "We cater to all Rover models — from the pre-war cars through the elegant P4 and P5 saloons, the innovative P6, the sporting SD1, and all models to the end of production. Whether your interest is concours presentation, road driving, or restoration, there's a place for you.",
+    heading: "A Proud Legacy of Motoring",
+    para1: CLUB_CONFIG.name + " was founded in " + CLUB_CONFIG.foundedYear + " by a small group of enthusiasts. Today we are a national organisation with members in every state and territory.",
+    para2: "Whether your interest is concours presentation, road driving, or restoration, there's a place for you in our club.",
   },
   history: [
-    { para: "The Rover Car Club of Australia was formed in Melbourne in 1964 by a small group of enthusiasts who shared a common passion for the Rover marque. Today the club has approximately 250 members, primarily in Victoria but with members in all Australian states and territories. Monthly meetings are held (except January and December) at the Uniting Church Hall, Hawthorn, usually on the second Friday of each month at 8:00 pm." },
-    { para: "In the decades since, the club has grown to include members in every Australian state and territory, as well as associate members in New Zealand and the United Kingdom. The biennial National Rove — the national gathering of all Australian Rover clubs — rotates between states, with Rove 2026 hosted by WAROC in Perth." },
-    { para: "The club publishes two newsletters: Viking Torque (quarterly) and Small Torque (monthly), and maintains a technical library available to all members. Our technical officers have collective expertise spanning every model from the pre-war P2 through to the final production vehicles." },
-    { para: "We welcome owners of all Rover models — saloons, estates, coupés, and sporting variants. Whether your Rover is a concours queen, a daily driver, a long-term restoration project, or a parts car generously donated to keep other Rovers on the road, there is a place for you in this club." },
+    { para: CLUB_CONFIG.name + " was formed in " + CLUB_CONFIG.foundedYear + " by a small group of enthusiasts who shared a common passion. Today the club has members in all Australian states and territories." },
+    { para: "In the decades since, the club has grown to include members across Australia. Our national gathering rotates between states." },
+    { para: "The club publishes " + (CLUB_CONFIG.newsletterNames||["our newsletter"]).join(" and ") + ", and maintains a technical library available to all members." },
+    { para: "We welcome all members — whether your vehicle is a concours queen, a daily driver, or a long-term restoration project, there is a place for you in this club." },
   ],
   committee: [
-    { role:"President",      name:"Geoffrey Harrington", state:"VIC", bio:"Custodian of a 1972 P6 3500S and a 1958 P4 90." },
-    { role:"Secretary",      name:"Diane Ashworth",       state:"SA",  bio:"Secretary since 2019. SD1 Vitesse owner and concours judge of many years' standing." },
-    { role:"Treasurer",      name:"Bruce Callahan",       state:"QLD", bio:"Treasurer and northern states representative. Early Rover P4 and Land Rover collector." },
-    { role:"Events Officer", name:"Patricia Wyndham",     state:"NSW", bio:"Organiser of the biennial National Rove and state drives. P6 restoration specialist." },
+    { role:"President",      name:"Club President",  state:CLUB_CONFIG.state, bio:"Club president." },
+    { role:"Secretary",      name:"Club Secretary",  state:CLUB_CONFIG.state, bio:"Club secretary." },
+    { role:"Treasurer",      name:"Club Treasurer",  state:CLUB_CONFIG.state, bio:"Club treasurer." },
+    { role:"Events Officer", name:"Events Officer",  state:CLUB_CONFIG.state, bio:"Events coordinator." },
   ],
   contact: {
-    general:     "secretary@rcca.com.au",
-    membership:  "membership@rcca.com.au",
-    technical:   "technical@rcca.com.au",
-    merchandise: "merchandise@rcca.com.au",
-    events:      "events@rcca.com.au",
-    postal:      "PO Box 6049, Wantirna VIC 3152",
-    phone:       "",
-    website:     "www.rovercarclubaust.asn.au",
+    general:     CLUB_CONFIG.emailGeneral,
+    membership:  CLUB_CONFIG.emailMembership,
+    technical:   CLUB_CONFIG.emailTech,
+    merchandise: CLUB_CONFIG.emailMerchandise,
+    events:      CLUB_CONFIG.emailEvents,
+    postal:      CLUB_CONFIG.address,
+    phone:       CLUB_CONFIG.phone,
+    website:     CLUB_CONFIG.website,
   },
 };
 async function dbGet(k) { try { const r=await window.storage.get(k); return r?JSON.parse(r.value):null; } catch { return null; } }
@@ -283,33 +290,33 @@ const today = new Date().toISOString().split("T")[0];
 
 // ── Seed Data ─────────────────────────────────────────────────────────────────
 const SEED_MEMBERS = [
-  { id:"M001", name:"Geoffrey Harrington", email:"admin@rcca.com.au", password:"admin123",
+  { id:"M001", name:"Alex President", email:"admin@demo.club", password:"admin123",
     phone:"0412 345 678", joined:`${yr-5}-03-15`, status:"active", memberType:"Full",
-    role:"admin", position:"President", bio:"Founding member and club president. Collector of pre-war Rovers.", avatar:"GH",
-    state:"VIC", memberNumber:"001" },
-  { id:"M002", name:"Patricia Wyndham", email:"patricia@rcca.com.au", password:"member123",
+    role:"admin", position:"President", bio:"Club president and founding member.", avatar:"AP",
+    state:CLUB_CONFIG.state, memberNumber:"001" },
+  { id:"M002", name:"Sam Member", email:"sam@demo.club", password:"member123",
     phone:"0423 456 789", joined:`${yr-3}-07-22`, status:"active", memberType:"Full",
-    role:"member", position:"Secretary", bio:"P6 3500S enthusiast. Fully restored 1972 model.", avatar:"PW",
-    state:"NSW", memberNumber:"002" },
-  { id:"M003", name:"Bruce Callahan", email:"bruce@rcca.com.au", password:"member123",
+    role:"member", position:"Secretary", bio:"Club secretary and active participant.", avatar:"SM",
+    state:CLUB_CONFIG.state, memberNumber:"002" },
+  { id:"M003", name:"Jordan Treasurer", email:"jordan@demo.club", password:"member123",
     phone:"0434 567 890", joined:`${yr-4}-11-01`, status:"active", memberType:"Associate",
-    role:"member", position:"Treasurer", bio:"Land Rover and early Rover P4 collector.", avatar:"BC",
+    role:"member", position:"Treasurer", bio:"Club treasurer.", avatar:"JT",
     state:"QLD", memberNumber:"003" },
-  { id:"M004", name:"Diane Ashworth", email:"diane@rcca.com.au", password:"member123",
+  { id:"M004", name:"Casey Technical", email:"casey@demo.club", password:"member123",
     phone:"0445 678 901", joined:`${yr-2}-05-10`, status:"active", memberType:"Full",
-    role:"member", position:"Technical Officer", bio:"SD1 Vitesse owner, concours judge.", avatar:"DA",
+    role:"member", position:"Technical Officer", bio:"Technical officer and vehicle enthusiast.", avatar:"CT",
     state:"SA", memberNumber:"004" },
 ];
 
 const SEED_CARS = [
-  { id:"C001", reg:"ABC-123", make:"Rover", model:"P6 3500S", year:1972, colour:"Zircon Blue",
-    ownerId:"M001", status:"active", registered:`${yr-5}-03-15`, notes:"Original matching numbers, 62,000 miles", chassis:"35D2BH321C" },
-  { id:"C002", reg:"XYZ-456", make:"Rover", model:"SD1 Vitesse", year:1984, colour:"Monza Red",
-    ownerId:"M002", status:"active", registered:`${yr-3}-07-22`, notes:"Full restoration completed 2019", chassis:"SAXXBBBK7EA123456" },
-  { id:"C003", reg:"DEF-789", make:"Rover", model:"P4 90", year:1958, colour:"Connaught Green",
-    ownerId:"M003", status:"active", registered:`${yr-4}-11-01`, notes:"Original interior, barn find 2018", chassis:"P490/56789" },
-  { id:"C004", reg:"GHI-012", make:"Rover", model:"3500 (P6B)", year:1970, colour:"Tobacco Leaf",
-    ownerId:"M004", status:"active", registered:`${yr-2}-05-10`, notes:"Show car, multiple concours winner", chassis:"35D1AH654B" },
+  { id:"C001", reg:"DEMO-1", make:CLUB_CONFIG.vehicleMake, model:"Demo Model A", year:1972, colour:"Blue",
+    ownerId:"M001", status:"active", registered:`${yr-5}-03-15`, notes:"Demo vehicle record", chassis:"DEMO001" },
+  { id:"C002", reg:"DEMO-2", make:CLUB_CONFIG.vehicleMake, model:"Demo Model B", year:1984, colour:"Red",
+    ownerId:"M002", status:"active", registered:`${yr-3}-07-22`, notes:"Demo vehicle record", chassis:"DEMO002" },
+  { id:"C003", reg:"DEMO-3", make:CLUB_CONFIG.vehicleMake, model:"Demo Model C", year:1958, colour:"Green",
+    ownerId:"M003", status:"active", registered:`${yr-4}-11-01`, notes:"Demo vehicle record", chassis:"DEMO003" },
+  { id:"C004", reg:"DEMO-4", make:CLUB_CONFIG.vehicleMake, model:"Demo Model D", year:1970, colour:"Gold",
+    ownerId:"M004", status:"active", registered:`${yr-2}-05-10`, notes:"Demo vehicle record", chassis:"DEMO004" },
 ];
 
 const SEED_DUES = [
@@ -321,7 +328,7 @@ const SEED_DUES = [
 
 const SEED_MEETINGS = [
   { id:"MT001", title:"Annual General Meeting", date:`${yr}-05-18`, time:"14:00",
-    location:"Uniting Church Hall, 166 Glenferrie Rd, Hawthorn VIC 3122", type:"agm", status:"upcoming",
+    location:CLUB_CONFIG.venue, type:"agm", status:"upcoming",
     organiser:"M001",
     agendaItems:[
       {id:"AI01",category:"Opening & Apologies",notes:"",minutes:""},
@@ -331,7 +338,7 @@ const SEED_MEETINGS = [
       {id:"AI05",category:"Treasurer's Report",notes:"",minutes:""},
       {id:"AI06",category:"Election of Officers",notes:"",minutes:""},
       {id:"AI07",category:"Membership Fees Review",notes:"",minutes:""},
-      {id:"AI08",category:"Events Report",notes:"Discuss upcoming National Rove",minutes:""},
+      {id:"AI08",category:"Events Report",notes:"Discuss upcoming national event",minutes:""},
       {id:"AI09",category:"General Business",notes:"",minutes:""},
       {id:"AI10",category:"Any Other Business",notes:"",minutes:""},
       {id:"AI11",category:"Next Meeting",notes:"",minutes:""},
@@ -343,22 +350,22 @@ const SEED_MEETINGS = [
     agendaItems:[
       {id:"AI13",category:"Opening & Apologies",notes:"",minutes:"Meeting opened 19:05. Quorum present."},
       {id:"AI14",category:"Treasurer's Report",notes:"Budget review",minutes:"Budget surplus of $620 from Canberra rally confirmed."},
-      {id:"AI15",category:"Events Report",notes:"National Rove planning",minutes:"National Rove 2026 confirmed as Perth WA, 18–21 Sep 2026, hosted by WAROC."},
+      {id:"AI15",category:"Events Report",notes:"National event planning",minutes:"National event date and location confirmed."},
       {id:"AI16",category:"General Business",notes:"Website update",minutes:"Website redesign approved. New system to go live by end of March."},
       {id:"AI17",category:"Close",notes:"",minutes:"Meeting closed 20:40."},
     ]},
 ];
 
 const SEED_EVENTS = [
-  { id:"EV001", title:"National Rove 2026 — Wildflowers West, Perth WA", date:"2026-09-18", time:"08:00",
-    location:"Perth, Western Australia", type:"show", status:"upcoming",
-    description:"The premier annual gathering of Rover enthusiasts across Australia. Three days of concours judging, swap meet, road runs, and the famous Rover dinner on Saturday evening. All Rover models welcome.", organiser:"M001", maxAttendees:120, catering:true },
-  { id:"EV002", title:"Autumn Drive — Dandenong Ranges", date:`${yr}-04-27`, time:"09:30",
-    location:"Meet: Olinda Village, VIC", type:"drive", status:"upcoming",
-    description:"A 90km scenic drive through the Dandenong Ranges finishing with lunch at the Ranges Hotel. Limited to 25 vehicles. P-plates welcome.", organiser:"M002", maxAttendees:25, catering:true },
+  { id:"EV001", title:"Annual Club Gathering", date:"2026-09-18", time:"08:00",
+    location:CLUB_CONFIG.venue, type:"show", status:"upcoming",
+    description:"The premier annual gathering of club members. All vehicles welcome.", organiser:"M001", maxAttendees:120, catering:true },
+  { id:"EV002", title:"Club Drive", date:`${yr}-04-27`, time:"09:30",
+    location:CLUB_CONFIG.venue, type:"drive", status:"upcoming",
+    description:"A scenic club drive. Limited to 25 vehicles.", organiser:"M002", maxAttendees:25, catering:true },
   { id:"EV003", title:"Swap Meet & Parts Day", date:`${yr}-06-08`, time:"07:00",
-    location:"Flemington Showgrounds, Melbourne VIC", type:"social", status:"upcoming",
-    description:"Annual swap meet. Bring your spare parts, manuals, and memorabilia. Entry free for members. Public welcome at the gate.", organiser:"M003", maxAttendees:0, catering:false },
+    location:CLUB_CONFIG.venue, type:"social", status:"upcoming",
+    description:"Annual swap meet. Bring your spare parts and memorabilia. Entry free for members.", organiser:"M003", maxAttendees:0, catering:false },
 ];
 
 const SEED_TASKS = [
@@ -381,66 +388,66 @@ const SEED_RSVPS = [
 
 const SEED_LISTINGS = [
   { id:"L001", memberId:"M002", type:"sell", category:"car",
-    title:"1969 Rover P6 2000TC — Project", price:4500, negotiable:true,
-    description:"Solid body, no rust in floors. Engine runs but needs carb rebuild. Original Tobacco Leaf paint. Ideal restoration project or parts car. All panels straight. Sold as-is, no rego.", condition:"project",
-    location:"Sydney, NSW", images:[], status:"active", created:`${yr}-02-15`, contact:"patricia@rcca.com.au" },
+    title:"Classic Vehicle — Project", price:4500, negotiable:true,
+    description:"Demo listing. Ideal restoration project or parts car.", condition:"project",
+    location:"Sydney, NSW", images:[], status:"active", created:`${yr}-02-15`, contact:CLUB_CONFIG.emailGeneral },
   { id:"L002", memberId:"M003", type:"sell", category:"parts",
-    title:"P6 Series 1 Grille — Excellent", price:180, negotiable:true,
-    description:"Original chrome P6 Series 1 front grille. Removed during restoration. No cracks or pitting. Will post at buyer's cost.", condition:"good",
-    location:"Brisbane, QLD", images:[], status:"active", created:`${yr}-02-20`, contact:"bruce@rcca.com.au" },
+    title:"Classic Car Part — Grille", price:180, negotiable:true,
+    description:"Demo listing. Original part removed during restoration.", condition:"good",
+    location:"Brisbane, QLD", images:[], status:"active", created:`${yr}-02-20`, contact:CLUB_CONFIG.emailGeneral },
   { id:"L003", memberId:"M001", type:"wanted", category:"parts",
-    title:"WANTED: SD1 Vitesse air dam / front spoiler", price:null, negotiable:false,
-    description:"Seeking original Vitesse front air dam/spoiler in any condition. Repro also considered. Contact Geoff.", condition:null,
-    location:"Melbourne, VIC", images:[], status:"active", created:`${yr}-03-01`, contact:"admin@rcca.com.au" },
+    title:"WANTED: Classic Car Part", price:null, negotiable:false,
+    description:"Seeking specific part in any condition.", condition:null,
+    location:"Melbourne, VIC", images:[], status:"active", created:`${yr}-03-01`, contact:CLUB_CONFIG.emailGeneral },
   { id:"L004", memberId:"M004", type:"sell", category:"memorabilia",
     title:"Rover Car Club badge — 1960s enamel", price:65, negotiable:false,
     description:"Original 1960s enamel Rover Car Club of Australia badge. Good condition with minor enamel chip on reverse. Rare piece.", condition:"good",
-    location:"Adelaide, SA", images:[], status:"active", created:`${yr}-03-05`, contact:"diane@rcca.com.au" },
+    location:"Adelaide, SA", images:[], status:"active", created:`${yr}-03-05`, contact:CLUB_CONFIG.emailGeneral },
 ];
 
 const SEED_SHOP = [
-  { id:"S001", name:"RCCA Club Polo Shirt", description:"Premium embroidered polo in navy with RCCA logo. Available in S, M, L, XL, XXL.", price:65, stock:24,
-    category:"apparel", sku:"APP-POLO-001", image:"👕", variants:["S","M","L","XL","XXL"], status:"active" },
-  { id:"S002", name:"Club Badge — Enamel on Chrome", description:"The official Rover Car Club of Australia grille badge. Enamel on chrome, 65mm diameter.", price:45, stock:8,
-    category:"badges", sku:"BAD-BADGE-001", image:"🏅", variants:[], status:"active" },
-  { id:"S003", name:"RCCA 50th Anniversary Book", description:"Hardcover 200-page commemorative history of the club. Full colour throughout.", price:55, stock:3,
+  { id:"S001", name:CLUB_CONFIG.shortName+" Club Polo Shirt", description:"Premium embroidered polo in navy with RCCA logo. Available in S, M, L, XL, XXL.", price:65, stock:24,
+    category:"apparel", sku:CLUB_CONFIG.clubId+"-POLO-001", image:"👕", variants:["S","M","L","XL","XXL"], status:"active" },
+  { id:"S002", name:CLUB_CONFIG.shortName+" Club Badge — Enamel", description:"The official Rover Car Club of Australia grille badge. Enamel on chrome, 65mm diameter.", price:45, stock:8,
+    category:"badges", sku:CLUB_CONFIG.clubId+"-BADGE-001", image:"🏅", variants:[], status:"active" },
+  { id:"S003", name:CLUB_CONFIG.shortName+" Anniversary Book", description:"Hardcover 200-page commemorative history of the club. Full colour throughout.", price:55, stock:3,
     category:"publications", sku:"PUB-BOOK-50TH", image:"📖", variants:[], status:"active" },
-  { id:"S004", name:"Rover Viking Ship Lapel Pin", description:"Gold-plated enamel lapel pin featuring the Rover Viking ship logo. 25mm.", price:18, stock:45,
+  { id:"S004", name:CLUB_CONFIG.shortName+" Lapel Pin", description:"Gold-plated enamel lapel pin featuring the Rover Viking ship logo. 25mm.", price:18, stock:45,
     category:"badges", sku:"BAD-PIN-001", image:"📌", variants:[], status:"active" },
   { id:"S005", name:"P6 Workshop Manual Reprint", description:"Complete reprint of the Rover P6 factory workshop manual. Spiral bound, A4.", price:85, stock:6,
     category:"publications", sku:"PUB-MAN-P6", image:"🔧", variants:[], status:"active" },
-  { id:"S006", name:"RCCA Stubby Holder", description:"Neoprene stubby holder with RCCA logo. Essential for any club event.", price:12, stock:60,
-    category:"merchandise", sku:"MERCH-STUB-001", image:"🥤", variants:["Standard"], status:"active" },
+  { id:"S006", name:CLUB_CONFIG.shortName+" Stubby Holder", description:"Neoprene stubby holder with RCCA logo. Essential for any club event.", price:12, stock:60,
+    category:"merchandise", sku:CLUB_CONFIG.clubId+"-STUB-001", image:"🥤", variants:["Standard"], status:"active" },
   { id:"S007", name:"SD1 Workshop Manual Reprint", description:"Complete factory workshop manual for SD1 Series 1 & 2. A4 spiral bound.", price:85, stock:4,
     category:"publications", sku:"PUB-MAN-SD1", image:"🔧", variants:[], status:"active" },
-  { id:"S008", name:"Club Cap — Embroidered", description:"Adjustable cap in navy with gold RCCA embroidery.", price:32, stock:18,
-    category:"apparel", sku:"APP-CAP-001", image:"🧢", variants:["One Size"], status:"active" },
+  { id:"S008", name:CLUB_CONFIG.shortName+" Club Cap — Embroidered", description:"Adjustable cap in navy with gold RCCA embroidery.", price:32, stock:18,
+    category:"apparel", sku:CLUB_CONFIG.clubId+"-CAP-001", image:"🧢", variants:["One Size"], status:"active" },
 ];
 
 const SEED_NEWS = [
-  { id:"N001", title:"National Rove 2026 — Wildflowers West, Perth WA", slug:"national-rove-2026",
-    category:"event", pinned:true, authorId:"M001", authorName:"Geoffrey Harrington",
+  { id:"N001", title:"Welcome to the Members Portal", slug:"welcome-portal",
+    category:"news", pinned:true, authorId:"M001", authorName:"Alex President",
     date:`${yr}-03-01`,
-    excerpt:"The National Rove 2026 'Wildflowers West' will be hosted by WAROC in Perth WA, 18–21 September 2026.",
-    body:`We are delighted to announce that registrations are now open for the National Rove 2026, to be held in Perth, Western Australia from 18–21 September 2026.\n\nThis year's event promises to be the largest gathering in the club's history, with entries already received from every state and territory. The programme includes:\n\n• Friday evening: Welcome reception and registration\n• Saturday: Concours d'Élégance judging, swap meet, and club dinner\n• Sunday: Scenic road run through the Perth region and trophy presentation\n\nAll Rover models are welcome — from the stately P4 through to the final years of production. Entries are judged in class, so you needn't have a concours queen to take home silverware.\n\nEarly bird registration (before 30 June) is A$85 per vehicle. Standard registration is A$110. Accommodation options are listed on the registration form.\n\nRegister through the Members Portal or contact the Secretary at secretary@rcca.com.au.`,
+    excerpt:"Welcome to the new " + CLUB_CONFIG.name + " members portal — your hub for club news, events, vehicles and more.",
+    body:"Welcome to the " + CLUB_CONFIG.name + " members portal.\n\nThis is your central hub for club news, upcoming events, vehicle registration, the marketplace, and more.\n\nLog in with your member credentials to access all features. Contact the secretary if you need assistance.",
     image:"🏆", status:"published" },
-  { id:"N002", title:"In Memoriam: Arthur Pemberton OAM", slug:"in-memoriam-arthur-pemberton",
-    category:"news", pinned:false, authorId:"M001", authorName:"Geoffrey Harrington",
+  { id:"N002", title:"Club Events Coming Up", slug:"events-coming-up",
+    category:"event", pinned:false, authorId:"M001", authorName:"Alex President",
     date:`${yr}-02-10`,
-    excerpt:"It is with great sadness that we note the passing of life member Arthur Pemberton OAM, one of the club's founding members.",
-    body:`It is with profound sadness that the Rover Car Club of Australia records the passing of Life Member Arthur Pemberton OAM on 7 February ${yr}, aged 91.\n\nArthur was one of the founding members of the club in 1964 and served as President for twelve years. His encyclopaedic knowledge of the Rover marque — particularly the P4 and P5 series — was a resource that benefited countless members over the decades.\n\nArthur received his OAM in 2008 for services to motoring heritage. He is survived by his wife Margaret and their three children.\n\nA memorial gathering will be held at the next General Meeting. Members wishing to pay tribute are encouraged to contact the Secretary.\n\nWe extend our deepest sympathies to the Pemberton family.`,
-    image:"🕯", status:"published" },
-  { id:"N003", title:"New Workshop Manuals Now Available in the Shop", slug:"workshop-manuals-shop",
-    category:"merchandise", pinned:false, authorId:"M004", authorName:"Diane Ashworth",
+    excerpt:"Check the Events section for upcoming drives, shows and social gatherings.",
+    body:"We have a great calendar of events coming up this year.\n\nVisit the Events section to see what\u2019s on and RSVP. All members are welcome.",
+    image:"📅", status:"published" },
+  { id:"N003", title:"Parts and Manuals Available", slug:"parts-manuals",
+    category:"merchandise", pinned:false, authorId:"M004", authorName:"Casey Technical",
     date:`${yr}-01-20`,
-    excerpt:"High-quality spiral-bound reprints of the P6 and SD1 factory workshop manuals are now available through the Club Shop.",
-    body:`The club is pleased to announce that high-quality A4 spiral-bound reprints of two essential Rover workshop manuals are now available through the Club Shop:\n\n• Rover P6 2000 / 2000TC / 3500 / 3500S — Complete Factory Workshop Manual\n• Rover SD1 Series 1 & 2 — Complete Factory Workshop Manual\n\nThese reprints have been produced from original factory documents and are printed on 80gsm paper with clear, legible diagrams. They are spiral bound for ease of use in the workshop.\n\nPrice: A$85 each, including GST. Postage is additional.\n\nOrder through the Club Shop in the Members Portal. Stock is limited — the P6 manual has only 6 copies remaining.\n\nFor any queries, contact the Merchandise Officer at merchandise@rcca.com.au.`,
+    excerpt:"Check the Club Shop and Parts sections for available items.",
+    body:"The club shop has a range of merchandise, manuals and spare parts available.\n\nVisit the Club Shop in the members portal to browse and order.",
     image:"🔧", status:"published" },
-  { id:"N004", title:"Autumn Drive — Dandenong Ranges: Details Confirmed", slug:"autumn-drive-dandenong",
-    category:"event", pinned:false, authorId:"M002", authorName:"Patricia Wyndham",
+  { id:"N004", title:"Membership Renewals Open", slug:"membership-renewals",
+    category:"news", pinned:false, authorId:"M002", authorName:"Sam Member",
     date:`${yr}-03-15`,
-    excerpt:"Full details for the Autumn Drive through the Dandenong Ranges on 27 April are now confirmed. Limited to 25 vehicles — RSVP essential.",
-    body:`Full details for the Autumn Drive through the Dandenong Ranges on Sunday 27 April are now confirmed.\n\nMeet at Olinda Village (opposite the war memorial) from 9:00am for a 9:30am departure. The route will take us through Sassafras, Sherbrooke Forest, and down through Monbulk before finishing with lunch at the Ranges Hotel, Kalorama.\n\nThe drive is approximately 90 kilometres and takes around 2.5 hours including a mid-point stop at Kallista. The roads are winding but well-suited to classic cars — please drive to conditions.\n\nNumbers are strictly limited to 25 vehicles. RSVP through the Members Portal Events page. Partners and guests are welcome.\n\nLunch is at your own cost. The Ranges Hotel has confirmed they can accommodate the group.\n\nAny queries to Patricia Wyndham: patricia@rcca.com.au.`,
+    excerpt:"Annual membership renewals are now open. Log in to the portal to check your status.",
+    body:"Annual membership renewals are now open.\n\nLog in to the members portal and visit My Membership to check your renewal status and pay online.",
     image:"🚗", status:"published" },
 ];
 
@@ -723,10 +730,7 @@ function LoginScreen({ members, onLogin }) {
       <div style={{width:"100%",maxWidth:420,padding:24}} className="fade-up">
         {/* Header emblem */}
         <div style={{textAlign:"center",marginBottom:36}}>
-          <h1 style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--gold3)",margin:"0 0 4px",lineHeight:1.2}}>
-            Rover Car Club
-          </h1>
-          <div style={{fontFamily:"var(--font-d)",fontSize:18,color:"var(--gold)",fontStyle:"italic",marginBottom:6}}>of Australia</div>
+          <h1 style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--gold3)",margin:"0 0 4px",lineHeight:1.2}}>{CLUB_CONFIG.name}</h1>
           <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)",letterSpacing:"0.15em",textTransform:"uppercase"}}>Members Portal</div>
         </div>
 
@@ -743,8 +747,8 @@ function LoginScreen({ members, onLogin }) {
           <Btn onClick={go} size="lg" style={{width:"100%",letterSpacing:"0.05em"}}>Sign In to Members Portal</Btn>
           <Divider/>
           <div style={{fontSize:10,color:"var(--text4)",fontFamily:"var(--font-m)",textAlign:"center",lineHeight:1.8}}>
-            Demo Admin: admin@rcca.com.au / admin123<br/>
-            Demo Member: patricia@rcca.com.au / member123
+            Demo Admin: admin@{CLUB_CONFIG.website} / admin123<br/>
+            Demo Member: member@{CLUB_CONFIG.website} / member123
           </div>
         </Card>
       </div>
@@ -800,8 +804,7 @@ function Sidebar({ user, tab, setTab, onLogout, notifs={} }) {
             <RccaLogo size={38}/>
           </div>
           <div>
-            <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--gold3)",lineHeight:1.15}}>Rover Car Club</div>
-            <div style={{fontFamily:"var(--font-d)",fontSize:10,color:"var(--gold)",fontStyle:"italic",lineHeight:1.2}}>of Australia</div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--gold3)",lineHeight:1.15}}>{CLUB_CONFIG.name}</div>
           </div>
         </Row>
       </div>
@@ -1060,7 +1063,7 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
               <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--gold2)",fontWeight:700}}>Membership Milestones — {thisYear}</div>
               <span style={{background:"var(--gold)",color:"white",borderRadius:10,padding:"1px 8px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700}}>{milestoneMembers.length}</span>
             </Row>
-            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These members reach a milestone anniversary this year. Consider a mention in Viking Torque and an award at the AGM.</div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These members reach a milestone anniversary this year. Consider a mention in {CLUB_CONFIG.newsletterNames[0]} and an award at the AGM.</div>
             {milestoneMembers.map(m=>{
               const medalColour=m.milestoneYears>=50?"#c9922a":m.milestoneYears>=25?"#888":m.milestoneYears>=10?"#c07820":"var(--burg)";
               const medal=m.milestoneYears>=50?"🏆":m.milestoneYears>=25?"🥇":m.milestoneYears>=10?"🥈":"🥉";
@@ -1099,7 +1102,7 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
               <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--blue)",fontWeight:700}}>Vehicle Anniversaries — {thisYear}</div>
               <span style={{background:"var(--blue)",color:"white",borderRadius:10,padding:"1px 8px",fontSize:11,fontFamily:"var(--font-m)",fontWeight:700}}>{milestoneCars.length}</span>
             </Row>
-            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These Rovers reach a significant anniversary this year. Consider a feature in Viking Torque.</div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>These Rovers reach a significant anniversary this year. Consider a feature in {CLUB_CONFIG.newsletterNames[0]}.</div>
             {milestoneCars.map(c=>{
               const owner=(members||[]).find(m=>m.id===c.ownerId);
               const ageColour=c.milestoneAge>=100?"#8B4513":c.milestoneAge>=75?"#c9922a":c.milestoneAge>=50?"#888":"var(--blue)";
@@ -1663,7 +1666,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers, pendingCars, 
   function ownerName(id){var m=members.find(function(m){return m.id===id;});return m?m.name:"Unknown";}
   function openAdd(){
     if(!isAdmin){setShowSubmit(true);return;}
-    setForm({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:members[0]?.id,status:"active",registered:today,notes:""});setModal("add");
+    setForm({reg:"",make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:members[0]?.id,status:"active",registered:today,notes:""});setModal("add");
   }
   function openEdit(c){setForm(Object.assign({},c));setModal({edit:c});}
   function openTransfer(c){setForm({carId:c.id,toMemberId:""});setModal({transfer:c});}
@@ -2000,7 +2003,7 @@ function DuesSection({ members, dues, setDues }) {
     setDues(updated);await dbSet(SK.dues,updated);setModal(null);
   }
   function genReminder(m,d){
-    return `Dear ${m.name.split(" ")[0]},\n\nThis is a friendly reminder that your ${selYr} membership dues for the Rover Car Club of Australia are currently outstanding.\n\nAmount due: A$${d.amount}\nMembership type: ${m.memberType}\nMember number: ${m.memberNumber||m.id}\n\nPlease arrange payment at your earliest convenience by bank transfer to:\nBSB: 063-123\nAccount: 1234 5678\nReference: RCCA-${m.memberNumber||m.id}-${selYr}\n\nIf you have already made payment, please disregard this notice.\n\nKind regards,\nThe RCCA Treasurer\nRover Car Club of Australia`;
+    return `Dear ${m.name.split(" ")[0]},\n\nThis is a friendly reminder that your ${selYr} membership dues for ${CLUB_CONFIG.name} are currently outstanding.\n\nAmount due: A$${d.amount}\nMembership type: ${m.memberType}\nMember number: ${m.memberNumber||m.id}\n\nPlease arrange payment at your earliest convenience by bank transfer to:\nBSB: [contact treasurer]\nAccount: [contact treasurer]\nReference: ${CLUB_CONFIG.shortName}-${m.memberNumber||m.id}-${selYr}\n\nIf you have already made payment, please disregard this notice.\n\nKind regards,\nThe Treasurer\n${CLUB_CONFIG.name}`;
   }
   return (
     <div className="fade-up">
@@ -2120,7 +2123,7 @@ function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps
   function openAdd() {
     setForm({
       title:"", date:today, time:"19:00",
-      location:"Uniting Church Hall, 166 Glenferrie Rd, Hawthorn VIC 3122",
+      location:CLUB_CONFIG.venue,
       type:"general", status:"upcoming", organiser:user.id,
       agendaItems:[
         {id:uid("AI"),category:"Opening & Apologies",notes:"",minutes:""},
@@ -3072,7 +3075,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
           ))}
         </div>
         <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid var(--border)",fontSize:12,color:"var(--text3)",fontFamily:"var(--font-m)"}}>
-          Rover Car Club of Australia · secretary@rcca.com.au · PO Box 6049 Wantirna VIC 3152
+          Rover Car Club of Australia · {CLUB_CONFIG.emailGeneral} · {CLUB_CONFIG.address}
         </div>
         <Row gap={10} justify="center">
           <Btn onClick={()=>window.print()}>🖨️ Print Confirmation</Btn>
@@ -4773,7 +4776,7 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
   }
   function openAddCar(){
     if(myCars.length>=MAX_CARS)return console.log(`Maximum ${MAX_CARS} vehicles reached`,"error");
-    setCarForm({make:"Rover",model:"",year:new Date().getFullYear(),colour:"",reg:"",chassis:"",status:"active",notes:""});
+    setCarForm({make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",reg:"",chassis:"",status:"active",notes:""});
     setCarModal("add");
   }
   async function saveCar(){
@@ -5004,8 +5007,7 @@ function PublicNav({ page, setPage, onLoginClick, pages }) {
         <button onClick={()=>navTo("home")} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
           <div style={{width:34,height:34,flexShrink:0}}><RccaLogo size={34}/></div>
           <div style={{textAlign:"left"}}>
-            <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"#ffffff",lineHeight:1.1}}>Rover Car Club</div>
-            <div style={{fontFamily:"var(--font-d)",fontSize:10,color:"rgba(255,255,255,.7)",fontStyle:"italic",lineHeight:1.1}}>of Australia</div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"#ffffff",lineHeight:1.1}}>{CLUB_CONFIG.name}</div>
           </div>
         </button>
 
@@ -5159,16 +5161,16 @@ function PublicFooter({ setPage }) {
           <div>
             <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:12}}>Contact</div>
             <div style={{fontSize:12.5,color:"var(--text3)",lineHeight:1.8}}>
-              secretary@rcca.com.au<br/>
-              PO Box 6049<br/>
-              Wantirna VIC 3152<br/>
+              {CLUB_CONFIG.emailGeneral}<br/>
+              {CLUB_CONFIG.address}<br/>
+              
               Australia
             </div>
           </div>
         </div>
         <div style={{borderTop:"1px solid var(--border)",paddingTop:16,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>© {yr} Rover Car Club of Australia. All rights reserved.</div>
-          <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>AOMC affiliated · VicRoads Club Permit Scheme approved</div>
+          <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>© {yr} {CLUB_CONFIG.name}. All rights reserved.</div>
+          <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>{CLUB_CONFIG.shortName} · Est. {CLUB_CONFIG.foundedYear}</div>
         </div>
       </div>
     </footer>
@@ -5348,7 +5350,7 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
         <div style={{marginTop:64,background:"linear-gradient(135deg,var(--burg-dk),var(--burg))",borderRadius:12,padding:"48px 40px",textAlign:"center",border:"1px solid var(--gold)",boxShadow:"0 0 60px rgba(107,26,42,.3)"}}>
           <h2 style={{fontFamily:"var(--font-d)",fontSize:32,color:"var(--gold3)",fontWeight:700,marginBottom:12}}>Become a Member</h2>
           <p style={{fontSize:14,color:"rgba(255,255,255,.75)",lineHeight:1.7,maxWidth:500,margin:"0 auto 28px"}}>
-            Join Australia's Rover community. City membership A$54/yr, Country/Interstate A$46/yr. New member joining fee A$20. Access to all club events, the members' portal, marketplace, and shop.
+            Join Australia's Rover community. Contact the club for current membership pricing. Access to all club events, the members' portal, marketplace, and shop.
           </p>
           <button onClick={()=>setPage("membership")} style={{background:"#ffffff",border:"2px solid #ffffff",borderRadius:8,padding:"14px 36px",color:"var(--burg-xdk)",fontFamily:"var(--font-b)",fontSize:15,fontWeight:700,cursor:"pointer"}}>
             📋 Apply Online Now
@@ -7258,7 +7260,7 @@ function ArchiveSection({user,archiveDocs,setArchiveDocs}) {
     const aiTags = [];
     if(form.title.toLowerCase().includes("agm")||form.title.toLowerCase().includes("annual")) aiTags.push("AGM");
     if(form.docType==="Meeting Minutes"||form.docType==="AGM Minutes") aiTags.push("Minutes");
-    if(form.docType==="Newsletter") aiTags.push("Newsletter","Viking Torque");
+    if(form.docType==="Newsletter") aiTags.push("Newsletter",CLUB_CONFIG.newsletterNames[0]);
     if(form.year) aiTags.push(form.year);
     if(form.roverModels?.length) aiTags.push(...form.roverModels);
     if(form.additionalTags) aiTags.push(...form.additionalTags.split(",").map(t=>t.trim()).filter(Boolean));
@@ -7939,8 +7941,7 @@ function App() {// ════════════════════�
                 <RccaLogo size={38} style={{width:"auto",height:38}}/>
               </div>
               <div>
-                <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--text)",lineHeight:1.15}}>Rover Car Club</div>
-                <div style={{fontFamily:"var(--font-d)",fontSize:10,color:"var(--burg)",fontStyle:"italic",lineHeight:1.2,fontWeight:600}}>of Australia</div>
+                <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--text)",lineHeight:1.15}}>{CLUB_CONFIG.name}</div>
               </div>
             </Row>
           </div>
@@ -8041,29 +8042,7 @@ function App() {// ════════════════════�
   // ── PUBLIC SITE ────────────────────────────────────────────────────────────
   return (
     <div style={{minHeight:"100vh",background:"var(--bg)"}}>
-      <div style={{
-          background:"#1a1a1a",borderBottom:"4px solid #c0282a",
-          padding:"10px 16px",textAlign:"center",position:"sticky",top:0,zIndex:2000
-        }}>
-          <div style={{
-            display:"inline-flex",alignItems:"center",gap:10,flexWrap:"wrap",justifyContent:"center",
-            fontSize:15,fontWeight:700,color:"#fff",fontFamily:"var(--font-b)",lineHeight:1.4,
-            maxWidth:960,margin:"0 auto"
-          }}>
-            <span style={{fontSize:22}}>⚠️</span>
-            <span>
-              <span style={{color:"#ffcc00",textTransform:"uppercase",letterSpacing:"0.05em",fontSize:16}}>Test Site Only</span>
-              <span style={{color:"rgba(255,255,255,.7)",fontWeight:400,margin:"0 8px"}}>—</span>
-              <span style={{color:"rgba(255,255,255,.9)",fontWeight:400}}>For official club information please visit the&nbsp;</span>
-              <a href="https://rovercarclubaust.asn.au" target="_blank" rel="noopener noreferrer"
-                style={{color:"#ffcc00",fontWeight:700,textDecoration:"underline",textUnderlineOffset:3}}>
-                Rover Car Club of Australia official website
-              </a>
-            </span>
-            <span style={{fontSize:22}}>⚠️</span>
-          </div>
-        </div>
-        <PublicNav page={publicPage} setPage={(p)=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)} pages={pages}/>
+      <PublicNav page={publicPage} setPage={(p)=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)} pages={pages}/>
       <div className="fade-in" key={publicPage+selectedArticle}>
         {publicPage==="home"   &&<PublicHome news={news} events={events} setPage={p=>{setPublicPage(p);setSelectedArticle(null);}} onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
         {publicPage==="about"  &&<PublicAbout onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
@@ -9162,7 +9141,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
 // ── VEHICLE SUBMIT MODAL ─────────────────────────────────────────────────────
 function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
-  const [form,setForm]=React.useState({reg:"",make:"Rover",model:"",year:new Date().getFullYear(),colour:"",chassis:"",notes:"",imgData:null,imgName:""});
+  const [form,setForm]=React.useState({reg:"",make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",chassis:"",notes:"",imgData:null,imgName:""});
   const [scanning,setScanning]=React.useState(false);
   const [scanned,setScanned]=React.useState(false);
   const [submitting,setSubmitting]=React.useState(false);
@@ -10623,7 +10602,7 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
     <!-- Header -->
     <div style="background:linear-gradient(135deg,#5c0c0e,#8f1a1c);padding:32px 32px 24px;text-align:center">
       <div style="font-size:11px;letter-spacing:0.2em;color:rgba(255,255,255,.7);margin-bottom:4px">ROVER CAR CLUB OF AUSTRALIA</div>
-      <div style="font-size:28px;font-weight:700;color:white;margin-bottom:4px">Viking Torque</div>
+      <div style="font-size:28px;font-weight:700;color:white;margin-bottom:4px">${CLUB_CONFIG.newsletterNames[0]}</div>
       <div style="font-size:13px;color:rgba(255,255,255,.8);font-style:italic">${monthYear()} Newsletter</div>
     </div>
     <!-- Body -->
@@ -10664,8 +10643,8 @@ function NewsletterBuilder({user,members,events,books,archiveDocs,listings,parts
     <!-- Footer -->
     <div style="background:#1a1210;padding:20px 32px;text-align:center">
       <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.8">
-        Rover Car Club of Australia · Est. 1964 · Melbourne<br/>
-        <a href="https://rcca.netlify.app" style="color:#c9922a">rcca.netlify.app</a> · Member portal login required to view full content
+        {CLUB_CONFIG.name} · Est. {CLUB_CONFIG.foundedYear}<br/>
+        <a href="https://${CLUB_CONFIG.website}" style="color:#c9922a">${CLUB_CONFIG.website}</a> · Member portal login required to view full content
       </div>
     </div>
   </div>
