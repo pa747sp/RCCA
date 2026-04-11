@@ -5793,25 +5793,19 @@ function PublicMembership({ onLoginClick, onApply }) {
         <div style={{marginBottom:56}}>
           <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.15em",marginBottom:10}}>Membership Types</div>
           <h2 style={{fontFamily:"var(--font-d)",fontSize:30,color:"var(--text)",fontWeight:700,marginBottom:24}}>Choose your membership</h2>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:20,marginBottom:20}}>
-            {[
-              {type:"City Membership",price:"A$54",period:"per year",desc:"For members in the Melbourne metropolitan area. Full voting rights and all club benefits including newsletter, technical library access, and discounted event entry.",badge:"Most Popular"},
-              {type:"Country & Interstate",price:"A$46",period:"per year",desc:"For members outside the Melbourne metropolitan area. Same benefits as City membership — newsletter, technical support, and access to all national events.",badge:""},
-              {type:"Life Membership",price:"By invitation",period:"",desc:"Awarded by the committee to members who have given exceptional service to the club over many years.",badge:""},
-            ].map(m=>(
-              <div key={m.type} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,position:"relative",boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
-                {m.badge&&<div style={{position:"absolute",top:-12,left:20,background:"var(--burg)",color:"#ffffff",fontSize:10,fontFamily:"var(--font-m)",fontWeight:700,padding:"3px 10px",borderRadius:10,letterSpacing:"0.06em"}}>{m.badge}</div>}
-                <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--text)",fontWeight:700,marginBottom:8}}>{m.type}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
+            {CLUB_CONFIG.membershipTypes.filter(t=>t.availableToNew).map(t=>(
+              <div key={t.id} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
+                <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--text)",fontWeight:700,marginBottom:8}}>{t.label}</div>
                 <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:12}}>
-                  <span style={{fontFamily:"var(--font-d)",fontSize:32,color:"var(--burg)",fontWeight:700}}>{m.price}</span>
-                  {m.period&&<span style={{fontSize:13,color:"var(--text3)"}}>{m.period}</span>}
+                  <span style={{fontFamily:"var(--font-d)",fontSize:32,color:"var(--burg)",fontWeight:700}}>
+                    {t.pricingNew>0?`A$${t.pricingNew}`:"Contact us"}
+                  </span>
+                  {t.pricingNew>0&&<span style={{fontSize:13,color:"var(--text3)"}}>per year</span>}
                 </div>
-                <div style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.7}}>{m.desc}</div>
+                <div style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.7}}>{t.description}</div>
               </div>
             ))}
-          </div>
-          <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:16,fontSize:13,color:"var(--text3)"}}>
-            A once-only joining fee of <strong style={{color:"var(--text)"}}>A$20</strong> applies for all new members.
           </div>
         </div>
 
