@@ -738,7 +738,7 @@ function LoginScreen({ members, onLogin }) {
         <Card style={{padding:28,background:"linear-gradient(135deg,var(--bg2),var(--bg3))",boxShadow:"0 20px 80px rgba(0,0,0,.7), inset 0 1px 0 rgba(201,146,42,.1)"}}>
           <Field label="Email Address">
             <Input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
-              placeholder="member@rcca.com.au" onKeyDown={e=>e.key==="Enter"&&go()}/>
+              placeholder="" onKeyDown={e=>e.key==="Enter"&&go()}/>
           </Field>
           <Field label="Password">
             <Input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}}
