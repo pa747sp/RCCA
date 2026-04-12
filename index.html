@@ -7524,9 +7524,8 @@ function MembershipTypesSection({ user, members, dues }) {
   const memberCount = (typeId) =>
     (members || []).filter(m => m.status === "active" && (m.memberType || "").toLowerCase() === typeId.toLowerCase()).length;
 
-  const active    = types.filter(t => t.status === "active").length;
-  const suspended = types.filter(t => t.status === "suspended").length;
-  const revoked   = types.filter(t => t.status === "revoked").length;
+  const active   = types.filter(t => t.status === "active").length;
+  const inactive = types.filter(t => t.status === "inactive").length;
 
   function openAdd() {
     setForm({
@@ -7567,18 +7566,13 @@ function MembershipTypesSection({ user, members, dues }) {
     setModal(null);
   }
 
-  async function handleSuspend(t) {
-    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "suspended" } : x));
+  async function handleDeactivate(t) {
+    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "inactive" } : x));
     setConfirmAction(null);
   }
 
-  async function handleReinstate(t) {
+  async function handleActivate(t) {
     await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "active" } : x));
-  }
-
-  async function handleRevoke(t) {
-    await saveTypes(types.map(x => x.id === t.id ? { ...x, status: "revoked" } : x));
-    setConfirmAction(null);
   }
 
   async function handleDelete(t) {
@@ -7589,11 +7583,10 @@ function MembershipTypesSection({ user, members, dues }) {
 
   const statusBadge = (status) => {
     const map = {
-      active:    { bg: "#d4f0e0", color: "#1a6040", border: "#a0d8b8", label: "ACTIVE" },
-      suspended: { bg: "#fdecd0", color: "#7a4010", border: "#f0c890", label: "SUSPENDED" },
-      revoked:   { bg: "#fdd8d8", color: "#8f1a1a", border: "#f0a8a8", label: "REVOKED" },
+      active:   { bg: "#d4f0e0", color: "#1a6040", border: "#a0d8b8", label: "ACTIVE" },
+      inactive: { bg: "#ebebeb", color: "#555",     border: "#ccc",    label: "INACTIVE" },
     };
-    const s = map[status] || map.active;
+    const s = map[status] || map.inactive;
     return (
       <span style={{ background: s.bg, color: s.color, border: `1px solid ${s.border}`,
         fontSize: 9.5, fontFamily: "var(--font-m)", padding: "2px 8px",
@@ -7620,11 +7613,10 @@ function MembershipTypesSection({ user, members, dues }) {
         subtitle={`${types.length} type${types.length !== 1 ? "s" : ""} configured`}
         action={<Btn onClick={openAdd}>+ Add Type</Btn>}
       />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10, marginBottom: 22 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 22 }}>
         <StatCard label="Total Types" value={types.length} icon="◈" />
         <StatCard label="Active"      value={active}       icon="●" colour="var(--green2)" />
-        <StatCard label="Suspended"   value={suspended}    icon="⏸" colour="var(--gold2)" />
-        <StatCard label="Revoked"     value={revoked}      icon="✕" colour="var(--red2)" />
+        <StatCard label="Inactive"    value={inactive}     icon="○" colour="var(--text3)" />
       </div>
 
       {types.length === 0 && (
@@ -7634,12 +7626,11 @@ function MembershipTypesSection({ user, members, dues }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
         {types.map(t => {
           const count = memberCount(t.id);
-          const isRevoked   = t.status === "revoked";
-          const isSuspended = t.status === "suspended";
+          const isInactive = t.status === "inactive";
           return (
             <Card key={t.id} style={{
-              padding: 0, overflow: "hidden", opacity: isRevoked ? 0.6 : 1,
-              borderTop: `3px solid ${isRevoked ? "var(--red2)" : isSuspended ? "var(--gold)" : "var(--burg)"}`,
+              padding: 0, overflow: "hidden", opacity: isInactive ? 0.6 : 1,
+              borderTop: `3px solid ${isInactive ? "var(--border2)" : "var(--burg)"}`,
             }}>
               <div style={{ padding: 18 }}>
                 <Row justify="space-between" align="flex-start" style={{ marginBottom: 10 }}>
@@ -7684,13 +7675,10 @@ function MembershipTypesSection({ user, members, dues }) {
                 <Row gap={6} wrap>
                   <Btn variant="ghost" size="sm" onClick={() => openEdit(t)}>Edit</Btn>
                   {t.status === "active" && (
-                    <Btn variant="ghost" size="sm" onClick={() => setConfirmAction({ type: "suspend", target: t })}>Suspend</Btn>
+                    <Btn variant="ghost" size="sm" onClick={() => setConfirmAction({ type: "deactivate", target: t })}>Deactivate</Btn>
                   )}
-                  {t.status === "suspended" && (
-                    <Btn variant="success" size="sm" onClick={() => handleReinstate(t)}>Reinstate</Btn>
-                  )}
-                  {t.status !== "revoked" && (
-                    <Btn variant="danger" size="sm" onClick={() => setConfirmAction({ type: "revoke", target: t })}>Revoke</Btn>
+                  {t.status === "inactive" && (
+                    <Btn variant="success" size="sm" onClick={() => handleActivate(t)}>Activate</Btn>
                   )}
                   {count === 0 && (
                     <Btn variant="danger" size="sm" onClick={() => setConfirmAction({ type: "delete", target: t })}>Delete</Btn>
@@ -7773,8 +7761,7 @@ function MembershipTypesSection({ user, members, dues }) {
             <Field label="Status">
               <Select value={form.status || "active"} onChange={e => setForm({ ...form, status: e.target.value })}>
                 <option value="active">Active</option>
-                <option value="suspended">Suspended (no new sign-ups)</option>
-                <option value="revoked">Revoked</option>
+                <option value="inactive">Inactive</option>
               </Select>
             </Field>
           )}
@@ -7785,19 +7772,11 @@ function MembershipTypesSection({ user, members, dues }) {
         </Modal>
       )}
 
-      {confirmAction?.type === "suspend" && (
+      {confirmAction?.type === "deactivate" && (
         <Confirm
-          message={`Suspend "${confirmAction.target.label}"? New sign-ups will be blocked. Existing members are unaffected.`}
-          confirmLabel="Suspend" variant="danger"
-          onConfirm={() => handleSuspend(confirmAction.target)}
-          onCancel={() => setConfirmAction(null)}
-        />
-      )}
-      {confirmAction?.type === "revoke" && (
-        <Confirm
-          message={`Revoke "${confirmAction.target.label}"? The ${memberCount(confirmAction.target.id)} member${memberCount(confirmAction.target.id) !== 1 ? "s" : ""} on this type will need to be reassigned.`}
-          confirmLabel="Revoke" variant="danger"
-          onConfirm={() => handleRevoke(confirmAction.target)}
+          message={`Deactivate "${confirmAction.target.label}"? It will no longer appear as an option for new sign-ups. Existing members are unaffected.`}
+          confirmLabel="Deactivate" variant="danger"
+          onConfirm={() => handleDeactivate(confirmAction.target)}
           onCancel={() => setConfirmAction(null)}
         />
       )}
