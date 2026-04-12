@@ -9483,6 +9483,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   const [expForm,setExpForm]=useState({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   const [settForm,setSettForm]=useState(fs);
   const [invView,setInvView]=useState(null);
+  const [settSaved,setSettSaved]=useState(false);
 
   const fyStart = ()=>{ const d=new Date(); return d.getMonth()>=6?d.getFullYear():d.getFullYear()-1; };
   const fyLabel = ()=>{ const s=fyStart(); return `${s}–${s+1}`; };
@@ -9515,7 +9516,8 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   }
   async function delExpense(id){ const u=(expenses||[]).filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
   async function saveSettings(){
-    setFinSettings(settForm); await dbSet(SK.finSettings,settForm); setModal(null);
+    setFinSettings(settForm); await dbSet(SK.finSettings,settForm);
+    setSettSaved(true); setTimeout(()=>setSettSaved(false),2500);
   }
 
   function buildInvoice(item){
@@ -9837,7 +9839,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
               <input type="checkbox" checked={!!settForm.gstRegistered} onChange={e=>setSettForm({...settForm,gstRegistered:e.target.checked})} style={{width:18,height:18,accentColor:"var(--burg)"}}/>
               GST Registered (10% GST shown on invoices)
             </label>
-            <Btn onClick={saveSettings}>Save Settings</Btn>
+            <Btn onClick={saveSettings}>{settSaved?"✓ Saved":"Save Settings"}</Btn>
           </Card>
 
           <Card style={{padding:24}}>
@@ -9895,7 +9897,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
                     <Field label="Payment URL"><Input value={onl.url||""} onChange={e=>setPM("online",{...onl,url:e.target.value})} placeholder="https://..."/></Field>
                   </>)}
                 </div>
-                <Btn onClick={saveSettings}>Save Payment Settings</Btn>
+                <Btn onClick={saveSettings}>{settSaved?"✓ Saved":"Save Payment Settings"}</Btn>
               </>);
             })()}
           </Card>
