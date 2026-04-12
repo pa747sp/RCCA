@@ -199,6 +199,7 @@ const SK = {
 // ── Default Site Content ──────────────────────────────────────────────────────
 const DEFAULT_SITE_CONTENT = {
   hero: {
+    name: CLUB_CONFIG.name,
     tagline: CLUB_CONFIG.name + " — connecting enthusiasts, collectors, and restorers across Australia.",
     ctaLabel: "Members Login",
     ctaSecondary: "About the Club",
@@ -5209,13 +5210,10 @@ function PublicHome({ news, events, setPage, onLoginClick, siteContent }) {
         borderBottom:"1px solid var(--border)"
       }} className="fade-up">
         <div style={{maxWidth:700,margin:"0 auto"}}>
-          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",letterSpacing:"0.3em",textTransform:"uppercase",marginBottom:14}}>Est. 1964</div>
-          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(32px,5vw,60px)",fontWeight:700,color:"var(--burg-xdk)",lineHeight:1.08,margin:"0 0 4px",letterSpacing:"0.04em"}}>
-            Rover Car Club
+          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",letterSpacing:"0.3em",textTransform:"uppercase",marginBottom:14}}>Est. {CLUB_CONFIG.foundedYear}</div>
+          <h1 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(28px,4.5vw,56px)",fontWeight:700,color:"var(--burg-xdk)",lineHeight:1.1,margin:"0 0 20px",letterSpacing:"0.04em"}}>
+            {sc.hero.name||CLUB_CONFIG.name}
           </h1>
-          <h2 style={{fontFamily:"var(--font-c,'Cinzel',serif)",fontSize:"clamp(18px,3vw,36px)",fontWeight:400,color:"var(--gold)",margin:"0 0 20px",letterSpacing:"0.08em"}}>
-            of Australia
-          </h2>
           <p style={{fontSize:16,color:"var(--text2)",lineHeight:1.75,maxWidth:540,margin:"0 auto 32px"}}>
             {sc.hero.tagline}
           </p>
@@ -6643,7 +6641,13 @@ function SiteContentSection({ siteContent, setSiteContent }) {
             <div style={sectionStyle}>
               <h3 style={{fontFamily:"var(--font-d)",fontSize:18,color:"var(--gold3)",marginBottom:18,fontWeight:600}}>Hero Section</h3>
               <div style={{marginBottom:16}}>
-                <label style={labelStyle}>Tagline / Subtitle</label>
+                <label style={labelStyle}>Club Name</label>
+                <input style={inputStyle} value={local.hero.name||""}
+                  onChange={e=>setLocal({...local,hero:{...local.hero,name:e.target.value}})}/>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:4}}>Displayed as the large heading on the homepage. Defaults to the club name in config.</div>
+              </div>
+              <div style={{marginBottom:16}}>
+                <label style={labelStyle}>Tagline</label>
                 <textarea rows={3} style={inputStyle} value={local.hero.tagline}
                   onChange={e=>setLocal({...local,hero:{...local.hero,tagline:e.target.value}})}/>
                 <div style={{fontSize:11,color:"var(--text4)",marginTop:4}}>Appears beneath the club name on the homepage hero.</div>
