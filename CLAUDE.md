@@ -213,3 +213,99 @@ The following have been discussed or are logical next steps based on current wor
 - The file is already large (~16k lines). Consider whether any new major features belong in a separate script block (Block 3 is the natural extension point)
 - Babel Standalone processes blocks independently — function names declared in Block 1 are available in Blocks 2 and 3 via the global scope (no imports needed)
 - `uid("PREFIX")` generates IDs; `today` is a `const` string `YYYY-MM-DD`; `yr` is the current year number
+
+---
+
+## TorqueClub Platform Context
+
+This portal is not a single-club app — it is the foundation of **TorqueClub**, a multi-tenant SaaS platform for Australian vehicle enthusiast clubs.
+
+- The `demo` branch is the **master template** — all new feature development happens here
+- Each club gets their own Netlify deployment pointing at this codebase with their own `CLUB_CONFIG`
+- Club data is isolated by `clubId` in storage keys (e.g. `"rcca:"`, `"demo:"`)
+- The `main` branch is the legacy RCCA live site — currently frozen, no active development
+- `tc-home` branch is planned for the TorqueClub marketing/home site — not yet started
+
+### Pricing tiers
+- **TC (Club):** A$120/year — core portal features
+- **TC+ (Club Plus):** A$200/year — additional features (TBD)
+
+### Planned club onboarding flow (not yet built)
+1. Club signs up on TC marketing site
+2. Fills in club details
+3. System provisions: Firestore namespace, Netlify deploy, subdomain, Firebase Auth tenant
+4. Club admin receives login credentials
+
+---
+
+## Firebase Migration (Planned — Not Started)
+
+Currently all data uses localStorage via `dbGet`/`dbSet`. Firebase migration is the next major architectural milestone.
+
+**Firebase project:** `torqueclub-eff69`
+**Region:** australia-southeast1
+**Plan:** Spark (free tier)
+**Status:** Firestore and Auth enabled, Storage deferred (region conflict on free tier)
+
+### Phase 1 — Firestore (replaces localStorage)
+- Swap `dbGet`/`dbSet` to read/write Firestore
+- All storage keys remain the same, just backed by Firestore instead of localStorage
+- Multi-tenancy via `clubId` namespace (already designed for this)
+
+### Phase 2 — Firebase Auth (replaces current login)
+- Replace hardcoded email/password login with Firebase Auth
+- Password reset and email verification handled automatically
+
+### Phase 3 — Data migration
+- Script to move existing localStorage data into Firestore
+
+---
+
+## Domains & Infrastructure
+
+| Domain | Status | Purpose |
+|---|---|---|
+| torqueclub-demo.netlify.app | Live | Demo portal (fallback URL) |
+| demo.torqueclub.com.au | Live | Demo portal (primary URL) |
+| torqueclub.com.au | Registered, unused | TC marketing site (planned) |
+| torqueclub.au | Registered, unused | TC marketing site (redirect) |
+
+**Registrar:** VentraIP
+**Hosting:** Netlify (free tier)
+**Email:** Zoho Mail free tier planned for @torqueclub.com.au addresses
+
+---
+
+## Super Admin Portal (Planned — Not Started)
+
+A separate interface for Nick as platform operator, separate from individual club portals.
+
+**Planned URL:** admin.torqueclub.com.au
+
+**Features:**
+- Add and remove clubs
+- View all tenants and their status (active/trial/suspended)
+- Member counts per club
+- Enable/disable features per club (TC vs TC+)
+- Manage billing status
+- Platform-wide analytics
+
+Requires Firebase to be in place first — each club is a namespace in Firestore, super admin reads across all namespaces.
+
+---
+
+## Git Branch Strategy
+
+| Branch | Purpose | Status |
+|---|---|---|
+| main | Legacy RCCA live site | Frozen — no active development |
+| demo | Master template / active development | All new work goes here |
+| tc-home | TorqueClub marketing site | Planned, not started |
+
+**Deploy workflow:**
+```bash
+git add index.html
+git commit -m "Description"
+git push origin demo
+```
+Netlify auto-deploys on push. No build step required.
