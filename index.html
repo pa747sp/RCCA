@@ -210,6 +210,7 @@ const SK = {
   partsCatalogue:_id+":partsCatalogue",
   partsEOI:_id+":partsEOI",
   invoices:_id+":invoices",
+  accountSettings:_id+":accountSettings",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -2127,7 +2128,7 @@ function migrateAgendaItems(meeting) {
   }));
 }
 
-function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps }) {
+function MeetingsSection({ user, members, meetings, setMeetings, rsvps, setRsvps, accountSettings }) {
   const isAdmin = user.role === "admin";
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -2479,7 +2480,7 @@ ${itemsHTML}
               <Field label="Date" half><Input type="date" value={form.date||today} onChange={e=>setForm({...form,date:e.target.value})}/></Field>
               <Field label="Time" half><Input type="time" value={form.time||"19:00"} onChange={e=>setForm({...form,time:e.target.value})}/></Field>
             </Row>
-            <Field label="Location"><Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Venue name and address"/></Field>
+            <Field label="Location">{(()=>{const venues=(accountSettings&&accountSettings.venues)||[];if(!venues.length)return<Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Venue name and address"/>;const isCustom=!venues.find(v=>v.name===form.location);return(<div style={{display:"flex",flexDirection:"column",gap:6}}><Select value={isCustom?"__custom__":form.location} onChange={e=>{if(e.target.value==="__custom__")setForm({...form,location:""});else setForm({...form,location:e.target.value});}}><option value="">— Select a venue —</option>{venues.map(v=><option key={v.id} value={v.name}>{v.name}</option>)}<option value="__custom__">Other (enter manually)…</option></Select>{isCustom&&<Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Enter venue name and address"/>}</div>);})()}</Field>
             <Row gap={12} wrap style={{justifyContent:"space-between"}}>
               <Field label="Type" half>
                 <Select value={form.type||"general"} onChange={e=>setForm({...form,type:e.target.value})}>
@@ -2930,7 +2931,7 @@ Generated: ${new Date().toLocaleString("en-AU")}`;
 // ══════════════════════════════════════════════════════════════════════════════
 // EVENTS
 // ══════════════════════════════════════════════════════════════════════════════
-function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, checkins, setCheckins, tripLogs, setTripLogs, archiveDocs, setArchiveDocs, tasks, setTasks, cars }) {
+function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, checkins, setCheckins, tripLogs, setTripLogs, archiveDocs, setArchiveDocs, tasks, setTasks, cars, accountSettings }) {
   const isAdmin=user.role==="admin";
   const [modal,setModal]=useState(null);
   const [form,setForm]=useState({});
@@ -3104,7 +3105,7 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
       {(modal==="add"||modal?.edit)&&<Modal title={modal==="add"?"Create Event":"Edit Event"} onClose={()=>setModal(null)} wide>
         <Field label="Event Title"><Input value={form.title||""} onChange={e=>setForm({...form,title:e.target.value})}/></Field>
         <Row gap={12} wrap style={{justifyContent:"space-between"}}><Field label="Date" half><Input type="date" value={form.date||""} onChange={e=>setForm({...form,date:e.target.value})}/></Field><Field label="Time" half><Input type="time" value={form.time||""} onChange={e=>setForm({...form,time:e.target.value})}/></Field></Row>
-        <Field label="Location"><Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})}/></Field>
+        <Field label="Location">{(()=>{const venues=(accountSettings&&accountSettings.venues)||[];if(!venues.length)return<Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="e.g. Club Rooms, Melbourne"/>;const isCustom=!venues.find(v=>v.name===form.location);return(<div style={{display:"flex",flexDirection:"column",gap:6}}><Select value={isCustom?"__custom__":form.location} onChange={e=>{if(e.target.value==="__custom__")setForm({...form,location:""});else setForm({...form,location:e.target.value});}}><option value="">— Select a venue —</option>{venues.map(v=><option key={v.id} value={v.name}>{v.name}</option>)}<option value="__custom__">Other (enter manually)…</option></Select>{isCustom&&<Input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Enter venue name and address"/>}</div>);})()}</Field>
         <Row gap={12} wrap style={{justifyContent:"space-between"}}>
           <Field label="Type" half><Select value={form.type||"show"} onChange={e=>setForm({...form,type:e.target.value})}>{["show","drive","social","charity","competition"].map(t=><option key={t}>{t}</option>)}</Select></Field>
           <Field label="Max Attendees" half><Input type="number" value={form.maxAttendees||""} onChange={e=>setForm({...form,maxAttendees:Number(e.target.value)||""})} placeholder="0 = unlimited"/></Field>
@@ -8530,16 +8531,17 @@ function App() {// ════════════════════�
   const [partsCatalogue,setPartsCatalogue]=useState([]);
   const [partsEOI,setPartsEOI]=useState([]);
   const [invoices,setInvoices]=useState([]);
+  const [accountSettings,setAccountSettings]=useState(null);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv,accs]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
         dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents),dbGet(SK.polls),
         dbGet(SK.partsCatalogue),dbGet(SK.partsEOI),
-        dbGet(SK.invoices)
+        dbGet(SK.invoices),dbGet(SK.accountSettings)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -8575,6 +8577,7 @@ function App() {// ════════════════════�
       setPartsCatalogue(Array.isArray(pcat)?pcat:[]);
       setPartsEOI(Array.isArray(peoi)?peoi:[]);
       setInvoices(Array.isArray(inv)?inv:[]);
+      setAccountSettings(accs||null);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -8612,7 +8615,7 @@ function App() {// ════════════════════�
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -8641,6 +8644,7 @@ function App() {// ════════════════════�
     { id:"recognition",  label:"Recognition",      icon:"🏆" },
     { divider: true, label: "Administration" },
     { id:"administration",label:"Administration",  icon:"⚙" },
+    { id:"account",       label:"Account",         icon:"🏛" },
     { divider: true },
     { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
@@ -8763,6 +8767,7 @@ function App() {// ════════════════════�
             {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
             {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
+            {tab==="account"      &&user.role==="admin"&&<AccountSection {...sp}/>}
             {tab==="contacts"   &&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
@@ -12343,6 +12348,382 @@ function WebsiteSection(sp) {
       {tab==="newsletter"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
       {tab==="pages"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
       {tab==="gallery"&&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
+    </div>
+  );
+}
+
+// ── ACCOUNT SECTION ──────────────────────────────────────────────────────────
+function AccountSection({accountSettings,setAccountSettings,partsInventory,setPartsInventory}) {
+  const AUS_STATES=["ACT","NSW","NT","QLD","SA","TAS","VIC","WA"];
+  const FY_OPTIONS=[{v:"06-30",l:"30 June (most common)"},{v:"12-31",l:"31 December"},{v:"03-31",l:"31 March"},{v:"09-30",l:"30 September"}];
+
+  const DEFAULT_ACCT={
+    registeredName:CLUB_CONFIG.name, tradingName:"", abn:CLUB_CONFIG.abn||"", acn:"",
+    incorporationNumber:"", stateOfIncorporation:CLUB_CONFIG.state||"VIC", foundedYear:String(CLUB_CONFIG.foundedYear||""), financialYearEnd:"06-30",
+    logo:null,
+    primaryColour:getComputedStyle(document.documentElement).getPropertyValue("--burg").trim()||"#c0282a",
+    secondaryColour:getComputedStyle(document.documentElement).getPropertyValue("--gold").trim()||"#8f1a1c",
+    accentColour:getComputedStyle(document.documentElement).getPropertyValue("--burg-dk").trim()||"#8f1a1c",
+    postalStreet:CLUB_CONFIG.address||"", postalSuburb:"", postalState:CLUB_CONFIG.state||"VIC", postalPostcode:"",
+    physicalStreet:"", physicalSuburb:"", physicalState:"VIC", physicalPostcode:"",
+    phone:CLUB_CONFIG.phone||"", emailGeneral:CLUB_CONFIG.emailGeneral||"", website:CLUB_CONFIG.website||"",
+    facebook:"", instagram:"", youtube:"", twitter:"",
+    emailMembership:CLUB_CONFIG.emailMembership||"", emailEvents:CLUB_CONFIG.emailEvents||"",
+    emailTech:CLUB_CONFIG.emailTech||"", emailMerchandise:CLUB_CONFIG.emailMerchandise||"", emailNewsletter:"",
+    venues:[], storageLocations:[],
+  };
+
+  const [tab,setTab]=React.useState("identity");
+  const [form,setForm]=React.useState(accountSettings||DEFAULT_ACCT);
+  const [saved,setSaved]=React.useState(false);
+  const [venueModal,setVenueModal]=React.useState(null);
+  const [venueForm,setVenueForm]=React.useState({});
+  const [storageModal,setStorageModal]=React.useState(null);
+  const [storageForm,setStorageForm]=React.useState({});
+
+  React.useEffect(()=>{setForm(accountSettings||DEFAULT_ACCT);},[accountSettings]);
+
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  async function handleSave(){
+    const updated={...form};
+    await dbSet(SK.accountSettings,updated);
+    setAccountSettings(updated);
+    // Apply live CLUB_CONFIG updates
+    if(updated.registeredName) CLUB_CONFIG.name=updated.registeredName;
+    if(updated.abn) CLUB_CONFIG.abn=updated.abn;
+    if(updated.foundedYear) CLUB_CONFIG.foundedYear=Number(updated.foundedYear)||CLUB_CONFIG.foundedYear;
+    if(updated.stateOfIncorporation) CLUB_CONFIG.state=updated.stateOfIncorporation;
+    if(updated.phone) CLUB_CONFIG.phone=updated.phone;
+    if(updated.emailGeneral) CLUB_CONFIG.emailGeneral=updated.emailGeneral;
+    if(updated.website) CLUB_CONFIG.website=updated.website;
+    if(updated.emailMembership) CLUB_CONFIG.emailMembership=updated.emailMembership;
+    if(updated.emailEvents) CLUB_CONFIG.emailEvents=updated.emailEvents;
+    if(updated.emailTech) CLUB_CONFIG.emailTech=updated.emailTech;
+    if(updated.emailMerchandise) CLUB_CONFIG.emailMerchandise=updated.emailMerchandise;
+    // Apply CSS variable colours
+    if(updated.primaryColour){
+      document.documentElement.style.setProperty("--burg",updated.primaryColour);
+      document.documentElement.style.setProperty("--burg2",updated.primaryColour+"cc");
+    }
+    if(updated.secondaryColour){
+      document.documentElement.style.setProperty("--gold",updated.secondaryColour);
+      document.documentElement.style.setProperty("--gold2",updated.secondaryColour);
+    }
+    if(updated.accentColour){
+      document.documentElement.style.setProperty("--burg-dk",updated.accentColour);
+    }
+    setSaved(true); setTimeout(()=>setSaved(false),2500);
+  }
+
+  // Venue helpers
+  function openNewVenue(){ setVenueForm({id:uid("VN"),name:"",address:"",suburb:"",state:"VIC",postcode:"",notes:"",mapsUrl:""}); setVenueModal("new"); }
+  function openEditVenue(v){ setVenueForm({...v}); setVenueModal("edit"); }
+  async function saveVenue(){
+    const venues=Array.isArray(form.venues)?form.venues:[];
+    const updated=venueModal==="edit"?venues.map(v=>v.id===venueForm.id?venueForm:v):[...venues,venueForm];
+    setForm(p=>({...p,venues:updated}));
+    await dbSet(SK.accountSettings,{...form,venues:updated});
+    setAccountSettings({...form,venues:updated});
+    setVenueModal(null);
+  }
+  async function deleteVenue(id){
+    const updated=(form.venues||[]).filter(v=>v.id!==id);
+    setForm(p=>({...p,venues:updated}));
+    await dbSet(SK.accountSettings,{...form,venues:updated});
+    setAccountSettings({...form,venues:updated});
+  }
+
+  // Storage helpers
+  function openNewStorage(){ setStorageForm({id:uid("SL"),name:"",address:"",suburb:"",state:"VIC",postcode:"",contact:"",phone:"",notes:""}); setStorageModal("new"); }
+  function openEditStorage(s){ setStorageForm({...s}); setStorageModal("edit"); }
+  async function saveStorage(){
+    const locs=Array.isArray(form.storageLocations)?form.storageLocations:[];
+    const updated=storageModal==="edit"?locs.map(s=>s.id===storageForm.id?storageForm:s):[...locs,storageForm];
+    setForm(p=>({...p,storageLocations:updated}));
+    await dbSet(SK.accountSettings,{...form,storageLocations:updated});
+    setAccountSettings({...form,storageLocations:updated});
+    setStorageModal(null);
+  }
+  async function deleteStorage(id){
+    const updated=(form.storageLocations||[]).filter(s=>s.id!==id);
+    setForm(p=>({...p,storageLocations:updated}));
+    await dbSet(SK.accountSettings,{...form,storageLocations:updated});
+    setAccountSettings({...form,storageLocations:updated});
+  }
+
+  const tabs=[
+    {id:"identity",  label:"Club Identity"},
+    {id:"branding",  label:"Branding"},
+    {id:"contact",   label:"Contact Details"},
+    {id:"emails",    label:"Departmental Emails"},
+    {id:"venues",    label:"Venues"},
+    {id:"storage",   label:"Storage Locations"},
+  ];
+
+  const SLabel=({children})=><div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)"}}>{children}</div>;
+  const SInput=({label,value,onChange,placeholder,type,half,hint})=>(
+    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
+      <SLabel>{label}</SLabel>
+      <input type={type||"text"} value={value||""} onChange={onChange} placeholder={placeholder||""}
+        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"}}/>
+      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
+    </div>
+  );
+  const SSelect=({label,value,onChange,children,half})=>(
+    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
+      <SLabel>{label}</SLabel>
+      <select value={value||""} onChange={onChange}
+        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"}}>
+        {children}
+      </select>
+    </div>
+  );
+  const SColor=({label,value,onChange,hint})=>(
+    <div style={{flex:"1 1 calc(33% - 8px)",minWidth:140,marginBottom:16}}>
+      <SLabel>{label}</SLabel>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <input type="color" value={value||"#000000"} onChange={onChange}
+          style={{width:42,height:38,padding:2,border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",background:"none"}}/>
+        <input type="text" value={value||""} onChange={onChange}
+          style={{flex:1,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-m)"}}/>
+      </div>
+      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
+    </div>
+  );
+
+  const SaveBar=()=>(
+    <div style={{marginTop:28,paddingTop:20,borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:14}}>
+      <button onClick={handleSave} style={{padding:"10px 28px",background:"var(--burg)",color:"white",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)"}}>Save Changes</button>
+      {saved&&<span style={{color:"#2a7a2a",fontWeight:600,fontSize:13}}>✓ Saved</span>}
+    </div>
+  );
+
+  return (
+    <div>
+      <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
+      <div style={{maxWidth:820,padding:"28px 24px"}}>
+
+        {/* TAB 1 — CLUB IDENTITY */}
+        {tab==="identity"&&(
+          <div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Legal and registration details for your club.</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Registered Name" value={form.registeredName} onChange={e=>f("registeredName",e.target.value)} placeholder="Full legal name" hint="The name your club is incorporated under"/>
+              <SInput label="Trading Name" value={form.tradingName} onChange={e=>f("tradingName",e.target.value)} placeholder="Trading / known as name"/>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="ABN" value={form.abn} onChange={e=>f("abn",e.target.value)} placeholder="XX XXX XXX XXX" half/>
+              <SInput label="ACN" value={form.acn} onChange={e=>f("acn",e.target.value)} placeholder="XXX XXX XXX" half/>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Incorporation Number" value={form.incorporationNumber} onChange={e=>f("incorporationNumber",e.target.value)} placeholder="e.g. A0012345T" half/>
+              <SSelect label="State of Incorporation" value={form.stateOfIncorporation} onChange={e=>f("stateOfIncorporation",e.target.value)} half>
+                <option value="">— Select state —</option>
+                {AUS_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </SSelect>
+            </div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Founded Year" value={form.foundedYear} onChange={e=>f("foundedYear",e.target.value)} placeholder="e.g. 1965" half type="number"/>
+              <SSelect label="Financial Year End" value={form.financialYearEnd} onChange={e=>f("financialYearEnd",e.target.value)} half>
+                {FY_OPTIONS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+              </SSelect>
+            </div>
+            <SaveBar/>
+          </div>
+        )}
+
+        {/* TAB 2 — BRANDING */}
+        {tab==="branding"&&(
+          <div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Club logo and colour scheme. Colours update the portal theme immediately on save.</div>
+            <SLabel>Club Logo</SLabel>
+            <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:20}}>
+              {form.logo&&<img src={form.logo} alt="Club logo" style={{height:72,width:"auto",maxWidth:200,objectFit:"contain",border:"1px solid var(--border)",borderRadius:8,padding:6,background:"white"}}/>}
+              <div>
+                <label style={{display:"inline-block",padding:"8px 18px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",fontSize:13,fontWeight:600,color:"var(--text2)",fontFamily:"var(--font-b)"}}>
+                  {form.logo?"Change Logo":"Upload Logo"}
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>f("logo",ev.target.result);r.readAsDataURL(file);}}/>
+                </label>
+                {form.logo&&<button onClick={()=>f("logo",null)} style={{marginLeft:10,padding:"8px 14px",background:"none",border:"1px solid var(--border2)",borderRadius:7,fontSize:13,color:"var(--text3)",cursor:"pointer"}}>Remove</button>}
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:5}}>PNG or SVG recommended. Stored as base64.</div>
+              </div>
+            </div>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Brand Colours</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SColor label="Primary Colour" value={form.primaryColour} onChange={e=>f("primaryColour",e.target.value)} hint="Main accent — buttons, active nav, highlights"/>
+              <SColor label="Secondary Colour" value={form.secondaryColour} onChange={e=>f("secondaryColour",e.target.value)} hint="Secondary accent — headings, decorative elements"/>
+              <SColor label="Accent / Dark Colour" value={form.accentColour} onChange={e=>f("accentColour",e.target.value)} hint="Darker variant — hover states, borders"/>
+            </div>
+            <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",fontSize:12,color:"var(--text3)",marginBottom:8}}>
+              <strong>Preview:</strong> Changes apply to the portal immediately when you click Save Changes.
+              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.primaryColour||"var(--burg)",verticalAlign:"middle",margin:"0 6px"}}></span>
+              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.secondaryColour||"var(--gold)",verticalAlign:"middle",margin:"0 6px"}}></span>
+              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.accentColour||"var(--burg-dk)",verticalAlign:"middle",margin:"0 6px"}}></span>
+            </div>
+            <SaveBar/>
+          </div>
+        )}
+
+        {/* TAB 3 — CONTACT DETAILS */}
+        {tab==="contact"&&(
+          <div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Public contact information for your club.</div>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Postal Address</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Street / PO Box" value={form.postalStreet} onChange={e=>f("postalStreet",e.target.value)} placeholder="e.g. PO Box 100"/>
+              <SInput label="Suburb" value={form.postalSuburb} onChange={e=>f("postalSuburb",e.target.value)} placeholder="Suburb" half/>
+              <SSelect label="State" value={form.postalState} onChange={e=>f("postalState",e.target.value)} half>
+                <option value="">—</option>
+                {AUS_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </SSelect>
+              <SInput label="Postcode" value={form.postalPostcode} onChange={e=>f("postalPostcode",e.target.value)} placeholder="0000" half/>
+            </div>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Physical Address</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Street Address" value={form.physicalStreet} onChange={e=>f("physicalStreet",e.target.value)} placeholder="e.g. 123 Club Lane"/>
+              <SInput label="Suburb" value={form.physicalSuburb} onChange={e=>f("physicalSuburb",e.target.value)} placeholder="Suburb" half/>
+              <SSelect label="State" value={form.physicalState} onChange={e=>f("physicalState",e.target.value)} half>
+                <option value="">—</option>
+                {AUS_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </SSelect>
+              <SInput label="Postcode" value={form.physicalPostcode} onChange={e=>f("physicalPostcode",e.target.value)} placeholder="0000" half/>
+            </div>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>General Contact</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Phone" value={form.phone} onChange={e=>f("phone",e.target.value)} placeholder="(03) 9000 0000" half/>
+              <SInput label="General Email" value={form.emailGeneral} onChange={e=>f("emailGeneral",e.target.value)} placeholder="info@club.org.au" half/>
+              <SInput label="Website" value={form.website} onChange={e=>f("website",e.target.value)} placeholder="www.club.org.au"/>
+            </div>
+            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Social Media</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Facebook" value={form.facebook} onChange={e=>f("facebook",e.target.value)} placeholder="facebook.com/yourclub" half/>
+              <SInput label="Instagram" value={form.instagram} onChange={e=>f("instagram",e.target.value)} placeholder="instagram.com/yourclub" half/>
+              <SInput label="YouTube" value={form.youtube} onChange={e=>f("youtube",e.target.value)} placeholder="youtube.com/@yourclub" half/>
+              <SInput label="X / Twitter" value={form.twitter} onChange={e=>f("twitter",e.target.value)} placeholder="x.com/yourclub" half/>
+            </div>
+            <SaveBar/>
+          </div>
+        )}
+
+        {/* TAB 4 — DEPARTMENTAL EMAILS */}
+        {tab==="emails"&&(
+          <div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Role-specific email addresses. If left blank, the general club email is used as fallback.</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
+              <SInput label="Membership Enquiries" value={form.emailMembership} onChange={e=>f("emailMembership",e.target.value)} placeholder={form.emailGeneral||"membership@club.org.au"}
+                hint="Fallback: general email"/>
+              <SInput label="Events & Shows" value={form.emailEvents} onChange={e=>f("emailEvents",e.target.value)} placeholder={form.emailGeneral||"events@club.org.au"}
+                hint="Fallback: general email"/>
+              <SInput label="Technical Department" value={form.emailTech} onChange={e=>f("emailTech",e.target.value)} placeholder={form.emailGeneral||"technical@club.org.au"}
+                hint="Fallback: general email"/>
+              <SInput label="Merchandise" value={form.emailMerchandise} onChange={e=>f("emailMerchandise",e.target.value)} placeholder={form.emailGeneral||"merchandise@club.org.au"}
+                hint="Fallback: general email"/>
+              <SInput label="Newsletter / Communications" value={form.emailNewsletter} onChange={e=>f("emailNewsletter",e.target.value)} placeholder={form.emailGeneral||"newsletter@club.org.au"}
+                hint="Fallback: general email"/>
+            </div>
+            <SaveBar/>
+          </div>
+        )}
+
+        {/* TAB 5 — VENUES */}
+        {tab==="venues"&&(
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontSize:13,color:"var(--text3)"}}>Club venues appear as options in meeting and event location fields.</div>
+              <button onClick={openNewVenue} style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)",flexShrink:0}}>+ Add Venue</button>
+            </div>
+            {(form.venues||[]).length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"var(--text4)",fontSize:14}}>No venues added yet.</div>}
+            {(form.venues||[]).map(v=>(
+              <div key={v.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"var(--text)",fontFamily:"var(--font-b)"}}>{v.name}</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{[v.address,v.suburb,v.state,v.postcode].filter(Boolean).join(", ")}</div>
+                  {v.notes&&<div style={{fontSize:12,color:"var(--text4)",marginTop:4,fontStyle:"italic"}}>{v.notes}</div>}
+                  {v.mapsUrl&&<a href={v.mapsUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"var(--burg)",textDecoration:"none",marginTop:4,display:"inline-block"}}>📍 View on Map</a>}
+                </div>
+                <div style={{display:"flex",gap:8,flexShrink:0}}>
+                  <button onClick={()=>openEditVenue(v)} style={{padding:"6px 14px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:600}}>Edit</button>
+                  <button onClick={()=>deleteVenue(v.id)} style={{padding:"6px 14px",background:"none",border:"1px solid #e0a0a0",borderRadius:6,fontSize:12,cursor:"pointer",color:"var(--burg)",fontWeight:600}}>Delete</button>
+                </div>
+              </div>
+            ))}
+            {venueModal&&(
+              <Modal title={venueModal==="new"?"Add Venue":"Edit Venue"} onClose={()=>setVenueModal(null)}>
+                <Field label="Venue Name"><Input value={venueForm.name||""} onChange={e=>setVenueForm(p=>({...p,name:e.target.value}))}/></Field>
+                <Field label="Street Address"><Input value={venueForm.address||""} onChange={e=>setVenueForm(p=>({...p,address:e.target.value}))}/></Field>
+                <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                  <Field label="Suburb" half><Input value={venueForm.suburb||""} onChange={e=>setVenueForm(p=>({...p,suburb:e.target.value}))}/></Field>
+                  <Field label="State" half>
+                    <Select value={venueForm.state||"VIC"} onChange={e=>setVenueForm(p=>({...p,state:e.target.value}))}>
+                      {AUS_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+                    </Select>
+                  </Field>
+                </Row>
+                <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                  <Field label="Postcode" half><Input value={venueForm.postcode||""} onChange={e=>setVenueForm(p=>({...p,postcode:e.target.value}))}/></Field>
+                  <Field label="Google Maps URL" half><Input value={venueForm.mapsUrl||""} onChange={e=>setVenueForm(p=>({...p,mapsUrl:e.target.value}))} placeholder="https://maps.google.com/…"/></Field>
+                </Row>
+                <Field label="Notes"><Input value={venueForm.notes||""} onChange={e=>setVenueForm(p=>({...p,notes:e.target.value}))} placeholder="Parking info, access notes…"/></Field>
+                <div style={{display:"flex",gap:10,marginTop:8}}>
+                  <button onClick={saveVenue} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:14,fontFamily:"var(--font-b)"}}>Save Venue</button>
+                  <button onClick={()=>setVenueModal(null)} style={{padding:"9px 18px",background:"none",border:"1px solid var(--border)",borderRadius:7,fontSize:14,cursor:"pointer"}}>Cancel</button>
+                </div>
+              </Modal>
+            )}
+          </div>
+        )}
+
+        {/* TAB 6 — STORAGE LOCATIONS */}
+        {tab==="storage"&&(
+          <div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+              <div style={{fontSize:13,color:"var(--text3)"}}>Parts storage locations appear as options in the Parts Inventory section.</div>
+              <button onClick={openNewStorage} style={{padding:"8px 18px",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)",flexShrink:0}}>+ Add Location</button>
+            </div>
+            {(form.storageLocations||[]).length===0&&<div style={{textAlign:"center",padding:"40px 0",color:"var(--text4)",fontSize:14}}>No storage locations added yet.</div>}
+            {(form.storageLocations||[]).map(s=>(
+              <div key={s.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:14,color:"var(--text)",fontFamily:"var(--font-b)"}}>{s.name}</div>
+                  <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{[s.address,s.suburb,s.state,s.postcode].filter(Boolean).join(", ")}</div>
+                  {s.contact&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Contact: {s.contact}{s.phone?" — "+s.phone:""}</div>}
+                  {s.notes&&<div style={{fontSize:12,color:"var(--text4)",marginTop:4,fontStyle:"italic"}}>{s.notes}</div>}
+                </div>
+                <div style={{display:"flex",gap:8,flexShrink:0}}>
+                  <button onClick={()=>openEditStorage(s)} style={{padding:"6px 14px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:6,fontSize:12,cursor:"pointer",fontWeight:600}}>Edit</button>
+                  <button onClick={()=>deleteStorage(s.id)} style={{padding:"6px 14px",background:"none",border:"1px solid #e0a0a0",borderRadius:6,fontSize:12,cursor:"pointer",color:"var(--burg)",fontWeight:600}}>Delete</button>
+                </div>
+              </div>
+            ))}
+            {storageModal&&(
+              <Modal title={storageModal==="new"?"Add Storage Location":"Edit Storage Location"} onClose={()=>setStorageModal(null)}>
+                <Field label="Location Name"><Input value={storageForm.name||""} onChange={e=>setStorageForm(p=>({...p,name:e.target.value}))}/></Field>
+                <Field label="Address"><Input value={storageForm.address||""} onChange={e=>setStorageForm(p=>({...p,address:e.target.value}))}/></Field>
+                <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                  <Field label="Suburb" half><Input value={storageForm.suburb||""} onChange={e=>setStorageForm(p=>({...p,suburb:e.target.value}))}/></Field>
+                  <Field label="State" half>
+                    <Select value={storageForm.state||"VIC"} onChange={e=>setStorageForm(p=>({...p,state:e.target.value}))}>
+                      {AUS_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+                    </Select>
+                  </Field>
+                </Row>
+                <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                  <Field label="Postcode" half><Input value={storageForm.postcode||""} onChange={e=>setStorageForm(p=>({...p,postcode:e.target.value}))}/></Field>
+                  <Field label="Contact Person" half><Input value={storageForm.contact||""} onChange={e=>setStorageForm(p=>({...p,contact:e.target.value}))}/></Field>
+                </Row>
+                <Field label="Phone"><Input value={storageForm.phone||""} onChange={e=>setStorageForm(p=>({...p,phone:e.target.value}))} placeholder="(03) 9000 0000"/></Field>
+                <Field label="Notes"><Input value={storageForm.notes||""} onChange={e=>setStorageForm(p=>({...p,notes:e.target.value}))} placeholder="Access instructions, hours…"/></Field>
+                <div style={{display:"flex",gap:10,marginTop:8}}>
+                  <button onClick={saveStorage} style={{padding:"9px 22px",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontWeight:700,cursor:"pointer",fontSize:14,fontFamily:"var(--font-b)"}}>Save Location</button>
+                  <button onClick={()=>setStorageModal(null)} style={{padding:"9px 18px",background:"none",border:"1px solid var(--border)",borderRadius:7,fontSize:14,cursor:"pointer"}}>Cancel</button>
+                </div>
+              </Modal>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
