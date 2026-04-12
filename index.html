@@ -6824,13 +6824,16 @@ function SiteContentSection({ siteContent, setSiteContent }) {
                 </div>
               ) : (
                 <div>
-                  <div style={{border:"2px dashed var(--border2)",borderRadius:8,padding:"48px 24px",textAlign:"center",cursor:"pointer",background:"var(--bg3)"}}
+                  <div style={{border:"2px dashed var(--border2)",borderRadius:8,padding:"48px 24px",textAlign:"center",cursor:"pointer",background:"var(--bg3)",marginBottom:14}}
                     onClick={()=>heroImgRef.current&&heroImgRef.current.click()}>
                     <div style={{fontSize:40,marginBottom:10}}>🖼️</div>
-                    <div style={{fontSize:14,fontWeight:600,color:"var(--text2)",marginBottom:4}}>Click to upload a hero image</div>
-                    <div style={{fontSize:12,color:"var(--text3)"}}>JPG, PNG or WebP</div>
+                    <div style={{fontSize:14,fontWeight:600,color:"var(--text2)",marginBottom:4}}>No hero image uploaded</div>
+                    <div style={{fontSize:12,color:"var(--text3)"}}>JPG, PNG or WebP · Max 5 MB</div>
                   </div>
-                  {heroSaved&&<div style={{marginTop:10,fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Saved</div>}
+                  <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                    <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()}>Upload Image</Btn>
+                    {heroSaved&&<span style={{fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Saved</span>}
+                  </div>
                 </div>
               )}
               <input type="file" accept="image/*" ref={heroImgRef} style={{display:"none"}}
