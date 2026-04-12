@@ -6901,6 +6901,7 @@ function ApplicationsSection({ applications, setApplications, members, setMember
   // made on the public form (after the app loaded) are not missed.
   useEffect(() => {
     dbGet(SK.applications).then(ap => { if (ap) setApplications(ap); });
+    dbGet(SK.invoices).then(inv => { if (Array.isArray(inv) && typeof setInvoices==="function") setInvoices(inv); });
   }, []);
 
   const pending   = (applications||[]).filter(a=>a.status==="pending"||a.status==="info_requested");
@@ -9375,6 +9376,12 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewInv, setViewInv] = useState(null);
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
+
+  // Refresh from storage on mount so invoices created via the public form
+  // (after the admin portal loaded) are never missed.
+  useEffect(() => {
+    dbGet(SK.invoices).then(inv => { if (Array.isArray(inv)) setInvoices(inv); });
+  }, []);
 
   const saveInvoices = async (updated) => {
     setInvoices(updated);
