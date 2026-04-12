@@ -11796,7 +11796,7 @@ function PartsCatalogueSection({user,partsCatalogue,setPartsCatalogue,partsEOI,s
 
 // ── COMMERCE SECTION ─────────────────────────────────────────────────────────
 function CommerceSection(sp) {
-  const {user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,orders,setOrders,listings,setListings,messages,setMessages,books,setBooks,members,cats,categories,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI} = sp;
+  const {user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,orders,setOrders,listings,setListings,messages,setMessages,books,setBooks,members,cats,categories,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,accountSettings} = sp;
   const [tab,setTab]=React.useState("shop");
   const tabs=[
     {id:"shop",label:"Club Shop",count:0},
