@@ -6687,6 +6687,12 @@ function ApplicationsSection({ applications, setApplications, members, setMember
   const [infoNote, setInfoNote] = useState("");
   const [actionModal, setActionModal] = useState(null);
 
+  // Refresh from storage each time this section is opened so submissions
+  // made on the public form (after the app loaded) are not missed.
+  useEffect(() => {
+    dbGet(SK.applications).then(ap => { if (ap) setApplications(ap); });
+  }, []);
+
   const pending   = (applications||[]).filter(a=>a.status==="pending"||a.status==="info_requested");
   const processed = (applications||[]).filter(a=>a.status==="approved"||a.status==="declined");
 
