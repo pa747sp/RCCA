@@ -8750,7 +8750,7 @@ function App() {// ════════════════════�
             {tab==="polls"       &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
             {tab==="commerce"   &&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
-            {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
+            {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
             {tab==="website"    &&user.role==="admin"&&<WebsiteSection {...sp} setTab={setTab}/>}
@@ -10762,13 +10762,13 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
 <script type="text/babel" data-presets="react">
 function toast(){}
 // ── PARTS INVENTORY SECTION ──────────────────────────────────────────────────
-function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members}) {
+function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInventory,shopItems,setShopItems,members,accountSettings}) {
   const isAdmin = user&&user.role==="admin";
   const [view,setView]=React.useState("inventory");
   const [modal,setModal]=React.useState(null);
   const [csvText,setCsvText]=React.useState("");
   const [csvPreview,setCsvPreview]=React.useState([]);
-  const [form,setForm]=React.useState({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:""});
+  const [form,setForm]=React.useState({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:"",location:""});
   const fileRef=React.useRef(null);
 
   const conditions=["New","Excellent","Good","Fair","Poor","Unknown"];
@@ -10783,7 +10783,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
     const np={...form,id:uid("PT"),createdAt:new Date().toISOString(),requests:[],eois:[]};
     await saveInv([...(parts||[]),np]);
     setModal(null);
-    setForm({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:""});
+    setForm({name:"",model:"",description:"",condition:"Good",qty:0,maxPerOrder:0,costPrice:0,memberPrice:0,publicPrice:0,availability:"both",category:"parts",sku:"",status:"in_stock",minOrderQty:0,notes:"",location:""});
   };
 
   const deletePart=async(id)=>await saveInv((parts||[]).filter(p=>p.id!==id));
@@ -10972,6 +10972,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
                       <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:2}}>{p.name}</div>
                       {p.model&&<div style={{fontSize:12,color:"var(--text3)"}}>{p.model}</div>}
                       {p.sku&&<div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>#{p.sku}</div>}
+                      {p.location&&<div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>📦 {p.location}</div>}
                     </div>
                     <span style={{background:statusColours[status]||"#666",color:"white",borderRadius:12,padding:"2px 9px",fontSize:11,fontWeight:700,flexShrink:0,marginLeft:8}}>
                       {statusLabels[status]||status}
@@ -11136,6 +11137,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
               <option value="members">Members Only</option>
               <option value="public">Public (same price for all)</option>
             </select></div>
+            {(()=>{const locs=(accountSettings&&accountSettings.storageLocations)||[];if(!locs.length)return(<div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Storage Location</label><input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="e.g. Club storeroom, shelf B3" style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/></div>);const isCustom=form.location&&!locs.find(l=>l.name===form.location);return(<div><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>Storage Location</label><select value={isCustom?"__custom__":form.location||""} onChange={e=>{if(e.target.value==="__custom__")setForm({...form,location:""});else setForm({...form,location:e.target.value});}} style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,marginBottom:isCustom?6:0}}><option value="">— Select location —</option>{locs.map(l=><option key={l.id} value={l.name}>{l.name}</option>)}<option value="__custom__">Other (enter manually)…</option></select>{isCustom&&<input value={form.location||""} onChange={e=>setForm({...form,location:e.target.value})} placeholder="Enter storage location" style={{width:"100%",padding:"8px 10px",borderRadius:6,border:"1px solid var(--border)",fontSize:13,boxSizing:"border-box"}}/>}</div>);})()}
             <div style={{display:"flex",gap:10}}>
               <button onClick={addPart} style={{flex:1,padding:"10px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:6,fontWeight:700,cursor:"pointer"}}>Add to Inventory</button>
               <button onClick={()=>setModal(null)} style={{padding:"10px 16px",background:"var(--bg3)",border:"none",borderRadius:6,cursor:"pointer"}}>Cancel</button>
@@ -11808,7 +11810,7 @@ function CommerceSection(sp) {
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
       {tab==="shop"&&<ShopSection {...sp} cats={categories||cats}/>}
-      {tab==="parts"&&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems}/>}
+      {tab==="parts"&&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
       {tab==="catalogue"&&<PartsCatalogueSection user={user} partsCatalogue={partsCatalogue} setPartsCatalogue={setPartsCatalogue} partsEOI={partsEOI} setPartsEOI={setPartsEOI} listings={listings} setListings={setListings}/>}
       {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories||cats}/>}
       {tab==="library"&&<LibrarySection {...sp}/>}
