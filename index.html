@@ -196,6 +196,7 @@ const SK = {
   polls:_id+":polls",
   partsCatalogue:_id+":partsCatalogue",
   partsEOI:_id+":partsEOI",
+  invoices:_id+":invoices",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -5669,7 +5670,7 @@ function AdminHubSection(sp) {
       </div>
       <div style={{paddingTop:8}}>
         {tab==="contacts"&&<ContactsSection user={sp.user} contacts={sp.contacts} setContacts={sp.setContacts} members={sp.members}/>}
-        {tab==="finance"&&<FinanceSection members={sp.members} dues={sp.dues} orders={sp.orders} rsvps={sp.rsvps} events={sp.events} expenses={sp.expenses} setExpenses={sp.setExpenses} finSettings={sp.finSettings} setFinSettings={sp.setFinSettings} cars={sp.cars} contacts={sp.contacts} setContacts={sp.setContacts} partsInventory={sp.partsInventory} shopItems={sp.shopItems}/>}
+        {tab==="finance"&&<FinanceSection members={sp.members} dues={sp.dues} orders={sp.orders} rsvps={sp.rsvps} events={sp.events} expenses={sp.expenses} setExpenses={sp.setExpenses} finSettings={sp.finSettings} setFinSettings={sp.setFinSettings} cars={sp.cars} contacts={sp.contacts} setContacts={sp.setContacts} partsInventory={sp.partsInventory} shopItems={sp.shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
         {tab==="categories"&&<CategoriesSection categories={sp.categories} setCategories={sp.setCategories}/>}
         {tab==="import"&&<BulkImportSection members={sp.members} setMembers={sp.setMembers} cars={sp.cars} setCars={sp.setCars} dues={sp.dues} setDues={sp.setDues}/>}
         {tab==="permissions"&&<PermissionsSection user={sp.user} members={sp.members} setMembers={sp.setMembers}/>}
@@ -6202,10 +6203,89 @@ const DEFAULT_APP_SETTINGS = {
   privacyPdfData: null, privacyPdfName: null,
 };
 
+// ── Invoice helpers ───────────────────────────────────────────────────────────
+function genInvoiceNumber(existingInvoices) {
+  const nums=(existingInvoices||[]).map(i=>{const m=(i.invoiceNumber||"").match(/INV-(\d+)/);return m?parseInt(m[1]):0;});
+  const next=nums.length?Math.max(...nums)+1:1;
+  return "INV-"+String(next).padStart(4,"0");
+}
+
+function calcDueDate(issueDate, paymentDays) {
+  const d=new Date(issueDate); d.setDate(d.getDate()+(paymentDays||14)); return d.toISOString().slice(0,10);
+}
+
+function printInvoice(invoice, fs) {
+  const pm=fs?.paymentMethods||{};
+  const payBlocks=[];
+  if(pm.bankTransfer?.enabled){
+    const bt=pm.bankTransfer;
+    payBlocks.push(`<div style="background:#f0f8f4;border:1px solid #b3d9c4;border-radius:8px;padding:16px;margin-top:12px;font-size:12px">
+      <div style="font-weight:700;color:#1e6840;margin-bottom:8px">💳 Bank Transfer</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${bt.accountName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Name</div><div style="font-weight:700">${bt.accountName}</div></div>`:""}
+        ${bt.bankName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Bank</div><div style="font-weight:700">${bt.bankName}</div></div>`:""}
+        ${bt.bsb?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">BSB</div><div style="font-weight:700">${bt.bsb}</div></div>`:""}
+        ${bt.accountNumber?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Number</div><div style="font-weight:700">${bt.accountNumber}</div></div>`:""}
+      </div>
+      <div style="margin-top:8px;padding:8px;background:#e8f5e9;border-radius:4px;color:#1e6840;font-weight:700">📌 Reference: ${invoice.paymentRef}</div>
+    </div>`);
+  }
+  if(pm.cash?.enabled&&pm.cash.instructions){
+    payBlocks.push(`<div style="background:#fffbe6;border:1px solid #ffe082;border-radius:8px;padding:12px;margin-top:12px;font-size:12px"><div style="font-weight:700;color:#7a4010;margin-bottom:4px">💵 Cash</div>${pm.cash.instructions}</div>`);
+  }
+  if(pm.cheque?.enabled){
+    const ch=pm.cheque;
+    payBlocks.push(`<div style="background:#e8f0f8;border:1px solid #b3c8e8;border-radius:8px;padding:12px;margin-top:12px;font-size:12px"><div style="font-weight:700;color:#1a3a7a;margin-bottom:4px">✉ Cheque</div>${ch.payableTo?`Payable to: <strong>${ch.payableTo}</strong><br/>`:""}${ch.postalAddress?`Post to: ${ch.postalAddress}`:""}
+    </div>`);
+  }
+  if(pm.online?.enabled&&pm.online.url){
+    payBlocks.push(`<div style="background:#f5f0ff;border:1px solid #c4b5f4;border-radius:8px;padding:12px;margin-top:12px;font-size:12px"><div style="font-weight:700;color:#5b21b6;margin-bottom:6px">🌐 ${pm.online.label||"Pay Online"}</div><a href="${pm.online.url}" style="color:#7c3aed;font-weight:700">${pm.online.url}</a></div>`);
+  }
+  const rows=(invoice.items||[]).map(it=>`<tr><td style="padding:10px 12px;border-bottom:1px solid #eee">${it.description}</td><td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right">A$${Number(it.amount||0).toFixed(2)}</td></tr>`).join("");
+  const w=window.open("","_blank","width=820,height=800");
+  w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${invoice.invoiceNumber}</title></head><body style="font-family:Arial,sans-serif;max-width:680px;margin:40px auto;color:#1a1210;line-height:1.5">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${CLUB_CONFIG.primaryColour};padding-bottom:16px;margin-bottom:24px">
+      <div>
+        <div style="font-size:22px;font-weight:700;color:${CLUB_CONFIG.primaryColour}">${CLUB_CONFIG.name}</div>
+        <div style="font-size:12px;color:#666;margin-top:4px">${CLUB_CONFIG.address}</div>
+        <div style="font-size:12px;color:#666">${CLUB_CONFIG.emailMembership||CLUB_CONFIG.emailGeneral}</div>
+        ${fs?.abn?`<div style="font-size:12px;color:#666">ABN: ${fs.abn}</div>`:""}
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.1em">Invoice</div>
+        <div style="font-size:22px;font-weight:700;color:${CLUB_CONFIG.primaryColour}">${invoice.invoiceNumber}</div>
+        <div style="font-size:11px;color:#666">Issued: ${invoice.issued}</div>
+        <div style="font-size:11px;color:#c0282a;font-weight:600">Due: ${invoice.due}</div>
+        <div style="margin-top:6px;background:${invoice.status==="paid"?"#d4f0e0":invoice.status==="waived"?"#e0e8ff":"#fdecd0"};color:${invoice.status==="paid"?"#1a6040":invoice.status==="waived"?"#1a3a8a":"#7a4010"};padding:3px 10px;border-radius:3px;font-size:11px;font-weight:700;display:inline-block">${(invoice.status||"unpaid").toUpperCase()}</div>
+      </div>
+    </div>
+    <div style="margin-bottom:24px">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;margin-bottom:4px">Bill To</div>
+      <div style="font-weight:700;font-size:16px">${invoice.applicantName}</div>
+      <div style="color:#666;font-size:13px">${invoice.applicantEmail}</div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:4px">
+      <thead><tr style="background:${CLUB_CONFIG.primaryColour};color:#fff">
+        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase">Description</th>
+        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase">Amount</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="background:#f8f5f0">
+        <td style="padding:12px;font-weight:700;font-size:15px">TOTAL DUE</td>
+        <td style="padding:12px;text-align:right;font-weight:700;font-size:20px;color:${CLUB_CONFIG.primaryColour}">A$${Number(invoice.total||0).toFixed(2)}</td>
+      </tr></tfoot>
+    </table>
+    ${payBlocks.join("")}
+    <div style="margin-top:24px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:12px">${CLUB_CONFIG.name} · ${invoice.invoiceNumber} · Thank you for your application</div>
+    <script>window.print();window.close();<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MEMBERSHIP APPLICATION FORM (public)
 // ══════════════════════════════════════════════════════════════════════════════
-function MembershipApplicationForm({ onBack, initialType }) {
+function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices, finSettings }) {
   const [settings, setSettings] = useState(null);
   const [storedTypes, setStoredTypes] = useState([]);
   const [step, setStep] = useState(1);
@@ -6224,6 +6304,7 @@ function MembershipApplicationForm({ onBack, initialType }) {
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [refNum, setRefNum] = useState("");
+  const [submittedInvoice, setSubmittedInvoice] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -6340,7 +6421,40 @@ function MembershipApplicationForm({ onBack, initialType }) {
     };
     const existing = await dbGet(SK.applications) || [];
     await dbSet(SK.applications, [...existing, app]);
+
+    // Generate invoice
+    const existingInv = await dbGet(SK.invoices) || [];
+    const invNum = genInvoiceNumber(existingInv);
+    const issueDate = today;
+    const fs = finSettings || DEFAULT_FIN_SETTINGS;
+    const invItems = [];
+    if (sel?.pricingNew) invItems.push({ description: "New Member Fee — " + (sel.label||form.memberTypeId), amount: sel.pricingNew });
+    if (!invItems.length) invItems.push({ description: "Membership Application — " + (sel?.label||""), amount: 0 });
+    const total = invItems.reduce((s,i)=>s+Number(i.amount||0), 0);
+    const invoice = {
+      invoiceNumber: invNum,
+      applicationId: ref,
+      memberId: null,
+      applicantName: `${form.firstName} ${form.lastName}`,
+      applicantEmail: form.email,
+      memberType: sel?.label||"",
+      memberTypeId: form.memberTypeId,
+      items: invItems,
+      total,
+      paymentRef: CLUB_CONFIG.shortName + "-" + invNum,
+      issued: issueDate,
+      due: calcDueDate(issueDate, fs.paymentDays),
+      status: "unpaid",
+      paidDate: null,
+      notes: "",
+      createdAt: new Date().toISOString(),
+    };
+    const updatedInv = [...existingInv, invoice];
+    await dbSet(SK.invoices, updatedInv);
+    if (typeof setInvoices === "function") setInvoices(updatedInv);
+
     setRefNum(ref);
+    setSubmittedInvoice(invoice);
     setSubmitted(true);
   }
 
@@ -6357,27 +6471,121 @@ function MembershipApplicationForm({ onBack, initialType }) {
 
   if (!settings) return <div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>Loading…</div>;
 
-  if (submitted) return (
-    <div style={{maxWidth:620,margin:"60px auto",padding:"0 24px"}}>
-      <div style={{background:"#ffffff",border:"2px solid var(--burg)",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,.08)"}}>
-        <div style={{fontSize:56,marginBottom:16}}>✅</div>
-        <h2 style={{fontFamily:"var(--font-d)",fontSize:26,fontWeight:700,color:"var(--text)",marginBottom:8}}>Application Submitted!</h2>
-        <div style={{fontFamily:"var(--font-m)",fontSize:13,color:"var(--burg)",fontWeight:700,marginBottom:16}}>Reference: {refNum}</div>
-        <p style={{fontSize:14,color:"var(--text2)",lineHeight:1.7,marginBottom:24}}>
-          Thank you for applying to join {CLUB_CONFIG.name}. We will be in touch at <strong>{form.email}</strong> within 5–7 business days.
-        </p>
-        <div style={{background:"var(--bg3)",borderRadius:8,padding:16,fontSize:13,color:"var(--text3)",marginBottom:24,textAlign:"left"}}>
-          <div style={{fontWeight:700,color:"var(--text)",marginBottom:6}}>What happens next?</div>
-          <div>1. Committee reviews your application</div>
-          <div>2. Approval email with payment details</div>
-          <div>3. Membership activated on receipt of payment</div>
-          <div>4. Member number and login details issued</div>
+  if (submitted) {
+    const inv = submittedInvoice;
+    const fs = finSettings || DEFAULT_FIN_SETTINGS;
+    const pm = fs.paymentMethods || {};
+    return (
+      <div style={{maxWidth:700,margin:"40px auto",padding:"0 24px"}}>
+        <div style={{background:"#ffffff",border:"2px solid var(--green)",borderRadius:12,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,.08)",marginBottom:24}}>
+          <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20,paddingBottom:20,borderBottom:"1px solid var(--border)"}}>
+            <div style={{fontSize:42}}>✅</div>
+            <div>
+              <h2 style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--text)",margin:"0 0 4px"}}>Application Submitted!</h2>
+              <div style={{fontFamily:"var(--font-m)",fontSize:12,color:"var(--burg)",fontWeight:700}}>Ref: {refNum}</div>
+            </div>
+          </div>
+          <p style={{fontSize:14,color:"var(--text2)",lineHeight:1.7,margin:"0 0 16px"}}>Thank you for applying to join {CLUB_CONFIG.name}. We will review your application and be in touch at <strong>{form.email}</strong>.</p>
+          <div style={{background:"var(--bg3)",borderRadius:8,padding:14,fontSize:13,color:"var(--text3)"}}>
+            <div style={{fontWeight:700,color:"var(--text)",marginBottom:6}}>What happens next?</div>
+            <div style={{display:"flex",flexDirection:"column",gap:4}}>
+              <div>1. Committee reviews your application</div>
+              <div>2. Pay the invoice below to confirm your membership</div>
+              <div>3. Membership activated on receipt of payment</div>
+              <div>4. Member number and login details issued</div>
+            </div>
+          </div>
         </div>
-        <div style={{fontSize:12,color:"var(--text4)"}}>Questions? Email <span style={{color:"var(--burg)"}}>{CLUB_CONFIG.emailMembership}</span></div>
-        <button onClick={onBack} style={{marginTop:20,background:"none",border:"1px solid var(--border2)",borderRadius:6,padding:"10px 24px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer"}}>← Back to Membership</button>
+
+        {inv&&(
+          <div style={{background:"white",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,.07)",marginBottom:24}}>
+            {/* Invoice header */}
+            <div style={{background:"var(--burg)",padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+              <div>
+                <div style={{color:"white",fontFamily:"var(--font-d)",fontSize:18,fontWeight:700}}>{CLUB_CONFIG.name}</div>
+                <div style={{color:"rgba(255,255,255,.75)",fontSize:12,marginTop:3}}>{CLUB_CONFIG.address}</div>
+                <div style={{color:"rgba(255,255,255,.75)",fontSize:12}}>{CLUB_CONFIG.emailMembership||CLUB_CONFIG.emailGeneral}</div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{color:"rgba(255,255,255,.7)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.1em"}}>Invoice</div>
+                <div style={{color:"white",fontSize:20,fontWeight:700}}>{inv.invoiceNumber}</div>
+                <div style={{color:"rgba(255,255,255,.75)",fontSize:11}}>Issued: {inv.issued}</div>
+                <div style={{color:"#ffd580",fontSize:11,fontWeight:700}}>Due: {inv.due}</div>
+              </div>
+            </div>
+            <div style={{padding:"20px 24px"}}>
+              {/* Bill to */}
+              <div style={{marginBottom:18}}>
+                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text4)",marginBottom:4}}>Bill To</div>
+                <div style={{fontWeight:700,fontSize:15}}>{inv.applicantName}</div>
+                <div style={{color:"var(--text3)",fontSize:13}}>{inv.applicantEmail}</div>
+              </div>
+              {/* Line items */}
+              <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
+                <thead><tr style={{borderBottom:"2px solid var(--burg)"}}>
+                  <th style={{padding:"8px 0",textAlign:"left",fontSize:11,textTransform:"uppercase",color:"var(--text3)",fontWeight:600}}>Description</th>
+                  <th style={{padding:"8px 0",textAlign:"right",fontSize:11,textTransform:"uppercase",color:"var(--text3)",fontWeight:600}}>Amount</th>
+                </tr></thead>
+                <tbody>{(inv.items||[]).map((it,i)=>(
+                  <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
+                    <td style={{padding:"10px 0",fontSize:14}}>{it.description}</td>
+                    <td style={{padding:"10px 0",textAlign:"right",fontSize:14}}>A${Number(it.amount||0).toFixed(2)}</td>
+                  </tr>
+                ))}</tbody>
+                <tfoot><tr style={{borderTop:"2px solid var(--burg)"}}>
+                  <td style={{padding:"12px 0",fontWeight:700,fontSize:16}}>Total Due</td>
+                  <td style={{padding:"12px 0",textAlign:"right",fontWeight:700,fontSize:20,color:"var(--burg)"}}>A${Number(inv.total||0).toFixed(2)}</td>
+                </tfoot>
+              </table>
+              {/* Payment reference */}
+              <div style={{background:"#e8f5e9",border:"1px solid #a5d6a7",borderRadius:8,padding:"12px 16px",marginBottom:16}}>
+                <div style={{fontWeight:700,fontSize:13,color:"#1e6840",marginBottom:2}}>📌 Payment Reference</div>
+                <div style={{fontFamily:"var(--font-m)",fontSize:16,fontWeight:700,color:"#1e6840",letterSpacing:"0.05em"}}>{inv.paymentRef}</div>
+                <div style={{fontSize:11,color:"#2e7d52",marginTop:2}}>Use this reference with all payment methods</div>
+              </div>
+              {/* Payment methods */}
+              {(pm.bankTransfer?.enabled)&&(
+                <div style={{background:"#f0f8f4",border:"1px solid #b3d9c4",borderRadius:8,padding:"14px 16px",marginBottom:10}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#1e6840",marginBottom:8}}>💳 Bank Transfer</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13}}>
+                    {pm.bankTransfer.accountName&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Account Name</div><div style={{fontWeight:700}}>{pm.bankTransfer.accountName}</div></div>}
+                    {pm.bankTransfer.bankName&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Bank</div><div style={{fontWeight:700}}>{pm.bankTransfer.bankName}</div></div>}
+                    {pm.bankTransfer.bsb&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>BSB</div><div style={{fontWeight:700}}>{pm.bankTransfer.bsb}</div></div>}
+                    {pm.bankTransfer.accountNumber&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Account Number</div><div style={{fontWeight:700}}>{pm.bankTransfer.accountNumber}</div></div>}
+                  </div>
+                </div>
+              )}
+              {pm.cash?.enabled&&pm.cash.instructions&&(
+                <div style={{background:"#fffbe6",border:"1px solid #ffe082",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#7a4010",marginBottom:4}}>💵 Cash</div>
+                  <div style={{fontSize:13,color:"var(--text2)"}}>{pm.cash.instructions}</div>
+                </div>
+              )}
+              {pm.cheque?.enabled&&(
+                <div style={{background:"#e8f0f8",border:"1px solid #b3c8e8",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#1a3a7a",marginBottom:4}}>✉ Cheque</div>
+                  {pm.cheque.payableTo&&<div style={{fontSize:13}}>Payable to: <strong>{pm.cheque.payableTo}</strong></div>}
+                  {pm.cheque.postalAddress&&<div style={{fontSize:13,color:"var(--text2)"}}>Post to: {pm.cheque.postalAddress}</div>}
+                </div>
+              )}
+              {pm.online?.enabled&&pm.online.url&&(
+                <div style={{background:"#f5f0ff",border:"1px solid #c4b5f4",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#5b21b6",marginBottom:6}}>🌐 {pm.online.label||"Pay Online"}</div>
+                  <a href={pm.online.url} target="_blank" rel="noreferrer" style={{color:"#7c3aed",fontWeight:700,fontSize:13}}>{pm.online.url}</a>
+                </div>
+              )}
+              <button onClick={()=>printInvoice(inv, fs)} style={{width:"100%",padding:"11px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontWeight:700,fontSize:14,cursor:"pointer",marginTop:8}}>🖨 Print / Save Invoice</button>
+            </div>
+          </div>
+        )}
+
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:12,color:"var(--text4)",marginBottom:12}}>Questions? Email <span style={{color:"var(--burg)"}}>{CLUB_CONFIG.emailMembership}</span></div>
+          <button onClick={onBack} style={{background:"none",border:"1px solid var(--border2)",borderRadius:6,padding:"10px 24px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer"}}>← Back to Membership</button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   const StepBar = () => (
     <div style={{display:"flex",marginBottom:32,borderRadius:8,overflow:"hidden",border:"1px solid var(--border)"}}>
@@ -6683,7 +6891,7 @@ function MembershipApplicationForm({ onBack, initialType }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // APPLICATIONS ADMIN SECTION (portal)
 // ══════════════════════════════════════════════════════════════════════════════
-function ApplicationsSection({ applications, setApplications, members, setMembers, dues, setDues, cars, setCars }) {
+function ApplicationsSection({ applications, setApplications, members, setMembers, dues, setDues, cars, setCars, invoices, setInvoices }) {
   const [view, setView] = useState(null);
   const [declineNote, setDeclineNote] = useState("");
   const [infoNote, setInfoNote] = useState("");
@@ -6733,6 +6941,11 @@ function ApplicationsSection({ applications, setApplications, members, setMember
     await dbSet(SK.members, updatedMembers);
     await dbSet(SK.dues, updatedDues);
     if (newCars.length) await dbSet(SK.cars, updatedCars);
+    // Mark linked invoice as paid and link to new member
+    const existingInv = await dbGet(SK.invoices) || [];
+    const updatedInv = existingInv.map(inv=>inv.applicationId===app.id?{...inv,status:"paid",paidDate:today,memberId:newMember.id}:inv);
+    await dbSet(SK.invoices, updatedInv);
+    if (typeof setInvoices==="function") setInvoices(updatedInv);
     setView(null);
   }
 
@@ -8302,15 +8515,17 @@ function App() {// ════════════════════�
   const [checkins,setCheckins]=useState([]);
   const [partsCatalogue,setPartsCatalogue]=useState([]);
   const [partsEOI,setPartsEOI]=useState([]);
+  const [invoices,setInvoices]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
         dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents),dbGet(SK.polls),
-        dbGet(SK.partsCatalogue),dbGet(SK.partsEOI)
+        dbGet(SK.partsCatalogue),dbGet(SK.partsEOI),
+        dbGet(SK.invoices)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -8345,6 +8560,7 @@ function App() {// ════════════════════�
       setCheckins(Array.isArray(ci)?ci:[]);
       setPartsCatalogue(Array.isArray(pcat)?pcat:[]);
       setPartsEOI(Array.isArray(peoi)?peoi:[]);
+      setInvoices(Array.isArray(inv)?inv:[]);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -8382,7 +8598,7 @@ function App() {// ════════════════════�
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,archiveDocs,setArchiveDocs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -8534,7 +8750,7 @@ function App() {// ════════════════════�
             {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
             {tab==="contacts"   &&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
-            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems}/>}
+            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
@@ -8567,7 +8783,7 @@ function App() {// ════════════════════�
         {publicPage==="about"  &&<PublicAbout onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
         {publicPage==="news"   &&<PublicNews news={news} selectedArticle={selectedArticle} setSelectedArticle={setSelectedArticle}/>}
         {publicPage==="events"      &&<PublicEvents events={events} onLoginClick={()=>setShowLogin(true)}/>}
-        {publicPage==="membership"  &&(showApplicationForm?<MembershipApplicationForm onBack={()=>{setShowApplicationForm(false);setAppFormType(null);}} initialType={appFormType}/>:<PublicMembership onLoginClick={()=>setShowLogin(true)} onApply={(t)=>{setAppFormType(t||null);setShowApplicationForm(true);}}/>)}
+        {publicPage==="membership"  &&(showApplicationForm?<MembershipApplicationForm onBack={()=>{setShowApplicationForm(false);setAppFormType(null);}} initialType={appFormType} invoices={invoices} setInvoices={setInvoices} finSettings={finSettings}/>:<PublicMembership onLoginClick={()=>setShowLogin(true)} onApply={(t)=>{setAppFormType(t||null);setShowApplicationForm(true);}}/>)}
         {publicPage==="marketplace" &&<PublicMarketplace listings={listings} setListings={setListings} members={members} user={user} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="shop"        &&<PublicShop shopItems={shopItems} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="parts"       &&<PublicParts parts={parts} user={user} onLoginClick={()=>setShowLogin(true)}/>}
@@ -9142,14 +9358,125 @@ function CategoriesSection({ categories, setCategories }) {
 // FINANCE SECTION
 // ══════════════════════════════════════════════════════════════════════════════
 const DEFAULT_FIN_SETTINGS = {
-  bankName:"", accountName:"Rover Car Club of Australia",
-  bsb:"", accountNumber:"", paymentRef:"Please use your member number as reference",
-  paymentDays:14, gstRegistered:false, abn:"", invoicePrefix:"RCCA",
-  nextInvoiceNum:1001,
+  bankName:"", accountName:CLUB_CONFIG.name,
+  bsb:"", accountNumber:"", paymentRef:"Please use your invoice number as reference",
+  paymentDays:14, gstRegistered:false, abn:"", invoicePrefix:"INV",
+  nextInvoiceNum:1,
+  paymentMethods:{
+    bankTransfer:{ enabled:true, bsb:"", accountNumber:"", accountName:CLUB_CONFIG.name, bankName:"" },
+    cash:{ enabled:false, instructions:"Pay at the next club meeting or event" },
+    cheque:{ enabled:false, payableTo:CLUB_CONFIG.name, postalAddress:CLUB_CONFIG.address },
+    online:{ enabled:false, url:"", label:"Pay Online" },
+  },
 };
+
+// ── Invoices admin panel (used inside FinanceSection) ─────────────────────────
+function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [viewInv, setViewInv] = useState(null);
+  const fs = finSettings || DEFAULT_FIN_SETTINGS;
+
+  const saveInvoices = async (updated) => {
+    setInvoices(updated);
+    await dbSet(SK.invoices, updated);
+  };
+
+  const markPaid = async (id) => {
+    await saveInvoices((invoices||[]).map(i=>i.id===id||i.invoiceNumber===id?{...i,status:"paid",paidDate:today}:i));
+  };
+  const markWaived = async (id) => {
+    await saveInvoices((invoices||[]).map(i=>i.id===id||i.invoiceNumber===id?{...i,status:"waived"}:i));
+  };
+  const markCancelled = async (id) => {
+    await saveInvoices((invoices||[]).map(i=>i.id===id||i.invoiceNumber===id?{...i,status:"cancelled"}:i));
+  };
+
+  const all = invoices || [];
+  const filtered = filterStatus === "all" ? all : all.filter(i => i.status === filterStatus);
+
+  const STATUS_STYLE = {
+    unpaid:    {bg:"#fdecd0",color:"#7a4010",label:"UNPAID"},
+    paid:      {bg:"#d4f0e0",color:"#1a6040",label:"PAID"},
+    waived:    {bg:"#e0e8ff",color:"#1a3a8a",label:"WAIVED"},
+    cancelled: {bg:"#f0f0f0",color:"#666",label:"CANCELLED"},
+  };
+  const SBadge = ({s}) => { const st=STATUS_STYLE[s]||STATUS_STYLE.unpaid; return <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:3,background:st.bg,color:st.color}}>{st.label}</span>; };
+
+  const totals = { unpaid: all.filter(i=>i.status==="unpaid").length, paid: all.filter(i=>i.status==="paid").length, waived: all.filter(i=>i.status==="waived").length, cancelled: all.filter(i=>i.status==="cancelled").length };
+  const outstandingAmt = all.filter(i=>i.status==="unpaid").reduce((s,i)=>s+Number(i.total||0),0);
+
+  return (
+    <div>
+      {/* Stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:20}}>
+        {[["Total",all.length,"var(--burg)"],["Unpaid",totals.unpaid,"#c05010"],["Paid",totals.paid,"var(--green)"],["Waived / Cancelled",totals.waived+totals.cancelled,"#666"]].map(([l,n,c])=>(
+          <div key={l} style={{background:"white",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px"}}>
+            <div style={{fontSize:22,fontWeight:700,color:c}}>{n}</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{l}</div>
+            {l==="Unpaid"&&n>0&&<div style={{fontSize:11,color:"#c05010",fontWeight:600,marginTop:2}}>A${outstandingAmt.toFixed(2)} outstanding</div>}
+          </div>
+        ))}
+      </div>
+
+      {/* Filter */}
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {["all","unpaid","paid","waived","cancelled"].map(s=>(
+          <button key={s} onClick={()=>setFilterStatus(s)} style={{padding:"6px 14px",borderRadius:6,border:"1px solid var(--border)",background:filterStatus===s?"var(--burg)":"white",color:filterStatus===s?"white":"var(--text2)",fontWeight:600,cursor:"pointer",fontSize:12,textTransform:"capitalize"}}>
+            {s==="all"?"All Invoices":s.charAt(0).toUpperCase()+s.slice(1)}{s!=="all"&&` (${totals[s]||0})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Invoice list */}
+      {filtered.length===0?(
+        <div style={{padding:"40px 0",textAlign:"center",color:"var(--text3)"}}>
+          <div style={{fontSize:32,marginBottom:10}}>🧾</div>
+          <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>No invoices{filterStatus!=="all"?" with status "+filterStatus:""}</div>
+          <div style={{fontSize:12}}>Invoices are generated automatically when membership applications are submitted.</div>
+        </div>
+      ):(
+        <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <thead><tr style={{background:"var(--bg3)",borderBottom:"1px solid var(--border)"}}>
+              {["Invoice #","Applicant","Type","Amount","Issued","Due","Status","Actions"].map(h=>(
+                <th key={h} style={{padding:"10px 12px",textAlign:"left",fontWeight:600,color:"var(--text2)",fontSize:11,textTransform:"uppercase"}}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>{filtered.map((inv,i)=>{
+              const key=inv.invoiceNumber||inv.id;
+              return(
+                <tr key={key} style={{borderTop:i>0?"1px solid var(--border)":"none",background:inv.status==="cancelled"?"#fafafa":"white",opacity:inv.status==="cancelled"?0.6:1}}>
+                  <td style={{padding:"10px 12px",fontFamily:"var(--font-m)",fontWeight:700,color:"var(--burg)"}}>{inv.invoiceNumber}</td>
+                  <td style={{padding:"10px 12px"}}>
+                    <div style={{fontWeight:600}}>{inv.applicantName}</div>
+                    <div style={{fontSize:11,color:"var(--text3)"}}>{inv.applicantEmail}</div>
+                  </td>
+                  <td style={{padding:"10px 12px",color:"var(--text2)",fontSize:12}}>{inv.memberType||"—"}</td>
+                  <td style={{padding:"10px 12px",fontWeight:700,color:"var(--burg)"}}>A${Number(inv.total||0).toFixed(2)}</td>
+                  <td style={{padding:"10px 12px",fontSize:12,color:"var(--text2)"}}>{inv.issued}</td>
+                  <td style={{padding:"10px 12px",fontSize:12,color:inv.status==="unpaid"&&inv.due<today?"#dc2626":"var(--text2)",fontWeight:inv.status==="unpaid"&&inv.due<today?700:400}}>{inv.due}</td>
+                  <td style={{padding:"10px 12px"}}><SBadge s={inv.status}/></td>
+                  <td style={{padding:"10px 12px"}}>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      <button onClick={()=>printInvoice(inv, fs)} style={{padding:"3px 8px",background:"white",border:"1px solid var(--border)",borderRadius:4,cursor:"pointer",fontSize:11}}>🖨 Print</button>
+                      {inv.status==="unpaid"&&<button onClick={()=>markPaid(key)} style={{padding:"3px 8px",background:"var(--green)",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:700}}>✓ Paid</button>}
+                      {inv.status==="unpaid"&&<button onClick={()=>markWaived(key)} style={{padding:"3px 8px",background:"#3730a3",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11}}>Waive</button>}
+                      {(inv.status==="unpaid"||inv.status==="waived")&&<button onClick={()=>markCancelled(key)} style={{padding:"3px 8px",background:"#9ca3af",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11}}>Cancel</button>}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}</tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const EXPENSE_CATS=getCats(null).expenseCat;
 
-function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems }) {
+function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems, invoices, setInvoices }) {
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
   const [tab,setTab]=useState("dashboard");
   const [modal,setModal]=useState(null);
@@ -9270,7 +9597,10 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
     setModal(null);
   }
 
-  const tabs2=[{id:"dashboard",label:"Dashboard"},{id:"income",label:"Income"},{id:"expenses",label:"Expenses"},{id:"settings",label:"Settings"}];
+  const allInvoices=invoices||[];
+  const unpaidInvoices=allInvoices.filter(i=>i.status==="unpaid");
+  const unpaidTotal=unpaidInvoices.reduce((s,i)=>s+Number(i.total||0),0);
+  const tabs2=[{id:"dashboard",label:"Dashboard"},{id:"income",label:"Income"},{id:"invoices",label:"Invoices"+(unpaidInvoices.length>0?" ("+unpaidInvoices.length+")":"")},{id:"expenses",label:"Expenses"},{id:"settings",label:"Settings"}];
 
   return (
     <div className="fade-up">
@@ -9303,6 +9633,13 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
                 <div style={{fontSize:26,fontWeight:700,color:c}}>{v}</div>
               </Card>
             ))}
+            {unpaidInvoices.length>0&&(
+              <Card style={{padding:18,border:"2px solid #f0c060",background:"#fffbe6",cursor:"pointer"}} onClick={()=>setTab("invoices")}>
+                <div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"#7a4010",marginBottom:6}}>Outstanding Invoices</div>
+                <div style={{fontSize:26,fontWeight:700,color:"#c05010"}}>{unpaidInvoices.length}</div>
+                <div style={{fontSize:12,color:"#7a4010",marginTop:2}}>A${unpaidTotal.toFixed(2)} due</div>
+              </Card>
+            )}
           </div>
 
           {/* P&L Summary */}
@@ -9455,6 +9792,10 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         </div>
       )}
 
+      {tab==="invoices"&&(
+        <InvoicesAdminPanel invoices={allInvoices} setInvoices={setInvoices} members={members} finSettings={fs}/>
+      )}
+
       {tab==="expenses"&&(
         <div>
           <Row justify="flex-end" style={{marginBottom:14}}>
@@ -9487,23 +9828,78 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
       )}
 
       {tab==="settings"&&(
-        <Card style={{padding:24,maxWidth:600}}>
-          <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,marginBottom:18}}>Finance Settings</div>
-          <Field label="Account Name"><Input value={settForm.accountName||""} onChange={e=>setSettForm({...settForm,accountName:e.target.value})}/></Field>
-          <Row gap={12}><Field label="Bank Name" half><Input value={settForm.bankName||""} onChange={e=>setSettForm({...settForm,bankName:e.target.value})}/></Field>
-          <Field label="BSB" half><Input value={settForm.bsb||""} onChange={e=>setSettForm({...settForm,bsb:e.target.value})} placeholder="000-000"/></Field></Row>
-          <Field label="Account Number"><Input value={settForm.accountNumber||""} onChange={e=>setSettForm({...settForm,accountNumber:e.target.value})}/></Field>
-          <Field label="Payment Reference Instructions"><Input value={settForm.paymentRef||""} onChange={e=>setSettForm({...settForm,paymentRef:e.target.value})}/></Field>
-          <Row gap={12}><Field label="Payment Due (days)" half><Input type="number" value={settForm.paymentDays||14} onChange={e=>setSettForm({...settForm,paymentDays:Number(e.target.value)})}/></Field>
-          <Field label="ABN" half><Input value={settForm.abn||""} onChange={e=>setSettForm({...settForm,abn:e.target.value})} placeholder="XX XXX XXX XXX"/></Field></Row>
-          <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontSize:14,color:"var(--text2)",fontWeight:600,marginBottom:16}}>
-            <input type="checkbox" checked={!!settForm.gstRegistered} onChange={e=>setSettForm({...settForm,gstRegistered:e.target.checked})} style={{width:18,height:18,accentColor:"var(--burg)"}}/>
-            GST Registered (10% GST shown on invoices)
-          </label>
-          <Row gap={12}><Field label="Invoice Prefix" half><Input value={settForm.invoicePrefix||"RCCA"} onChange={e=>setSettForm({...settForm,invoicePrefix:e.target.value})}/></Field>
-          <Field label="Next Invoice Number" half><Input type="number" value={settForm.nextInvoiceNum||1001} onChange={e=>setSettForm({...settForm,nextInvoiceNum:Number(e.target.value)})}/></Field></Row>
-          <Btn onClick={saveSettings}>Save Settings</Btn>
-        </Card>
+        <div style={{maxWidth:640}}>
+          <Card style={{padding:24,marginBottom:20}}>
+            <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,marginBottom:18}}>Finance Settings</div>
+            <Row gap={12}><Field label="Payment Due (days)" half><Input type="number" value={settForm.paymentDays||14} onChange={e=>setSettForm({...settForm,paymentDays:Number(e.target.value)})}/></Field>
+            <Field label="ABN" half><Input value={settForm.abn||""} onChange={e=>setSettForm({...settForm,abn:e.target.value})} placeholder="XX XXX XXX XXX"/></Field></Row>
+            <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontSize:14,color:"var(--text2)",fontWeight:600,marginBottom:16}}>
+              <input type="checkbox" checked={!!settForm.gstRegistered} onChange={e=>setSettForm({...settForm,gstRegistered:e.target.checked})} style={{width:18,height:18,accentColor:"var(--burg)"}}/>
+              GST Registered (10% GST shown on invoices)
+            </label>
+            <Btn onClick={saveSettings}>Save Settings</Btn>
+          </Card>
+
+          <Card style={{padding:24}}>
+            <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,marginBottom:6}}>Payment Methods</div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Configure which payment methods appear on invoices sent to applicants and members.</div>
+
+            {/* Bank Transfer */}
+            {(()=>{
+              const pm=settForm.paymentMethods||DEFAULT_FIN_SETTINGS.paymentMethods;
+              const setPM=(key,val)=>setSettForm(f=>({...f,paymentMethods:{...(f.paymentMethods||DEFAULT_FIN_SETTINGS.paymentMethods),[key]:val}}));
+              const bt=pm.bankTransfer||{};
+              const cash=pm.cash||{};
+              const chq=pm.cheque||{};
+              const onl=pm.online||{};
+              return(<>
+                <div style={{borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:14}}>
+                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontWeight:700,fontSize:14,marginBottom:bt.enabled?14:0}}>
+                    <input type="checkbox" checked={!!bt.enabled} onChange={e=>setPM("bankTransfer",{...bt,enabled:e.target.checked})} style={{width:16,height:16,accentColor:"var(--burg)"}}/>
+                    💳 Bank Transfer
+                  </label>
+                  {bt.enabled&&(<>
+                    <Field label="Account Name"><Input value={bt.accountName||""} onChange={e=>setPM("bankTransfer",{...bt,accountName:e.target.value})}/></Field>
+                    <Row gap={12}><Field label="Bank Name" half><Input value={bt.bankName||""} onChange={e=>setPM("bankTransfer",{...bt,bankName:e.target.value})}/></Field>
+                    <Field label="BSB" half><Input value={bt.bsb||""} onChange={e=>setPM("bankTransfer",{...bt,bsb:e.target.value})} placeholder="000-000"/></Field></Row>
+                    <Field label="Account Number"><Input value={bt.accountNumber||""} onChange={e=>setPM("bankTransfer",{...bt,accountNumber:e.target.value})}/></Field>
+                  </>)}
+                </div>
+
+                <div style={{borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:14}}>
+                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontWeight:700,fontSize:14,marginBottom:cash.enabled?14:0}}>
+                    <input type="checkbox" checked={!!cash.enabled} onChange={e=>setPM("cash",{...cash,enabled:e.target.checked})} style={{width:16,height:16,accentColor:"var(--burg)"}}/>
+                    💵 Cash
+                  </label>
+                  {cash.enabled&&<Field label="Instructions"><Input value={cash.instructions||""} onChange={e=>setPM("cash",{...cash,instructions:e.target.value})} placeholder="e.g. Pay at the next club meeting"/></Field>}
+                </div>
+
+                <div style={{borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:14}}>
+                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontWeight:700,fontSize:14,marginBottom:chq.enabled?14:0}}>
+                    <input type="checkbox" checked={!!chq.enabled} onChange={e=>setPM("cheque",{...chq,enabled:e.target.checked})} style={{width:16,height:16,accentColor:"var(--burg)"}}/>
+                    ✉ Cheque
+                  </label>
+                  {chq.enabled&&(<>
+                    <Field label="Payable To"><Input value={chq.payableTo||""} onChange={e=>setPM("cheque",{...chq,payableTo:e.target.value})}/></Field>
+                    <Field label="Postal Address"><Input value={chq.postalAddress||""} onChange={e=>setPM("cheque",{...chq,postalAddress:e.target.value})}/></Field>
+                  </>)}
+                </div>
+
+                <div style={{borderRadius:8,border:"1px solid var(--border)",padding:16,marginBottom:14}}>
+                  <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontWeight:700,fontSize:14,marginBottom:onl.enabled?14:0}}>
+                    <input type="checkbox" checked={!!onl.enabled} onChange={e=>setPM("online",{...onl,enabled:e.target.checked})} style={{width:16,height:16,accentColor:"var(--burg)"}}/>
+                    🌐 Online Payment
+                  </label>
+                  {onl.enabled&&(<>
+                    <Field label="Button Label"><Input value={onl.label||"Pay Online"} onChange={e=>setPM("online",{...onl,label:e.target.value})}/></Field>
+                    <Field label="Payment URL"><Input value={onl.url||""} onChange={e=>setPM("online",{...onl,url:e.target.value})} placeholder="https://..."/></Field>
+                  </>)}
+                </div>
+                <Btn onClick={saveSettings}>Save Payment Settings</Btn>
+              </>);
+            })()}
+          </Card>
+        </div>
       )}
 
       {/* Add/Edit Expense Modal */}
@@ -11944,7 +12340,7 @@ function AdministrationSection(sp) {
     <div>
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
-      {tab==="finance"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={sp.cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems}/>}
+      {tab==="finance"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={sp.cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
       {tab==="contacts"&&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
       {tab==="permissions"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
       {tab==="categories"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
