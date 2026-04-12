@@ -5810,10 +5810,10 @@ function PublicMembership({ onLoginClick, onApply }) {
           ) : (
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))",gap:20}}>
               {types.map(t=>(
-                <div key={t.id} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 12px rgba(0,0,0,.06)"}}>
+                <div key={t.id} style={{background:"#ffffff",border:"2px solid var(--border)",borderRadius:10,padding:24,boxShadow:"0 2px 12px rgba(0,0,0,.06)",display:"flex",flexDirection:"column"}}>
                   <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--text)",fontWeight:700,marginBottom:8}}>{t.label}</div>
                   {t.description&&<div style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.7,marginBottom:16}}>{t.description}</div>}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
                     {[["New member",t.pricingNew],["Renewal",t.pricingRenewal]].map(([lbl,val])=>(
                       <div key={lbl} style={{background:"var(--bg3)",borderRadius:6,padding:"8px 12px"}}>
                         <div style={{fontSize:9.5,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:3}}>{lbl}</div>
@@ -5822,6 +5822,9 @@ function PublicMembership({ onLoginClick, onApply }) {
                         </div>
                       </div>
                     ))}
+                  </div>
+                  <div style={{marginTop:"auto"}}>
+                    <button onClick={()=>onApply(t)} style={{width:"100%",background:"var(--burg)",border:"none",borderRadius:8,padding:"11px 0",color:"#fff",fontFamily:"var(--font-b)",fontSize:14,fontWeight:700,cursor:"pointer"}}>Apply Now →</button>
                   </div>
                 </div>
               ))}
@@ -6180,246 +6183,497 @@ function PublicShop({ shopItems, onLoginClick }) {
 }
 
 
+const DEFAULT_APP_SETTINGS = {
+  fields: {
+    dob: false, address: true, howHeard: true,
+    preferredComms: false, newsletterPref: false, emergencyContact: false,
+  },
+  vehicles: true,
+  checkboxes: {
+    agreeRules:     { enabled: true,  required: true  },
+    agreePrivacy:   { enabled: false, required: false },
+    agreePhotos:    { enabled: false, required: false },
+    agreeDirectory: { enabled: false, required: false },
+    agreeOwner:     { enabled: false, required: false },
+  },
+  rulesPdfData: null, rulesPdfName: null,
+  privacyPdfData: null, privacyPdfName: null,
+};
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MEMBERSHIP APPLICATION FORM (public)
 // ══════════════════════════════════════════════════════════════════════════════
-function MembershipApplicationForm({ onBack }) {
-  const BLANK = {
-    firstName:"", lastName:"", email:"", phone:"", dob:"",
-    address:"", suburb:"", state:"VIC", postcode:"", country:"Australia",
-    memberType:"City Membership",
-    vehicleMake:"", vehicleModel:"", vehicleYear:"", vehicleNotes:"",
-    howHeard:"", comments:"",
-    agreeRules:false, agreeAge:false,
-  };
-  const [form, setForm] = useState(BLANK);
+function MembershipApplicationForm({ onBack, initialType }) {
+  const [settings, setSettings] = useState(null);
+  const [storedTypes, setStoredTypes] = useState([]);
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    firstName:"", lastName:"", email:"", phone:"",
+    dob:"", address:"", suburb:"", state:"VIC", postcode:"",
+    memberTypeId: initialType?.id || "",
+    howHeard:"", referringMember:"",
+    preferredComms:"email", newsletterPref:"digital",
+    emergencyName:"", emergencyPhone:"",
+    addVehicle:false, vehicleCount:1,
+    vehicles:[{make:"",model:"",year:"",colour:"",reg:"",chassis:"",condition:"daily"}],
+    agreeRules:false, agreePrivacy:false, agreePhotos:false,
+    agreeDirectory:false, agreeOwner:false,
+  });
+  const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [refNum, setRefNum] = useState("");
-  const [errors, setErrors] = useState({});
 
-  function validate() {
-    const e = {};
-    if(!form.firstName.trim()) e.firstName = "Required";
-    if(!form.lastName.trim()) e.lastName = "Required";
-    if(!form.email.trim()||!/\S+@\S+\.\S+/.test(form.email)) e.email = "Valid email required";
-    if(!form.phone.trim()) e.phone = "Required";
-    if(!form.address.trim()) e.address = "Required";
-    if(!form.suburb.trim()) e.suburb = "Required";
-    if(!form.postcode.trim()) e.postcode = "Required";
-    if(!form.agreeRules) e.agreeRules = "You must agree to the club rules";
-    if(!form.agreeAge) e.agreeAge = "You must confirm you are 18 or over";
-    return e;
+  useEffect(() => {
+    (async () => {
+      const [s, types] = await Promise.all([
+        dbGet(CLUB_CONFIG.clubId + ":appSettings"),
+        dbGet(CLUB_CONFIG.clubId + ":membershipTypes"),
+      ]);
+      setSettings(s || DEFAULT_APP_SETTINGS);
+      if (types && types.length) {
+        setStoredTypes(types.filter(t => t.status === "active" && t.availableOnline));
+      } else {
+        setStoredTypes((CLUB_CONFIG.membershipTypes||[]).map(t=>({...t,status:"active",availableOnline:true})));
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!form.addVehicle) return;
+    const count = Math.max(1, Math.min(5, form.vehicleCount));
+    setForm(p => ({
+      ...p,
+      vehicles: Array.from({length:count}, (_,i) =>
+        p.vehicles[i] || {make:"",model:"",year:"",colour:"",reg:"",chassis:"",condition:"daily"}
+      )
+    }));
+  }, [form.vehicleCount, form.addVehicle]);
+
+  const sel = storedTypes.find(t => t.id === form.memberTypeId);
+
+  const visibleSteps = [
+    {id:1,label:"Personal Details"},
+    ...(settings?.vehicles ? [{id:2,label:"Vehicles"}] : []),
+    ...(Object.values(settings?.checkboxes||{}).some(c=>c.enabled) ? [{id:3,label:"Declarations"}] : []),
+    {id:4,label:"Review & Submit"},
+  ];
+  const stepIds = visibleSteps.map(s=>s.id);
+  const currentIdx = stepIds.indexOf(step);
+  const isFirst = currentIdx === 0;
+  const isLast = currentIdx === stepIds.length - 1;
+
+  function f(key, val) { setForm(p=>({...p,[key]:val})); setErrors(p=>({...p,[key]:undefined})); }
+  function fv(idx, key, val) {
+    setForm(p => ({...p, vehicles: p.vehicles.map((v,i)=>i===idx?{...v,[key]:val}:v)}));
   }
 
+  function validateStep() {
+    const e = {};
+    if (step === 1) {
+      if (!form.firstName.trim()) e.firstName = "Required";
+      if (!form.lastName.trim()) e.lastName = "Required";
+      if (!form.email.trim()||!/\S+@\S+\.\S+/.test(form.email)) e.email = "Valid email required";
+      if (!form.phone.trim()) e.phone = "Required";
+      if (storedTypes.length > 0 && !form.memberTypeId) e.memberTypeId = "Please select a membership type";
+      if (settings?.fields?.address) {
+        if (!form.address.trim()) e.address = "Required";
+        if (!form.suburb.trim()) e.suburb = "Required";
+        if (!form.postcode.trim()) e.postcode = "Required";
+      }
+    }
+    if (step === 2 && form.addVehicle) {
+      form.vehicles.forEach((v,i) => {
+        if (!v.make.trim()) e[`v${i}make`] = "Required";
+        if (!v.model.trim()) e[`v${i}model`] = "Required";
+      });
+    }
+    if (step === 3) {
+      Object.entries(settings?.checkboxes||{}).forEach(([key,cfg]) => {
+        if (cfg.enabled && cfg.required) {
+          if (key === "agreeOwner" && !form.addVehicle) return;
+          if (!form[key]) e[key] = "Required";
+        }
+      });
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  function nextStep() { if (validateStep()) { setStep(stepIds[currentIdx+1]); setErrors({}); } }
+  function prevStep() { setStep(stepIds[currentIdx-1]); setErrors({}); }
+
   async function handleSubmit() {
-    const e = validate();
-    if(Object.keys(e).length) { setErrors(e); return; }
+    if (!validateStep()) return;
     const ref = "APP-" + Date.now().toString(36).toUpperCase();
-    const application = {
-      id: ref, status:"pending", submitted: new Date().toISOString().split("T")[0],
+    const vehicleSummary = form.addVehicle
+      ? form.vehicles.map(v=>`${v.year} ${v.make} ${v.model}`.trim()).filter(Boolean).join("; ")
+      : "";
+    const app = {
+      id:ref, status:"pending",
+      submitted: new Date().toISOString().split("T")[0],
       firstName:form.firstName, lastName:form.lastName,
       name:`${form.firstName} ${form.lastName}`,
-      email:form.email, phone:form.phone, dob:form.dob,
-      address:`${form.address}, ${form.suburb} ${form.state} ${form.postcode} ${form.country}`,
-      memberType:form.memberType,
-      vehicle: form.vehicleMake ? `${form.vehicleYear} ${form.vehicleMake} ${form.vehicleModel}`.trim() : "",
-      vehicleNotes:form.vehicleNotes,
-      howHeard:form.howHeard, comments:form.comments,
+      email:form.email, phone:form.phone, dob:form.dob||"",
+      address: settings?.fields?.address
+        ? `${form.address}, ${form.suburb} ${form.state} ${form.postcode}`.trim() : "",
+      memberTypeId:form.memberTypeId,
+      memberType:sel?.label||"",
+      pricingNew:sel?.pricingNew||0,
+      pricingRenewal:sel?.pricingRenewal||0,
+      howHeard:form.howHeard||"",
+      referringMember:form.referringMember||"",
+      preferredComms:form.preferredComms,
+      newsletterPref:form.newsletterPref,
+      emergencyContact: settings?.fields?.emergencyContact
+        ? `${form.emergencyName} ${form.emergencyPhone}`.trim() : "",
+      addVehicle:form.addVehicle,
+      vehicleCount:form.addVehicle?form.vehicles.length:0,
+      vehicles:form.addVehicle?form.vehicles:[],
+      vehicle:vehicleSummary,
+      declarations:{
+        agreeRules:form.agreeRules, agreePrivacy:form.agreePrivacy,
+        agreePhotos:form.agreePhotos, agreeDirectory:form.agreeDirectory,
+        agreeOwner:form.agreeOwner,
+      },
     };
-    const existing = await window.storage.get("rcca:applications").catch(()=>null);
-    const apps = existing ? JSON.parse(existing.value) : [];
-    apps.push(application);
-    await window.storage.set("rcca:applications", JSON.stringify(apps));
+    const existing = await dbGet(SK.applications) || [];
+    await dbSet(SK.applications, [...existing, app]);
     setRefNum(ref);
     setSubmitted(true);
   }
 
-  function f(key, val) { setForm(p=>({...p,[key]:val})); setErrors(p=>({...p,[key]:undefined})); }
-
   const inputSt = (k) => ({
-    width:"100%", background:"#ffffff", border:`1px solid ${errors[k]?"#c0282a":"var(--border2)"}`,
-    borderRadius:6, padding:"10px 12px", color:"var(--text)", fontFamily:"var(--font-b)",
-    fontSize:14, outline:"none",
+    width:"100%", background:"#ffffff",
+    border:`1px solid ${errors[k]?"#c0282a":"var(--border2)"}`,
+    borderRadius:6, padding:"10px 12px", color:"var(--text)",
+    fontFamily:"var(--font-b)", fontSize:14, outline:"none",
   });
-  const labelSt = { fontSize:13, fontWeight:600, color:"var(--text2)", marginBottom:5, display:"block" };
-  const errSt = { fontSize:11, color:"#c0282a", marginTop:3, fontFamily:"var(--font-m)" };
-  const sectionSt = { background:"#ffffff", border:"1px solid var(--border)", borderRadius:10, padding:24, marginBottom:20 };
-  const headingSt = { fontFamily:"var(--font-d)", fontSize:18, fontWeight:700, color:"var(--text)", marginBottom:18, paddingBottom:10, borderBottom:"1px solid var(--border)" };
+  const labelSt = {fontSize:13,fontWeight:600,color:"var(--text2)",marginBottom:5,display:"block"};
+  const errSt   = {fontSize:11,color:"#c0282a",marginTop:3,fontFamily:"var(--font-m)"};
+  const secSt   = {background:"#ffffff",border:"1px solid var(--border)",borderRadius:10,padding:24,marginBottom:20};
+  const hdSt    = {fontFamily:"var(--font-d)",fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:18,paddingBottom:10,borderBottom:"1px solid var(--border)"};
 
-  if(submitted) return (
+  if (!settings) return <div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>Loading…</div>;
+
+  if (submitted) return (
     <div style={{maxWidth:620,margin:"60px auto",padding:"0 24px"}}>
       <div style={{background:"#ffffff",border:"2px solid var(--burg)",borderRadius:12,padding:40,textAlign:"center",boxShadow:"0 4px 24px rgba(0,0,0,.08)"}}>
         <div style={{fontSize:56,marginBottom:16}}>✅</div>
         <h2 style={{fontFamily:"var(--font-d)",fontSize:26,fontWeight:700,color:"var(--text)",marginBottom:8}}>Application Submitted!</h2>
         <div style={{fontFamily:"var(--font-m)",fontSize:13,color:"var(--burg)",fontWeight:700,marginBottom:16}}>Reference: {refNum}</div>
         <p style={{fontSize:14,color:"var(--text2)",lineHeight:1.7,marginBottom:24}}>
-          Thank you for applying to join the Rover Car Club of Australia. Your application has been received and will be reviewed by our committee. We will be in touch at <strong>{form.email}</strong> within 5–7 business days.
+          Thank you for applying to join {CLUB_CONFIG.name}. We will be in touch at <strong>{form.email}</strong> within 5–7 business days.
         </p>
         <div style={{background:"var(--bg3)",borderRadius:8,padding:16,fontSize:13,color:"var(--text3)",marginBottom:24,textAlign:"left"}}>
           <div style={{fontWeight:700,color:"var(--text)",marginBottom:6}}>What happens next?</div>
-          <div style={{marginBottom:4}}>1. Committee reviews your application</div>
-          <div style={{marginBottom:4}}>2. You will receive an approval email with payment details</div>
-          <div style={{marginBottom:4}}>3. Once payment is received, your membership is activated</div>
-          <div>4. You will receive your member number and login details</div>
+          <div>1. Committee reviews your application</div>
+          <div>2. Approval email with payment details</div>
+          <div>3. Membership activated on receipt of payment</div>
+          <div>4. Member number and login details issued</div>
         </div>
-        <div style={{fontSize:12,color:"var(--text4)"}}>Questions? Email <span style={{color:"var(--burg)"}}>membership@rcca.com.au</span></div>
+        <div style={{fontSize:12,color:"var(--text4)"}}>Questions? Email <span style={{color:"var(--burg)"}}>{CLUB_CONFIG.emailMembership}</span></div>
         <button onClick={onBack} style={{marginTop:20,background:"none",border:"1px solid var(--border2)",borderRadius:6,padding:"10px 24px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer"}}>← Back to Membership</button>
       </div>
+    </div>
+  );
+
+  const StepBar = () => (
+    <div style={{display:"flex",marginBottom:32,borderRadius:8,overflow:"hidden",border:"1px solid var(--border)"}}>
+      {visibleSteps.map((s,i)=>(
+        <div key={s.id} onClick={()=>{ if(step>s.id) setStep(s.id); }} style={{
+          flex:1, padding:"10px 8px", textAlign:"center",
+          background:step===s.id?"var(--burg)":step>s.id?"var(--bg3)":"#ffffff",
+          color:step===s.id?"#fff":step>s.id?"var(--burg)":"var(--text3)",
+          fontSize:12, fontFamily:"var(--font-m)", fontWeight:step===s.id?700:400,
+          borderRight:i<visibleSteps.length-1?"1px solid var(--border)":"none",
+          cursor:step>s.id?"pointer":"default",
+        }}>
+          <span style={{opacity:.6,marginRight:4}}>{i+1}.</span>{s.label}{step>s.id?" ✓":""}
+        </div>
+      ))}
     </div>
   );
 
   return (
     <div style={{maxWidth:700,margin:"0 auto",padding:"48px 24px"}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"var(--burg)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer",marginBottom:20,fontWeight:600}}>← Back to Membership</button>
-      <h1 style={{fontFamily:"var(--font-d)",fontSize:32,fontWeight:700,color:"var(--text)",marginBottom:6}}>Membership Application</h1>
-      <p style={{fontSize:14,color:"var(--text3)",marginBottom:32}}>Complete the form below. Fields marked * are required. Your application will be reviewed by the committee before activation.</p>
+      <h1 style={{fontFamily:"var(--font-d)",fontSize:28,fontWeight:700,color:"var(--text)",marginBottom:6}}>Membership Application</h1>
+      <p style={{fontSize:14,color:"var(--text3)",marginBottom:24}}>Fields marked * are required.</p>
+      <StepBar/>
 
-      {/* Personal Details */}
-      <div style={sectionSt}>
-        <div style={headingSt}>Personal Details</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelSt}>First Name *</label>
-            <input style={inputSt("firstName")} value={form.firstName} onChange={e=>f("firstName",e.target.value)} placeholder="e.g. Geoffrey"/>
-            {errors.firstName&&<div style={errSt}>{errors.firstName}</div>}
+      {step===1&&(<>
+        {storedTypes.length>0&&(
+          <div style={secSt}>
+            <div style={hdSt}>Membership Type *</div>
+            {errors.memberTypeId&&<div style={{...errSt,marginBottom:12}}>{errors.memberTypeId}</div>}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:12}}>
+              {storedTypes.map(t=>(
+                <label key={t.id} style={{display:"flex",gap:12,padding:16,border:`2px solid ${form.memberTypeId===t.id?"var(--burg)":"var(--border)"}`,borderRadius:8,cursor:"pointer",background:form.memberTypeId===t.id?"#fff5f5":"#fff"}}>
+                  <input type="radio" name="memberType" value={t.id} checked={form.memberTypeId===t.id} onChange={()=>f("memberTypeId",t.id)} style={{marginTop:2,accentColor:"var(--burg)"}}/>
+                  <div>
+                    <div style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{t.label}</div>
+                    <div style={{fontSize:13,color:"var(--burg)",fontWeight:600}}>{t.pricingNew>0?`A$${t.pricingNew}/yr`:"Free"}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
-          <div>
-            <label style={labelSt}>Last Name *</label>
-            <input style={inputSt("lastName")} value={form.lastName} onChange={e=>f("lastName",e.target.value)} placeholder="e.g. Harrington"/>
-            {errors.lastName&&<div style={errSt}>{errors.lastName}</div>}
+        )}
+        <div style={secSt}>
+          <div style={hdSt}>Personal Details</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+            <div>
+              <label style={labelSt}>First Name *</label>
+              <input style={inputSt("firstName")} value={form.firstName} onChange={e=>f("firstName",e.target.value)}/>
+              {errors.firstName&&<div style={errSt}>{errors.firstName}</div>}
+            </div>
+            <div>
+              <label style={labelSt}>Last Name *</label>
+              <input style={inputSt("lastName")} value={form.lastName} onChange={e=>f("lastName",e.target.value)}/>
+              {errors.lastName&&<div style={errSt}>{errors.lastName}</div>}
+            </div>
           </div>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelSt}>Email Address *</label>
-            <input style={inputSt("email")} type="email" value={form.email} onChange={e=>f("email",e.target.value)} placeholder="your@email.com"/>
-            {errors.email&&<div style={errSt}>{errors.email}</div>}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+            <div>
+              <label style={labelSt}>Email *</label>
+              <input style={inputSt("email")} type="email" value={form.email} onChange={e=>f("email",e.target.value)}/>
+              {errors.email&&<div style={errSt}>{errors.email}</div>}
+            </div>
+            <div>
+              <label style={labelSt}>Phone *</label>
+              <input style={inputSt("phone")} value={form.phone} onChange={e=>f("phone",e.target.value)}/>
+              {errors.phone&&<div style={errSt}>{errors.phone}</div>}
+            </div>
           </div>
-          <div>
-            <label style={labelSt}>Phone *</label>
-            <input style={inputSt("phone")} value={form.phone} onChange={e=>f("phone",e.target.value)} placeholder="04xx xxx xxx"/>
-            {errors.phone&&<div style={errSt}>{errors.phone}</div>}
-          </div>
-        </div>
-        <div style={{marginBottom:16}}>
-          <label style={labelSt}>Date of Birth</label>
-          <input style={{...inputSt("dob"),width:"50%"}} type="date" value={form.dob} onChange={e=>f("dob",e.target.value)}/>
-        </div>
-        <div style={{marginBottom:16}}>
-          <label style={labelSt}>Street Address *</label>
-          <input style={inputSt("address")} value={form.address} onChange={e=>f("address",e.target.value)} placeholder="123 Example Street"/>
-          {errors.address&&<div style={errSt}>{errors.address}</div>}
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelSt}>Suburb *</label>
-            <input style={inputSt("suburb")} value={form.suburb} onChange={e=>f("suburb",e.target.value)}/>
-            {errors.suburb&&<div style={errSt}>{errors.suburb}</div>}
-          </div>
-          <div>
-            <label style={labelSt}>State</label>
-            <select style={inputSt("state")} value={form.state} onChange={e=>f("state",e.target.value)}>
-              {["VIC","NSW","QLD","WA","SA","TAS","ACT","NT"].map(s=><option key={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelSt}>Postcode *</label>
-            <input style={inputSt("postcode")} value={form.postcode} onChange={e=>f("postcode",e.target.value)} maxLength={4}/>
-            {errors.postcode&&<div style={errSt}>{errors.postcode}</div>}
-          </div>
-        </div>
-      </div>
-
-      {/* Membership Type */}
-      <div style={sectionSt}>
-        <div style={headingSt}>Membership Type</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-          {[
-            {id:"City Membership",price:"A$54/year",desc:"Melbourne metropolitan area"},
-            {id:"Country & Interstate",price:"A$46/year",desc:"Outside Melbourne metro"},
-          ].map(m=>(
-            <label key={m.id} style={{display:"flex",gap:12,padding:16,border:`2px solid ${form.memberType===m.id?"var(--burg)":"var(--border)"}`,borderRadius:8,cursor:"pointer",background:form.memberType===m.id?"#fff5f5":"#ffffff"}}>
-              <input type="radio" name="memberType" value={m.id} checked={form.memberType===m.id} onChange={e=>f("memberType",e.target.value)} style={{marginTop:2,accentColor:"var(--burg)"}}/>
+          {settings.fields.dob&&(
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>Date of Birth</label>
+              <input style={{...inputSt("dob"),width:"50%"}} type="date" value={form.dob} onChange={e=>f("dob",e.target.value)}/>
+            </div>
+          )}
+          {settings.fields.address&&(<>
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>Street Address *</label>
+              <input style={inputSt("address")} value={form.address} onChange={e=>f("address",e.target.value)} placeholder="123 Example Street"/>
+              {errors.address&&<div style={errSt}>{errors.address}</div>}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:16,marginBottom:16}}>
               <div>
-                <div style={{fontWeight:700,fontSize:14,color:"var(--text)"}}>{m.id}</div>
-                <div style={{fontSize:13,color:"var(--burg)",fontWeight:600}}>{m.price}</div>
-                <div style={{fontSize:12,color:"var(--text3)"}}>{m.desc}</div>
+                <label style={labelSt}>Suburb *</label>
+                <input style={inputSt("suburb")} value={form.suburb} onChange={e=>f("suburb",e.target.value)}/>
+                {errors.suburb&&<div style={errSt}>{errors.suburb}</div>}
               </div>
-            </label>
-          ))}
+              <div>
+                <label style={labelSt}>State</label>
+                <select style={inputSt("state")} value={form.state} onChange={e=>f("state",e.target.value)}>
+                  {["VIC","NSW","QLD","WA","SA","TAS","ACT","NT"].map(s=><option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelSt}>Postcode *</label>
+                <input style={inputSt("postcode")} value={form.postcode} onChange={e=>f("postcode",e.target.value)} maxLength={4}/>
+                {errors.postcode&&<div style={errSt}>{errors.postcode}</div>}
+              </div>
+            </div>
+          </>)}
+          {settings.fields.howHeard&&(
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>How did you hear about us?</label>
+              <select style={inputSt("howHeard")} value={form.howHeard} onChange={e=>f("howHeard",e.target.value)}>
+                <option value="">— Select —</option>
+                {["Member referral","Social media","Internet search","Event","Other"].map(o=><option key={o}>{o}</option>)}
+              </select>
+              {form.howHeard==="Member referral"&&(
+                <div style={{marginTop:12}}>
+                  <label style={labelSt}>Referring member name</label>
+                  <input style={inputSt("referringMember")} value={form.referringMember} onChange={e=>f("referringMember",e.target.value)} placeholder="Name of member who referred you"/>
+                </div>
+              )}
+            </div>
+          )}
+          {settings.fields.preferredComms&&(
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>Preferred communication</label>
+              <div style={{display:"flex",gap:16,marginTop:6}}>
+                {[["email","Email"],["post","Post"]].map(([v,l])=>(
+                  <label key={v} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}>
+                    <input type="radio" checked={form.preferredComms===v} onChange={()=>f("preferredComms",v)} style={{accentColor:"var(--burg)"}}/>
+                    <span style={{fontSize:14}}>{l}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {settings.fields.newsletterPref&&(
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>Newsletter preference</label>
+              <div style={{display:"flex",gap:16,marginTop:6}}>
+                {[["digital","Digital"],["print","Print"]].map(([v,l])=>(
+                  <label key={v} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer"}}>
+                    <input type="radio" checked={form.newsletterPref===v} onChange={()=>f("newsletterPref",v)} style={{accentColor:"var(--burg)"}}/>
+                    <span style={{fontSize:14}}>{l}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          {settings.fields.emergencyContact&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <label style={labelSt}>Emergency contact name</label>
+                <input style={inputSt("emergencyName")} value={form.emergencyName} onChange={e=>f("emergencyName",e.target.value)}/>
+              </div>
+              <div>
+                <label style={labelSt}>Emergency contact phone</label>
+                <input style={inputSt("emergencyPhone")} value={form.emergencyPhone} onChange={e=>f("emergencyPhone",e.target.value)}/>
+              </div>
+            </div>
+          )}
         </div>
-        <div style={{marginTop:12,fontSize:12,color:"var(--text3)",padding:"10px 14px",background:"var(--bg3)",borderRadius:6}}>
-          A once-only joining fee of <strong>A$20</strong> applies. Payment details will be provided after approval.
-        </div>
-      </div>
+      </>)}
 
-      {/* Vehicle Details (optional) */}
-      <div style={sectionSt}>
-        <div style={headingSt}>Vehicle Details <span style={{fontSize:13,fontWeight:400,color:"var(--text3)"}}>— optional</span></div>
-        <p style={{fontSize:13,color:"var(--text3)",marginBottom:16}}>Tell us about your Rover(s). You can add more vehicles later through the members portal.</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:16}}>
-          <div>
-            <label style={labelSt}>Make</label>
-            <input style={inputSt()} value={form.vehicleMake} onChange={e=>f("vehicleMake",e.target.value)} placeholder="e.g. Rover"/>
+      {step===2&&(
+        <div style={secSt}>
+          <div style={hdSt}>Vehicle Registration</div>
+          <p style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Would you like to register a vehicle with your application?</p>
+          <div style={{display:"flex",gap:12,marginBottom:20}}>
+            {[["Yes",true],["No",false]].map(([lbl,val])=>(
+              <label key={lbl} style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",padding:"10px 20px",border:`2px solid ${form.addVehicle===val?"var(--burg)":"var(--border)"}`,borderRadius:8,background:form.addVehicle===val?"#fff5f5":"#fff"}}>
+                <input type="radio" checked={form.addVehicle===val} onChange={()=>f("addVehicle",val)} style={{accentColor:"var(--burg)"}}/>
+                <span style={{fontWeight:600,fontSize:14}}>{lbl}</span>
+              </label>
+            ))}
           </div>
-          <div>
-            <label style={labelSt}>Model</label>
-            <input style={inputSt()} value={form.vehicleModel} onChange={e=>f("vehicleModel",e.target.value)} placeholder="e.g. P6 3500S"/>
+          {form.addVehicle&&(<>
+            <div style={{marginBottom:16}}>
+              <label style={labelSt}>How many vehicles? (1–5)</label>
+              <select style={{...inputSt(),width:"auto",minWidth:80}} value={form.vehicleCount} onChange={e=>f("vehicleCount",Number(e.target.value))}>
+                {[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            {form.vehicles.map((v,i)=>(
+              <div key={i} style={{background:"var(--bg3)",borderRadius:8,padding:16,marginBottom:12}}>
+                <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:12}}>Vehicle {i+1}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+                  <div>
+                    <label style={labelSt}>Make *</label>
+                    <input style={inputSt(`v${i}make`)} value={v.make} onChange={e=>fv(i,"make",e.target.value)}/>
+                    {errors[`v${i}make`]&&<div style={errSt}>{errors[`v${i}make`]}</div>}
+                  </div>
+                  <div>
+                    <label style={labelSt}>Model *</label>
+                    <input style={inputSt(`v${i}model`)} value={v.model} onChange={e=>fv(i,"model",e.target.value)}/>
+                    {errors[`v${i}model`]&&<div style={errSt}>{errors[`v${i}model`]}</div>}
+                  </div>
+                  <div>
+                    <label style={labelSt}>Year</label>
+                    <input style={inputSt()} value={v.year} onChange={e=>fv(i,"year",e.target.value)} maxLength={4} placeholder="e.g. 1972"/>
+                  </div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12}}>
+                  <div><label style={labelSt}>Colour</label><input style={inputSt()} value={v.colour} onChange={e=>fv(i,"colour",e.target.value)}/></div>
+                  <div><label style={labelSt}>Rego plate</label><input style={inputSt()} value={v.reg} onChange={e=>fv(i,"reg",e.target.value)}/></div>
+                  <div><label style={labelSt}>Chassis / VIN</label><input style={inputSt()} value={v.chassis} onChange={e=>fv(i,"chassis",e.target.value)}/></div>
+                </div>
+                <div>
+                  <label style={labelSt}>Condition</label>
+                  <select style={{...inputSt(),width:"auto"}} value={v.condition} onChange={e=>fv(i,"condition",e.target.value)}>
+                    {[["daily","Daily driver"],["weekend","Weekend car"],["restoration","Restoration project"],["concours","Concours"],["other","Other"]].map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}
+                  </select>
+                </div>
+              </div>
+            ))}
+          </>)}
+        </div>
+      )}
+
+      {step===3&&(
+        <div style={secSt}>
+          <div style={hdSt}>Declarations</div>
+          {Object.entries(settings.checkboxes).filter(([,cfg])=>cfg.enabled).map(([key,cfg])=>{
+            if (key==="agreeOwner"&&!form.addVehicle) return null;
+            const labels={
+              agreeRules:`I agree to abide by the rules and code of conduct of ${CLUB_CONFIG.name}.`,
+              agreePrivacy:"I agree to the privacy policy.",
+              agreePhotos:"I consent to photos of me being used in club publications.",
+              agreeDirectory:"I consent to being listed in the member directory.",
+              agreeOwner:"I declare that I am the registered owner of the vehicle(s) listed.",
+            };
+            const pdfLink = (key==="agreeRules"&&settings.rulesPdfData)
+              ? <> (<a href={settings.rulesPdfData} download={settings.rulesPdfName||"club-rules.pdf"} style={{color:"var(--burg)"}}>view PDF</a>)</>
+              : (key==="agreePrivacy"&&settings.privacyPdfData)
+              ? <> (<a href={settings.privacyPdfData} download={settings.privacyPdfName||"privacy-policy.pdf"} style={{color:"var(--burg)"}}>view PDF</a>)</>
+              : null;
+            return (
+              <div key={key} style={{marginBottom:14}}>
+                <label style={{display:"flex",gap:12,cursor:"pointer",alignItems:"flex-start"}}>
+                  <input type="checkbox" checked={form[key]} onChange={e=>f(key,e.target.checked)} style={{marginTop:2,width:18,height:18,flexShrink:0,accentColor:"var(--burg)"}}/>
+                  <span style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.6}}>
+                    {labels[key]}{pdfLink}{cfg.required?" *":""}
+                  </span>
+                </label>
+                {errors[key]&&<div style={{...errSt,marginLeft:30}}>{errors[key]}</div>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {step===4&&(
+        <div style={secSt}>
+          <div style={hdSt}>Review Your Application</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20,fontSize:13}}>
+            {[
+              ["Name",`${form.firstName} ${form.lastName}`],
+              ["Email",form.email],
+              ["Phone",form.phone],
+              ...(form.dob?[["Date of Birth",form.dob]]:[]),
+              ...(settings.fields.address&&form.address?[["Address",`${form.address}, ${form.suburb} ${form.state} ${form.postcode}`]]:[]),
+              ...(form.howHeard?[["How heard",form.howHeard+(form.referringMember?` — ${form.referringMember}`:"")]]:[]),
+            ].map(([k,v])=>(
+              <div key={k}>
+                <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k}</div>
+                <div style={{color:"var(--text)",fontWeight:600}}>{v}</div>
+              </div>
+            ))}
           </div>
-          <div>
-            <label style={labelSt}>Year</label>
-            <input style={inputSt()} value={form.vehicleYear} onChange={e=>f("vehicleYear",e.target.value)} placeholder="e.g. 1972" maxLength={4}/>
-          </div>
+          {sel&&(
+            <div style={{background:"var(--bg3)",border:"2px solid var(--burg)",borderRadius:8,padding:16,marginBottom:16}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Selected Membership</div>
+              <div style={{fontWeight:700,fontSize:16,color:"var(--text)",marginBottom:4}}>{sel.label}</div>
+              <div style={{fontSize:14,color:"var(--burg)",fontWeight:600}}>
+                {sel.pricingNew>0?`A$${sel.pricingNew} to join`:"Free to join"}
+                {sel.pricingRenewal>0?` · A$${sel.pricingRenewal}/yr renewal`:""}
+              </div>
+            </div>
+          )}
+          {form.addVehicle&&form.vehicles.length>0&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8}}>Vehicles ({form.vehicles.length})</div>
+              {form.vehicles.map((v,i)=>(
+                <div key={i} style={{fontSize:13,color:"var(--text2)",marginBottom:4}}>
+                  {i+1}. {[v.year,v.make,v.model].filter(Boolean).join(" ")}{v.reg?` · ${v.reg}`:""}{v.colour?` · ${v.colour}`:""}
+                </div>
+              ))}
+            </div>
+          )}
+          {Object.keys(errors).length>0&&(
+            <div style={{background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:8,padding:14,marginBottom:16,fontSize:13,color:"#8f1a1a"}}>Please fix errors before submitting.</div>
+          )}
         </div>
-        <div>
-          <label style={labelSt}>Notes about your vehicle(s)</label>
-          <textarea style={{...inputSt(),minHeight:80,resize:"vertical"}} value={form.vehicleNotes} onChange={e=>f("vehicleNotes",e.target.value)} placeholder="e.g. Also have a Land Rover Series II under restoration..."/>
-        </div>
+      )}
+
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
+        {!isFirst
+          ? <button onClick={prevStep} style={{background:"none",border:"1px solid var(--border2)",borderRadius:8,padding:"11px 24px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:14,cursor:"pointer"}}>← Back</button>
+          : <div/>
+        }
+        {!isLast
+          ? <button onClick={nextStep} style={{background:"var(--burg)",border:"none",borderRadius:8,padding:"12px 28px",color:"#fff",fontFamily:"var(--font-b)",fontSize:14,fontWeight:700,cursor:"pointer"}}>Continue →</button>
+          : <button onClick={handleSubmit} style={{background:"var(--burg)",border:"none",borderRadius:8,padding:"12px 28px",color:"#fff",fontFamily:"var(--font-b)",fontSize:16,fontWeight:700,cursor:"pointer"}}>Submit Application →</button>
+        }
       </div>
-
-      {/* How did you hear */}
-      <div style={sectionSt}>
-        <div style={headingSt}>A Little More</div>
-        <div style={{marginBottom:16}}>
-          <label style={labelSt}>How did you hear about the club?</label>
-          <select style={inputSt("howHeard")} value={form.howHeard} onChange={e=>f("howHeard",e.target.value)}>
-            <option value="">— Please select —</option>
-            {["Existing member","National Rove","Internet search","Facebook","Club website","Rover forum / online community","Car show or event","Magazine","Word of mouth","Other"].map(o=><option key={o}>{o}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={labelSt}>Any comments or questions for the committee?</label>
-          <textarea style={{...inputSt(),minHeight:80,resize:"vertical"}} value={form.comments} onChange={e=>f("comments",e.target.value)} placeholder="Optional — anything you'd like us to know"/>
-        </div>
-      </div>
-
-      {/* Agreement */}
-      <div style={sectionSt}>
-        <div style={headingSt}>Declaration</div>
-        <div style={{marginBottom:14}}>
-          <label style={{display:"flex",gap:12,cursor:"pointer",alignItems:"flex-start"}}>
-            <input type="checkbox" checked={form.agreeRules} onChange={e=>f("agreeRules",e.target.checked)} style={{marginTop:2,width:18,height:18,flexShrink:0,accentColor:"var(--burg)"}}/>
-            <span style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.6}}>I agree to abide by the rules and code of conduct of the Rover Car Club of Australia, and understand that membership is subject to committee approval. *</span>
-          </label>
-          {errors.agreeRules&&<div style={{...errSt,marginLeft:30}}>{errors.agreeRules}</div>}
-        </div>
-        <div>
-          <label style={{display:"flex",gap:12,cursor:"pointer",alignItems:"flex-start"}}>
-            <input type="checkbox" checked={form.agreeAge} onChange={e=>f("agreeAge",e.target.checked)} style={{marginTop:2,width:18,height:18,flexShrink:0,accentColor:"var(--burg)"}}/>
-            <span style={{fontSize:13.5,color:"var(--text2)",lineHeight:1.6}}>I confirm that I am 18 years of age or older. *</span>
-          </label>
-          {errors.agreeAge&&<div style={{...errSt,marginLeft:30}}>{errors.agreeAge}</div>}
-        </div>
-      </div>
-
-      {Object.keys(errors).length>0&&<div style={{background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:8,padding:14,marginBottom:20,fontSize:13,color:"#8f1a1a"}}>
-        Please fix the errors above before submitting.
-      </div>}
-
-      <button onClick={handleSubmit} style={{width:"100%",background:"var(--burg)",border:"none",borderRadius:8,padding:"14px",color:"#ffffff",fontFamily:"var(--font-b)",fontSize:16,fontWeight:700,cursor:"pointer",marginBottom:12}}>
-        Submit Application →
-      </button>
-      <div style={{fontSize:12,color:"var(--text4)",textAlign:"center"}}>Your information is kept confidential and used only for club administration purposes.</div>
+      <div style={{fontSize:12,color:"var(--text4)",textAlign:"center",marginTop:12}}>Your information is kept confidential and used only for club administration.</div>
     </div>
   );
 }
@@ -6427,75 +6681,110 @@ function MembershipApplicationForm({ onBack }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // APPLICATIONS ADMIN SECTION (portal)
 // ══════════════════════════════════════════════════════════════════════════════
-function ApplicationsSection({ applications, setApplications, members, setMembers, dues, setDues }) {
+function ApplicationsSection({ applications, setApplications, members, setMembers, dues, setDues, cars, setCars }) {
   const [view, setView] = useState(null);
   const [declineNote, setDeclineNote] = useState("");
-  const pending = (applications||[]).filter(a=>a.status==="pending");
-  const processed = (applications||[]).filter(a=>a.status!=="pending");
+  const [infoNote, setInfoNote] = useState("");
+  const [actionModal, setActionModal] = useState(null);
+
+  const pending   = (applications||[]).filter(a=>a.status==="pending"||a.status==="info_requested");
+  const processed = (applications||[]).filter(a=>a.status==="approved"||a.status==="declined");
 
   async function approve(app) {
-    const mNum = String(members.length+1).padStart(3,"0");
+    const mNum = String(members.length+1).padStart(4,"0");
     const newMember = {
-      id: uid("M"), name:app.name, email:app.email, phone:app.phone,
+      id:uid("M"), name:app.name, email:app.email, phone:app.phone,
       joined:today, status:"active", memberType:app.memberType,
-      role:"member", bio:"", state:app.address?.split(" ").slice(-3,-2)[0]||"",
+      role:"member", bio:"",
+      state:app.address?.match(/\b(VIC|NSW|QLD|WA|SA|TAS|ACT|NT)\b/)?.[0]||"",
       memberNumber:mNum, password:"changeme123",
-      avatar: app.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
+      avatar:app.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase(),
+      dob:app.dob||"", address:app.address||"",
+      preferredComms:app.preferredComms||"email",
+      newsletterPref:app.newsletterPref||"digital",
     };
-    const newDue = { id:uid("D"), memberId:newMember.id, year:yr, paid:false,
-      amount:app.memberType==="City Membership"?54:46, type:app.memberType, dueDate:`${yr}-07-01` };
-    const updatedApps = applications.map(a=>a.id===app.id?{...a,status:"approved",approvedDate:today}:a);
+    const newDue = {
+      id:uid("D"), memberId:newMember.id, year:yr, paid:false,
+      amount:app.pricingNew||0, type:app.memberType, dueDate:`${yr}-12-31`,
+    };
+    const newCars = (app.vehicles||[]).map(v=>({
+      id:uid("C"), ownerId:newMember.id,
+      make:v.make, model:v.model, year:v.year||"",
+      colour:v.colour||"", reg:v.reg||"", chassis:v.chassis||"",
+      status:"active", condition:v.condition||"daily",
+      registered:today, notes:`Added via application ${app.id}`,
+      imgData:null, imgCaption:"",
+    }));
+    const updatedApps    = applications.map(a=>a.id===app.id?{...a,status:"approved",approvedDate:today}:a);
     const updatedMembers = [...members, newMember];
-    const updatedDues = [...dues, newDue];
+    const updatedDues    = [...dues, newDue];
+    const updatedCars    = [...(cars||[]), ...newCars];
     setApplications(updatedApps); setMembers(updatedMembers); setDues(updatedDues);
+    if (typeof setCars==="function") setCars(updatedCars);
     await dbSet(SK.applications, updatedApps);
     await dbSet(SK.members, updatedMembers);
     await dbSet(SK.dues, updatedDues);
+    if (newCars.length) await dbSet(SK.cars, updatedCars);
     setView(null);
-    console.log(`${app.name} approved — Member #${mNum} created
-Temporary password: changeme123
-Please notify them at ${app.email}`);
   }
 
   async function decline(app) {
     const updatedApps = applications.map(a=>a.id===app.id?{...a,status:"declined",declineNote,declinedDate:today}:a);
     setApplications(updatedApps);
     await dbSet(SK.applications, updatedApps);
-    setView(null); setDeclineNote("");
-    console.log(`Application from ${app.name} declined`,"info");
+    setView(null); setDeclineNote(""); setActionModal(null);
   }
 
-  const inputSt = { width:"100%",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:6,padding:"8px 12px",color:"var(--text)",fontFamily:"var(--font-b)",fontSize:13,outline:"none" };
+  async function requestInfo(app) {
+    const updatedApps = applications.map(a=>a.id===app.id?{...a,status:"info_requested",infoRequestNote:infoNote,infoRequestDate:today}:a);
+    setApplications(updatedApps);
+    await dbSet(SK.applications, updatedApps);
+    const subj = encodeURIComponent("Membership Application — Further Information Required");
+    const body = encodeURIComponent(`Dear ${app.firstName||app.name},\n\n${infoNote||"We require some additional information regarding your membership application."}\n\nReference: ${app.id}\n\nKind regards,\nThe Membership Team\n${CLUB_CONFIG.name}`);
+    window.open(`mailto:${app.email}?subject=${subj}&body=${body}`);
+    setView(null); setInfoNote(""); setActionModal(null);
+  }
+
+  const STATUS = {
+    pending:        {bg:"#fdecd0",color:"#7a4010",border:"#f0c890",label:"PENDING"},
+    approved:       {bg:"#d4f0e0",color:"#1a6040",border:"#a0d8b8",label:"APPROVED"},
+    declined:       {bg:"#fdd8d8",color:"#8f1a1a",border:"#f0a8a8",label:"DECLINED"},
+    info_requested: {bg:"#e0e8fc",color:"#1a3a8a",border:"#a0b8f0",label:"INFO REQUESTED"},
+  };
+  const Badge = ({status}) => {
+    const s=STATUS[status]||STATUS.pending;
+    return <span style={{fontSize:10,fontFamily:"var(--font-m)",fontWeight:700,padding:"2px 8px",borderRadius:3,background:s.bg,color:s.color,border:`1px solid ${s.border}`,whiteSpace:"nowrap"}}>{s.label}</span>;
+  };
+  const inSt = {width:"100%",background:"var(--bg3)",border:"1px solid var(--border2)",borderRadius:6,padding:"8px 12px",color:"var(--text)",fontFamily:"var(--font-b)",fontSize:13,outline:"none"};
 
   return (
     <div className="fade-up">
-      <SectionHeader title="Membership Applications"
-        subtitle={`${pending.length} pending review`}/>
+      <SectionHeader title="Membership Applications" subtitle={`${pending.length} pending`}/>
 
-      {pending.length===0&&processed.length===0&&(
+      {(applications||[]).length===0&&(
         <div style={{textAlign:"center",padding:"60px 0",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:13}}>No applications received yet.</div>
       )}
 
       {pending.length>0&&(
         <div style={{marginBottom:32}}>
-          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14}}>Pending Review ({pending.length})</div>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14}}>Pending ({pending.length})</div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {pending.map(app=>(
-              <div key={app.id} style={{background:"#ffffff",border:"2px solid #f0d080",borderRadius:10,padding:20,cursor:"pointer"}} onClick={()=>setView(app)}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                  <div>
-                    <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,color:"var(--text)",marginBottom:4}}>{app.name}</div>
-                    <div style={{fontSize:13,color:"var(--text3)",marginBottom:4}}>{app.email} · {app.phone}</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      <span style={{fontSize:11,background:"#fdecd0",color:"#7a4010",border:"1px solid #f0c890",fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3,fontWeight:700}}>{app.memberType}</span>
-                      {app.vehicle&&<span style={{fontSize:11,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3}}>{app.vehicle}</span>}
-                    </div>
+              <div key={app.id} onClick={()=>setView(app)} style={{background:"#fff",border:"2px solid #f0d080",borderRadius:10,padding:18,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,color:"var(--text)"}}>{app.name}</span>
+                    <Badge status={app.status}/>
                   </div>
-                  <div style={{textAlign:"right",flexShrink:0}}>
-                    <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)"}}>Submitted</div>
-                    <div style={{fontFamily:"var(--font-m)",fontSize:12,color:"var(--text3)"}}>{app.submitted}</div>
-                    <div style={{marginTop:8,fontSize:11,color:"var(--burg)",fontWeight:600}}>Click to review →</div>
+                  <div style={{fontSize:13,color:"var(--text3)",marginBottom:6}}>{app.email} · {app.phone}</div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    {app.memberType&&<span style={{fontSize:11,background:"#fdecd0",color:"#7a4010",border:"1px solid #f0c890",fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3,fontWeight:700}}>{app.memberType}</span>}
+                    {app.vehicleCount>0&&<span style={{fontSize:11,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3}}>{app.vehicleCount} vehicle{app.vehicleCount!==1?"s":""}</span>}
                   </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text4)"}}>Submitted {app.submitted}</div>
+                  <div style={{fontSize:11,color:"var(--burg)",fontWeight:600,marginTop:4}}>Review →</div>
                 </div>
               </div>
             ))}
@@ -6508,18 +6797,15 @@ Please notify them at ${app.email}`);
           <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:14}}>Processed ({processed.length})</div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {[...processed].reverse().map(app=>(
-              <div key={app.id} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"14px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}} onClick={()=>setView(app)}>
-                <div>
-                  <span style={{fontWeight:600,color:"var(--text)",marginRight:12}}>{app.name}</span>
+              <div key={app.id} onClick={()=>setView(app)} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:12}}>
+                <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                  <span style={{fontWeight:600,color:"var(--text)"}}>{app.name}</span>
                   <span style={{fontSize:12,color:"var(--text3)"}}>{app.email}</span>
+                  {app.memberType&&<span style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{app.memberType}</span>}
                 </div>
-                <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <span style={{fontSize:11,fontFamily:"var(--font-m)",color:"var(--text4)"}}>{app.submitted}</span>
-                  <span style={{fontSize:10,fontFamily:"var(--font-m)",fontWeight:700,padding:"2px 8px",borderRadius:3,
-                    background:app.status==="approved"?"#d4f0e0":"#fdd8d8",
-                    color:app.status==="approved"?"#1a6040":"#8f1a1a",
-                    border:`1px solid ${app.status==="approved"?"#a0d8b8":"#f0a8a8"}`
-                  }}>{app.status.toUpperCase()}</span>
+                <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
+                  <span style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>{app.submitted}</span>
+                  <Badge status={app.status}/>
                 </div>
               </div>
             ))}
@@ -6528,14 +6814,17 @@ Please notify them at ${app.email}`);
       )}
 
       {view&&(
-        <Modal title={`Application — ${view.name}`} onClose={()=>{setView(null);setDeclineNote("");}} wide>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18,fontSize:13}}>
+        <Modal title={`Application — ${view.name}`} onClose={()=>{setView(null);setDeclineNote("");setInfoNote("");setActionModal(null);}} wide>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18,fontSize:13}}>
             {[
-              ["Full Name",view.name], ["Email",view.email], ["Phone",view.phone],
-              ["Address",view.address], ["Membership Type",view.memberType],
-              ["Vehicle",view.vehicle||"Not provided"],
-              ["How they heard",view.howHeard||"Not specified"],
-              ["Submitted",view.submitted], ["Ref",view.id],
+              ["Full Name",view.name],["Email",view.email],["Phone",view.phone],
+              ...(view.dob?[["Date of Birth",view.dob]]:[]),
+              ...(view.address?[["Address",view.address]]:[]),
+              ["Membership Type",view.memberType||"—"],
+              ...(view.pricingNew!==undefined?[["New member fee",view.pricingNew>0?`A$${view.pricingNew}`:"Free"]]:[]),
+              ...(view.howHeard?[["How they heard",view.howHeard+(view.referringMember?` (ref: ${view.referringMember})`:"")]]:[]),
+              ...(view.emergencyContact?[["Emergency contact",view.emergencyContact]]:[]),
+              ["Submitted",view.submitted],["Ref",view.id],
             ].map(([k,v])=>(
               <div key={k}>
                 <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>{k}</div>
@@ -6543,23 +6832,49 @@ Please notify them at ${app.email}`);
               </div>
             ))}
           </div>
-          {view.vehicleNotes&&<div style={{background:"var(--bg3)",borderRadius:6,padding:12,fontSize:13,color:"var(--text2)",marginBottom:14}}><strong>Vehicle notes:</strong> {view.vehicleNotes}</div>}
-          {view.comments&&<div style={{background:"var(--bg3)",borderRadius:6,padding:12,fontSize:13,color:"var(--text2)",marginBottom:14}}><strong>Comments:</strong> {view.comments}</div>}
-          {view.status==="pending"&&(
-            <div>
-              <div style={{borderTop:"1px solid var(--border)",paddingTop:16,marginBottom:14}}>
-                <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Decline note (optional)</div>
-                <textarea value={declineNote} onChange={e=>setDeclineNote(e.target.value)}
-                  style={{...inputSt,minHeight:70}} placeholder="Reason for declining (will be recorded for admin purposes)"/>
-              </div>
+          {view.vehicles&&view.vehicles.length>0&&(
+            <div style={{background:"var(--bg3)",borderRadius:8,padding:14,marginBottom:14}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10}}>Vehicles ({view.vehicles.length})</div>
+              {view.vehicles.map((v,i)=>(
+                <div key={i} style={{fontSize:13,color:"var(--text2)",marginBottom:4}}>
+                  <strong>{i+1}.</strong> {[v.year,v.make,v.model].filter(Boolean).join(" ")}
+                  {v.colour?` · ${v.colour}`:""}{v.reg?` · ${v.reg}`:""}{v.chassis?` · ${v.chassis}`:""}
+                  {v.condition?<span style={{marginLeft:6,fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)"}}>{v.condition}</span>:""}
+                </div>
+              ))}
+            </div>
+          )}
+          {view.status==="approved"&&<div style={{background:"#d4f0e0",border:"1px solid #a0d8b8",borderRadius:8,padding:12,fontSize:13,color:"#1a6040",fontWeight:600,marginBottom:12}}>✓ Approved on {view.approvedDate}</div>}
+          {view.status==="declined"&&<div style={{background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:8,padding:12,fontSize:13,color:"#8f1a1a",marginBottom:12}}>✗ Declined on {view.declinedDate}{view.declineNote&&` — ${view.declineNote}`}</div>}
+          {view.status==="info_requested"&&<div style={{background:"#e0e8fc",border:"1px solid #a0b8f0",borderRadius:8,padding:12,fontSize:13,color:"#1a3a8a",marginBottom:12}}>ℹ Info requested {view.infoRequestDate}{view.infoRequestNote&&` — ${view.infoRequestNote}`}</div>}
+          {(view.status==="pending"||view.status==="info_requested")&&!actionModal&&(
+            <Row gap={10} justify="flex-end" style={{borderTop:"1px solid var(--border)",paddingTop:16}}>
+              <Btn variant="ghost" onClick={()=>setActionModal("info")}>Request More Info</Btn>
+              <Btn variant="danger" onClick={()=>setActionModal("decline")}>✗ Decline</Btn>
+              <Btn onClick={()=>approve(view)}>✓ Approve & Create Member</Btn>
+            </Row>
+          )}
+          {actionModal==="decline"&&(
+            <div style={{borderTop:"1px solid var(--border)",paddingTop:16}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Decline note (optional)</div>
+              <textarea value={declineNote} onChange={e=>setDeclineNote(e.target.value)} style={{...inSt,minHeight:70,marginBottom:12}} placeholder="Reason for declining (recorded for admin purposes)"/>
               <Row gap={10} justify="flex-end">
-                <Btn variant="danger" onClick={()=>decline(view)}>✗ Decline</Btn>
-                <Btn onClick={()=>approve(view)}>✓ Approve & Create Member</Btn>
+                <Btn variant="ghost" onClick={()=>setActionModal(null)}>Cancel</Btn>
+                <Btn variant="danger" onClick={()=>decline(view)}>Confirm Decline</Btn>
               </Row>
             </div>
           )}
-          {view.status==="approved"&&<div style={{background:"#d4f0e0",border:"1px solid #a0d8b8",borderRadius:8,padding:12,fontSize:13,color:"#1a6040",fontWeight:600}}>✓ Approved on {view.approvedDate}</div>}
-          {view.status==="declined"&&<div style={{background:"#fdd8d8",border:"1px solid #f0a8a8",borderRadius:8,padding:12,fontSize:13,color:"#8f1a1a"}}>✗ Declined on {view.declinedDate}{view.declineNote&&` — ${view.declineNote}`}</div>}
+          {actionModal==="info"&&(
+            <div style={{borderTop:"1px solid var(--border)",paddingTop:16}}>
+              <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:8}}>Message to applicant</div>
+              <textarea value={infoNote} onChange={e=>setInfoNote(e.target.value)} style={{...inSt,minHeight:80,marginBottom:8}} placeholder="Describe what additional information is needed…"/>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>An email draft will open in your mail client addressed to {view.email}.</div>
+              <Row gap={10} justify="flex-end">
+                <Btn variant="ghost" onClick={()=>setActionModal(null)}>Cancel</Btn>
+                <Btn onClick={()=>requestInfo(view)}>Send Request →</Btn>
+              </Row>
+            </div>
+          )}
         </Modal>
       )}
     </div>
@@ -7493,7 +7808,134 @@ function ArchiveSection({user,archiveDocs,setArchiveDocs}) {
 }
 
 
+// ══════════════════════════════════════════════════════════════════════════════
+// APPLICATION SETTINGS PANEL (admin)
+// ══════════════════════════════════════════════════════════════════════════════
+function AppSettingsPanel() {
+  const [settings, setSettings] = useState(null);
+  const [saved, setSaved] = useState(false);
+  const rulesRef   = React.useRef(null);
+  const privacyRef = React.useRef(null);
+
+  useEffect(() => {
+    dbGet(CLUB_CONFIG.clubId + ":appSettings").then(s => setSettings(s || DEFAULT_APP_SETTINGS));
+  }, []);
+
+  async function save(updated) {
+    setSettings(updated);
+    await dbSet(CLUB_CONFIG.clubId + ":appSettings", updated);
+    setSaved(true); setTimeout(() => setSaved(false), 2000);
+  }
+
+  function toggleField(key) { save({...settings,fields:{...settings.fields,[key]:!settings.fields[key]}}); }
+  function toggleVehicles()  { save({...settings,vehicles:!settings.vehicles}); }
+  function toggleCbEnabled(key) {
+    save({...settings,checkboxes:{...settings.checkboxes,[key]:{...settings.checkboxes[key],enabled:!settings.checkboxes[key].enabled}}});
+  }
+  function toggleCbRequired(key) {
+    save({...settings,checkboxes:{...settings.checkboxes,[key]:{...settings.checkboxes[key],required:!settings.checkboxes[key].required}}});
+  }
+  function handlePdf(e, type) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => save({...settings,[`${type}PdfData`]:ev.target.result,[`${type}PdfName`]:file.name});
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
+
+  if (!settings) return <div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>Loading…</div>;
+
+  const Tog = ({on,onToggle}) => (
+    <div onClick={onToggle} style={{width:40,height:22,borderRadius:11,cursor:"pointer",flexShrink:0,background:on?"var(--burg)":"var(--border2)",position:"relative",transition:"background .15s"}}>
+      <div style={{position:"absolute",top:3,left:on?21:3,width:16,height:16,borderRadius:8,background:"#fff",transition:"left .15s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+    </div>
+  );
+  const TRow = ({label,sub,on,onToggle}) => (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:"1px solid var(--border)"}}>
+      <div><div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{label}</div>{sub&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{sub}</div>}</div>
+      <Tog on={on} onToggle={onToggle}/>
+    </div>
+  );
+  const grpSt = {background:"#fff",border:"1px solid var(--border)",borderRadius:10,padding:"0 20px",marginBottom:20};
+  const grpTitle = {fontFamily:"var(--font-m)",fontSize:11,color:"var(--burg)",textTransform:"uppercase",letterSpacing:"0.12em",padding:"14px 0 4px",fontWeight:700,display:"block"};
+
+  return (
+    <div style={{maxWidth:640}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <div>
+          <div style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--text)"}}>Application Form Settings</div>
+          <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>Configure which fields and options appear on the public application form.</div>
+        </div>
+        {saved&&<span style={{fontSize:13,color:"var(--green)",fontFamily:"var(--font-m)",fontWeight:600}}>✓ Saved</span>}
+      </div>
+
+      <div style={grpSt}>
+        <span style={grpTitle}>Optional Fields — Step 1</span>
+        <TRow label="Date of Birth" on={settings.fields.dob} onToggle={()=>toggleField("dob")}/>
+        <TRow label="Address" sub="Street, suburb, state, postcode" on={settings.fields.address} onToggle={()=>toggleField("address")}/>
+        <TRow label="How did you hear about us" sub="Member referral / Social media / Internet search / Event / Other" on={settings.fields.howHeard} onToggle={()=>toggleField("howHeard")}/>
+        <TRow label="Preferred communication" sub="Email or Post" on={settings.fields.preferredComms} onToggle={()=>toggleField("preferredComms")}/>
+        <TRow label="Newsletter preference" sub="Digital or Print" on={settings.fields.newsletterPref} onToggle={()=>toggleField("newsletterPref")}/>
+        <TRow label="Emergency contact" sub="Name and phone number" on={settings.fields.emergencyContact} onToggle={()=>toggleField("emergencyContact")}/>
+      </div>
+
+      <div style={grpSt}>
+        <span style={grpTitle}>Vehicle Registration — Step 2</span>
+        <TRow label="Include vehicle registration step" sub="Applicants can optionally register vehicles with their application" on={settings.vehicles} onToggle={toggleVehicles}/>
+      </div>
+
+      <div style={grpSt}>
+        <span style={grpTitle}>Declaration Checkboxes — Step 3</span>
+        {[
+          ["agreeRules","Agree to club rules","Links to rules PDF if uploaded"],
+          ["agreePrivacy","Agree to privacy policy","Links to privacy policy PDF if uploaded"],
+          ["agreePhotos","Consent to photos in publications",""],
+          ["agreeDirectory","Consent to member directory listing",""],
+          ["agreeOwner","Declare registered vehicle owner","Shown only when applicant registers vehicles"],
+        ].map(([key,label,sub])=>(
+          <div key={key} style={{padding:"12px 0",borderBottom:"1px solid var(--border)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:settings.checkboxes[key].enabled?8:0}}>
+              <div><div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{label}</div>{sub&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{sub}</div>}</div>
+              <Tog on={settings.checkboxes[key].enabled} onToggle={()=>toggleCbEnabled(key)}/>
+            </div>
+            {settings.checkboxes[key].enabled&&(
+              <label style={{display:"flex",gap:8,alignItems:"center",cursor:"pointer",marginTop:4}}>
+                <input type="checkbox" checked={settings.checkboxes[key].required} onChange={()=>toggleCbRequired(key)} style={{accentColor:"var(--burg)"}}/>
+                <span style={{fontSize:13,color:"var(--text3)"}}>Required (must be ticked to submit)</span>
+              </label>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:"#fff",border:"1px solid var(--border)",borderRadius:10,padding:20,marginBottom:20}}>
+        <span style={grpTitle}>PDF Documents</span>
+        {[["rules","Club Rules PDF","Linked from the agree-to-rules checkbox","rulesRef"],
+          ["privacy","Privacy Policy PDF","Linked from the agree-to-privacy checkbox","privacyRef"]
+        ].map(([type,label,sub,refName])=>(
+          <div key={type} style={{marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:600,color:"var(--text)",marginBottom:3}}>{label}</div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:8}}>{sub}</div>
+            {settings[`${type}PdfData`]?(
+              <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:13,color:"var(--text2)"}}>📄 {settings[`${type}PdfName`]||`${type}.pdf`}</span>
+                <button onClick={()=>save({...settings,[`${type}PdfData`]:null,[`${type}PdfName`]:null})} style={{background:"none",border:"1px solid var(--border2)",borderRadius:4,padding:"3px 10px",fontSize:12,color:"var(--text3)",cursor:"pointer"}}>Remove</button>
+              </div>
+            ):(
+              <>
+                <input type="file" accept=".pdf" ref={refName==="rulesRef"?rulesRef:privacyRef} style={{display:"none"}} onChange={e=>handlePdf(e,type)}/>
+                <Btn size="sm" onClick={()=>(refName==="rulesRef"?rulesRef:privacyRef).current?.click()}>Upload PDF</Btn>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MembershipTypesSection({ user, members, dues }) {
+  const [mtTab, setMtTab] = useState("types");
   const [types, setTypes] = useState([]);
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({});
@@ -7608,6 +8050,13 @@ function MembershipTypesSection({ user, members, dues }) {
 
   return (
     <div className="fade-up">
+      <div style={{display:"flex",gap:0,marginBottom:24,borderRadius:8,overflow:"hidden",border:"1px solid var(--border)",alignSelf:"flex-start",width:"fit-content"}}>
+        {[["types","Membership Types"],["settings","Application Settings"]].map(([id,lbl])=>(
+          <button key={id} onClick={()=>setMtTab(id)} style={{padding:"9px 20px",background:mtTab===id?"var(--burg)":"#fff",color:mtTab===id?"#fff":"var(--text3)",border:"none",borderRight:id==="types"?"1px solid var(--border)":"none",fontFamily:"var(--font-b)",fontSize:13,fontWeight:mtTab===id?700:400,cursor:"pointer"}}>{lbl}</button>
+        ))}
+      </div>
+      {mtTab==="settings"&&<AppSettingsPanel/>}
+      {mtTab==="types"&&<>
       <SectionHeader
         title="Membership Types"
         subtitle={`${types.length} type${types.length !== 1 ? "s" : ""} configured`}
@@ -7788,6 +8237,7 @@ function MembershipTypesSection({ user, members, dues }) {
           onCancel={() => setConfirmAction(null)}
         />
       )}
+      </>}
     </div>
   );
 }
@@ -7802,6 +8252,7 @@ function App() {// ════════════════════�
   const [publicPage,setPublicPage]=useState("home");
   const [showLogin,setShowLogin]=useState(false);
   const [showApplicationForm,setShowApplicationForm]=useState(false);
+  const [appFormType,setAppFormType]=useState(null);
   const [selectedArticle,setSelectedArticle]=useState(null);
   // Data
   const [members,setMembers]=useState([]);
@@ -8106,7 +8557,7 @@ function App() {// ════════════════════�
         {publicPage==="about"  &&<PublicAbout onLoginClick={()=>setShowLogin(true)} siteContent={siteContent}/>}
         {publicPage==="news"   &&<PublicNews news={news} selectedArticle={selectedArticle} setSelectedArticle={setSelectedArticle}/>}
         {publicPage==="events"      &&<PublicEvents events={events} onLoginClick={()=>setShowLogin(true)}/>}
-        {publicPage==="membership"  &&(showApplicationForm?<MembershipApplicationForm onBack={()=>setShowApplicationForm(false)}/>:<PublicMembership onLoginClick={()=>setShowLogin(true)} onApply={()=>setShowApplicationForm(true)}/>)}
+        {publicPage==="membership"  &&(showApplicationForm?<MembershipApplicationForm onBack={()=>{setShowApplicationForm(false);setAppFormType(null);}} initialType={appFormType}/>:<PublicMembership onLoginClick={()=>setShowLogin(true)} onApply={(t)=>{setAppFormType(t||null);setShowApplicationForm(true);}}/>)}
         {publicPage==="marketplace" &&<PublicMarketplace listings={listings} setListings={setListings} members={members} user={user} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="shop"        &&<PublicShop shopItems={shopItems} onLoginClick={()=>setShowLogin(true)}/>}
         {publicPage==="parts"       &&<PublicParts parts={parts} user={user} onLoginClick={()=>setShowLogin(true)}/>}
