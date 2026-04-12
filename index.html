@@ -10455,7 +10455,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
     const newParts=csvPreview.map(r=>({
       id:uid("PT"),
       name:r.name||r['part name']||'',
-      model:r.model||r['rover model']||'',
+      model:r.model||r['vehicle model']||r['models']||'',
       sku:r.sku||r['part number']||r['part no']||'',
       description:r.description||'',
       condition:r.condition||'Good',
@@ -10664,7 +10664,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
       {modal==="add"&&(
         <Modal onClose={()=>setModal(null)} title="Add Part to Inventory">
           <div style={{display:"flex",flexDirection:"column",gap:12,maxWidth:500}}>
-            {[["Part Name *","name"],["Rover Model(s)","model"],["SKU / Part No.","sku"]].map(([lbl,key])=>(
+            {[["Part Name *","name"],["Model(s)","model"],["SKU / Part No.","sku"]].map(([lbl,key])=>(
               <div key={key}><label style={{fontSize:12,fontWeight:600,color:"var(--text2)",display:"block",marginBottom:4}}>
                 {lbl}
               </label>
@@ -10727,7 +10727,7 @@ function PartsInventorySection({user,parts,setParts,partsInventory,setPartsInven
               <span style={{color:"var(--text3)"}}>Only <b>name</b> is required. Download a template below to get started.</span>
             </div>
             <div>
-              <a href="data:text/csv;charset=utf-8,name,model,sku,description,condition,qty,max per order,member price,public price,availability,status,min order qty,notes%0ARocker cover gasket,P6 2000/2200,RCG-001,Rubber gasket for rocker cover,Good,5,2,12.50,18.00,both,in_stock,0,%0AWater pump,P6 3500,WP-001,Original water pump reconditioned,Good,2,1,45.00,60.00,both,in_stock,0,%0A" download="parts_template.csv"
+              <a href="data:text/csv;charset=utf-8,name,model,sku,description,condition,qty,max per order,member price,public price,availability,status,min order qty,notes%0ARocker cover gasket,1970-1977,RCG-001,Rubber gasket for rocker cover,Good,5,2,12.50,18.00,both,in_stock,0,%0AWater pump,All models,WP-001,Original water pump reconditioned,Good,2,1,45.00,60.00,both,in_stock,0,%0A" download="parts_template.csv"
                 style={{fontSize:12,color:"#1a4a7a",fontWeight:700}}>📥 Download CSV Template</a>
             </div>
             <div>
