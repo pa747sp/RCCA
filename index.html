@@ -26,6 +26,50 @@
       d.textContent = (d.textContent||'') + '\n\nUNHANDLED PROMISE REJECTION:\n' + (e.reason && e.reason.stack ? e.reason.stack : String(e.reason));
     });
   </script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+  var firebaseConfig = {
+    apiKey: "AIzaSyBr5izWhkBc2qSsir5dbWXbbkLBMizwYXc",
+    authDomain: "torqueclub-eff69.firebaseapp.com",
+    projectId: "torqueclub-eff69",
+    storageBucket: "torqueclub-eff69.firebasestorage.app",
+    messagingSenderId: "635300845765",
+    appId: "1:635300845765:web:0372da43fba27a0a62f8ac"
+  };
+  firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore();
+
+  var CLUB_ID = 'demo';
+
+  window.dbGet = async function(key) {
+    try {
+      var cleanKey = key.replace(CLUB_ID + ':', '');
+      var doc = await db.collection('clubs').doc(CLUB_ID).collection('data').doc(cleanKey).get();
+      if (doc.exists) {
+        var val = doc.data().value;
+        return typeof val === 'string' ? JSON.parse(val) : val;
+      }
+      return null;
+    } catch(e) {
+      console.error('dbGet error', key, e);
+      return null;
+    }
+  };
+
+  window.dbSet = async function(key, value) {
+    try {
+      var cleanKey = key.replace(CLUB_ID + ':', '');
+      await db.collection('clubs').doc(CLUB_ID).collection('data').doc(cleanKey).set({
+        value: JSON.stringify(value),
+        updated: new Date().toISOString()
+      });
+    } catch(e) {
+      console.error('dbSet error', key, e);
+    }
+  };
+</script>
 <script type="text/babel" data-presets="react">
 // ── Club Configuration ──────────────────────────────────────────
 const CLUB_CONFIG = {
