@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<!-- TorqueClub Super Admin Portal v1.0 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TorqueClub — Super Admin</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="err-display" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:#050e18;color:#ff8080;font-family:monospace;font-size:13px;padding:30px;z-index:99999;overflow:auto;white-space:pre-wrap"></div>
+  <script>
+    window.onerror = function(msg,src,line,col,err){
+      var d=document.getElementById('err-display');d.style.display='block';
+      d.textContent='RUNTIME ERROR\n\n'+msg+'\n\nSource: '+src+'\nLine: '+line+':'+col+'\n\nStack:\n'+(err&&err.stack?err.stack:'N/A');
+    };
+    window.addEventListener('unhandledrejection',function(e){
+      var d=document.getElementById('err-display');d.style.display='block';
+      d.textContent=(d.textContent||'')+'\n\nUNHANDLED REJECTION:\n'+(e.reason&&e.reason.stack?e.reason.stack:String(e.reason));
+    });
+  </script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyBr5izWhkBc2qSsir5dbWXbbkLBMizwYXc",
+      authDomain: "torqueclub-eff69.firebaseapp.com",
+      projectId: "torqueclub-eff69",
+      storageBucket: "torqueclub-eff69.firebasestorage.app",
+      messagingSenderId: "635300845765",
+      appId: "1:635300845765:web:0372da43fba27a0a62f8ac"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+  </script>
+
+<script type="text/babel" data-presets="react">
+// ── Platform Config ───────────────────────────────────────────────────────────
+const PLATFORM_CONFIG = {
+  name:             "TorqueClub",
+  tagline:          "Club Management Platform",
+  superAdminEmails: ["superadmin@torqueclub.com.au"],
+  primaryColour:    "#2A3A4A",
+  accentColour:     "#C9922A",
+  plans: {
+    "tc":  { label:"TC (Club)",       price:120, description:"Core portal features" },
+    "tc+": { label:"TC+ (Club Plus)", price:200, description:"Extended features"    },
+  },
+};
+
+const { useState, useEffect } = React;
+
+// ── Fonts ─────────────────────────────────────────────────────────────────────
+const FL = document.createElement("link");
+FL.rel = "stylesheet";
+FL.href = "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Source+Sans+3:wght@300;400;600;700&display=swap";
+document.head.appendChild(FL);
+
+// ── Global CSS ────────────────────────────────────────────────────────────────
+const ST = document.createElement("style");
+ST.textContent = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary:   #2A3A4A;
+    --primary2:  #1e2d3a;
+    --primary3:  #14202c;
+    --accent:    #C9922A;
+    --accent2:   #e0a830;
+    --accent3:   #a07520;
+    --bg:        #f0f3f5;
+    --bg2:       #ffffff;
+    --bg3:       #e8ecf0;
+    --border:    #d0d8e0;
+    --text:      #1a2530;
+    --text2:     #344554;
+    --text3:     #607080;
+    --text4:     #90a0b0;
+    --green:     #1a7a3a;
+    --green-bg:  #e8f5ed;
+    --red:       #c03030;
+    --red-bg:    #fce8e8;
+    --amber:     #b07010;
+    --amber-bg:  #fef3d8;
+    --r:         8px;
+    --shadow:    0 2px 12px rgba(0,0,0,.08);
+    --font-c:    'Cinzel', serif;
+    --font-d:    'Playfair Display', Georgia, serif;
+    --font-m:    'DM Mono', monospace;
+    --font-b:    'Source Sans 3', sans-serif;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-b); }
+  ::selection { background: var(--accent); color: #fff; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg3); }
+  ::-webkit-scrollbar-thumb { background: var(--accent3); border-radius: 3px; }
+  input, select, textarea { color-scheme: light; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes spin    { to { transform:rotate(360deg); } }
+  .fade-up { animation: fadeUp .3s ease both; }
+  .fade-in { animation: fadeIn .2s ease both; }
+`;
+document.head.appendChild(ST);
+
+// ── Primitives ────────────────────────────────────────────────────────────────
+function Card({ children, style }) {
+  return <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:"var(--r)", boxShadow:"var(--shadow)", ...style }}>{children}</div>;
+}
+
+function Btn({ children, onClick, variant="primary", size="md", disabled, style }) {
+  const base = { display:"inline-flex", alignItems:"center", justifyContent:"center", gap:6,
+    fontFamily:"var(--font-b)", fontWeight:600, cursor:disabled?"not-allowed":"pointer",
+    border:"none", borderRadius:"var(--r)", transition:"all .15s", opacity:disabled?.6:1 };
+  const sizes = { sm:{padding:"6px 12px",fontSize:12}, md:{padding:"9px 18px",fontSize:14}, lg:{padding:"12px 24px",fontSize:15} };
+  const variants = {
+    primary:   { background:"var(--accent)",   color:"#fff" },
+    secondary: { background:"var(--primary)",  color:"#fff" },
+    ghost:     { background:"transparent",     color:"var(--text2)", border:"1px solid var(--border)" },
+    danger:    { background:"var(--red)",      color:"#fff" },
+  };
+  return <button onClick={disabled?undefined:onClick}
+    style={{...base,...sizes[size],...(variants[variant]||variants.primary),...style}}>{children}</button>;
+}
+
+function Input({ value, onChange, type="text", placeholder, style, ...rest }) {
+  return <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+    style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
+      fontFamily:"var(--font-b)", fontSize:14, color:"var(--text)", background:"var(--bg2)",
+      outline:"none", transition:"border .15s", ...style }}
+    onFocus={e=>e.target.style.borderColor="var(--accent)"}
+    onBlur={e=>e.target.style.borderColor="var(--border)"}
+    {...rest} />;
+}
+
+function Sel({ value, onChange, children, style }) {
+  return <select value={value} onChange={onChange}
+    style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
+      fontFamily:"var(--font-b)", fontSize:14, color:"var(--text)", background:"var(--bg2)", outline:"none", ...style }}>
+    {children}
+  </select>;
+}
+
+function Field({ label, required, children, hint }) {
+  return <div style={{ marginBottom:16 }}>
+    <label style={{ display:"block", fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)",
+      letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:6 }}>
+      {label}{required && <span style={{color:"var(--accent)",marginLeft:2}}>*</span>}
+    </label>
+    {children}
+    {hint && <div style={{ fontSize:11, color:"var(--text4)", marginTop:4 }}>{hint}</div>}
+  </div>;
+}
+
+function StatusBadge({ status }) {
+  const map = {
+    active:    { bg:"var(--green-bg)", color:"var(--green)", label:"Active"    },
+    trial:     { bg:"var(--amber-bg)", color:"var(--amber)", label:"Trial"     },
+    suspended: { bg:"var(--red-bg)",   color:"var(--red)",   label:"Suspended" },
+  };
+  const s = map[status] || map.trial;
+  return <span style={{ display:"inline-block", padding:"2px 9px", borderRadius:20, fontSize:11,
+    fontFamily:"var(--font-m)", fontWeight:500, background:s.bg, color:s.color }}>{s.label}</span>;
+}
+
+function PlanBadge({ plan }) {
+  const isPlus = plan === "tc+";
+  return <span style={{ display:"inline-block", padding:"2px 9px", borderRadius:20, fontSize:11,
+    fontFamily:"var(--font-m)", fontWeight:600,
+    background:isPlus?"var(--primary)":"var(--bg3)",
+    color:isPlus?"var(--accent)":"var(--text3)",
+    border:isPlus?"1px solid var(--accent3)":"none" }}>
+    {isPlus ? "TC+" : "TC"}
+  </span>;
+}
+
+function Spinner({ size=28 }) {
+  return <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+    <div style={{ width:size, height:size, borderRadius:"50%", border:"3px solid var(--border)",
+      borderTopColor:"var(--accent)", animation:"spin .7s linear infinite" }}/>
+  </div>;
+}
+
+function StatCard({ icon, label, value, sub, accent }) {
+  return <Card style={{ padding:20 }}>
+    <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+      <div style={{ width:40, height:40, borderRadius:"var(--r)", flexShrink:0,
+        background:accent?"var(--accent)":"var(--bg3)",
+        display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{icon}</div>
+      <div>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:10, color:"var(--text3)",
+          textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:4 }}>{label}</div>
+        <div style={{ fontFamily:"var(--font-d)", fontSize:28, fontWeight:700, color:"var(--text)", lineHeight:1 }}>{value}</div>
+        {sub && <div style={{ fontSize:12, color:"var(--text3)", marginTop:4 }}>{sub}</div>}
+      </div>
+    </div>
+  </Card>;
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+function LoadingScreen() {
+  return <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"var(--primary3)" }}>
+    <div style={{ textAlign:"center" }}>
+      <div style={{ fontFamily:"var(--font-c)", fontSize:18, color:"var(--accent)", letterSpacing:"0.2em", marginBottom:20 }}>TORQUECLUB</div>
+      <div style={{ width:28, height:28, borderRadius:"50%", border:"3px solid rgba(255,255,255,.15)",
+        borderTopColor:"var(--accent)", animation:"spin .7s linear infinite", margin:"0 auto" }}/>
+    </div>
+  </div>;
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin }) {
+  const [email, setEmail]     = useState("");
+  const [pw, setPw]           = useState("");
+  const [err, setErr]         = useState("");
+  const [loading, setLoading] = useState(false);
+
+  function go() {
+    const e = email.trim().toLowerCase();
+    if (!e || !pw) { setErr("Email and password required."); return; }
+    if (!PLATFORM_CONFIG.superAdminEmails.includes(e)) {
+      setErr("Access restricted to TorqueClub super administrators.");
+      return;
+    }
+    setLoading(true); setErr("");
+    firebase.auth().signInWithEmailAndPassword(e, pw)
+      .then(cred => onLogin(cred.user))
+      .catch(() => { setErr("Invalid email or password."); setLoading(false); });
+  }
+
+  const inputStyle = { background:"rgba(255,255,255,.07)", border:"1px solid rgba(255,255,255,.13)", color:"#fff" };
+
+  return <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background:`linear-gradient(135deg, var(--primary3) 0%, var(--primary2) 60%, var(--primary3) 100%)` }}>
+    <div style={{ width:"100%", maxWidth:400, padding:24 }} className="fade-up">
+
+      <div style={{ textAlign:"center", marginBottom:36 }}>
+        <div style={{ width:56, height:56, borderRadius:14, background:"var(--accent)", display:"flex",
+          alignItems:"center", justifyContent:"center", fontSize:26, margin:"0 auto 16px",
+          boxShadow:"0 6px 24px rgba(201,146,42,.35)" }}>⚙</div>
+        <div style={{ fontFamily:"var(--font-c)", fontSize:20, fontWeight:700, color:"var(--accent)", letterSpacing:"0.18em" }}>TORQUECLUB</div>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.35)", letterSpacing:"0.22em", marginTop:5, textTransform:"uppercase" }}>Super Admin Portal</div>
+      </div>
+
+      <Card style={{ padding:28, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.09)", backdropFilter:"blur(12px)" }}>
+        <Field label="Email">
+          <Input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
+            placeholder="superadmin@torqueclub.com.au" style={inputStyle}
+            onKeyDown={e=>e.key==="Enter"&&go()} />
+        </Field>
+        <Field label="Password">
+          <Input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}}
+            placeholder="••••••••" style={inputStyle}
+            onKeyDown={e=>e.key==="Enter"&&go()} />
+        </Field>
+        {err && <div style={{ color:"#ff9090", fontSize:12, fontFamily:"var(--font-m)", marginBottom:12,
+          padding:"8px 12px", background:"rgba(192,48,48,.2)", border:"1px solid rgba(192,48,48,.3)", borderRadius:6 }}>{err}</div>}
+        <Btn onClick={go} disabled={loading} style={{ width:"100%", marginTop:4 }}>
+          {loading ? "Signing in…" : "Sign In"}
+        </Btn>
+      </Card>
+    </div>
+  </div>;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard({ clubs, onViewClubs }) {
+  const active    = clubs.filter(c=>c.status==="active").length;
+  const trial     = clubs.filter(c=>c.status==="trial").length;
+  const suspended = clubs.filter(c=>c.status==="suspended").length;
+  const annualRevenue = clubs.reduce((s,c)=>{
+    const p = PLATFORM_CONFIG.plans[c.plan||"tc"];
+    return s + (p && c.status==="active" ? p.price : 0);
+  }, 0);
+
+  return <div className="fade-up">
+    <div style={{ marginBottom:28 }}>
+      <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700, color:"var(--text)" }}>Dashboard</h1>
+      <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
+        {new Date().toLocaleDateString("en-AU",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+      </div>
+    </div>
+
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:16, marginBottom:32 }}>
+      <StatCard icon="◉" label="Total Clubs"       value={clubs.length} sub={`${active} active, ${trial} trial`} />
+      <StatCard icon="✓" label="Active"             value={active}       sub="paying subscribers" accent />
+      <StatCard icon="◎" label="On Trial"           value={trial}        sub="trial clubs" />
+      <StatCard icon="⊘" label="Suspended"          value={suspended}    sub="suspended accounts" />
+      <StatCard icon="$" label="Annual Revenue"     value={`$${annualRevenue}`} sub="AUD — active clubs" />
+    </div>
+
+    {clubs.length > 0 && <>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+        <h2 style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:600 }}>All Clubs</h2>
+        <Btn size="sm" variant="ghost" onClick={onViewClubs}>View all →</Btn>
+      </div>
+      <Card>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr style={{ borderBottom:"1px solid var(--border)", background:"var(--bg3)" }}>
+              {["Club","Plan","Status","Admin Email","Portal"].map(h=>(
+                <th key={h} style={{ padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11,
+                  color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {clubs.map((club,i)=>(
+              <tr key={club.id} style={{ borderBottom:"1px solid var(--bg3)", background:i%2===0?"var(--bg2)":"var(--bg)" }}>
+                <td style={{ padding:"12px 16px" }}>
+                  <div style={{ fontWeight:600, fontSize:14 }}>{club.name||club.id}</div>
+                  <div style={{ fontSize:11, color:"var(--text3)", fontFamily:"var(--font-m)" }}>{club.id}</div>
+                </td>
+                <td style={{ padding:"12px 16px" }}><PlanBadge plan={club.plan||"tc"}/></td>
+                <td style={{ padding:"12px 16px" }}><StatusBadge status={club.status||"trial"}/></td>
+                <td style={{ padding:"12px 16px", fontSize:13, color:"var(--text2)", fontFamily:"var(--font-m)" }}>{club.adminEmail||"—"}</td>
+                <td style={{ padding:"12px 16px" }}>
+                  {club.netlifyUrl
+                    ? <a href={"https://"+club.netlifyUrl} target="_blank"
+                        style={{ fontSize:12, color:"var(--accent)", fontFamily:"var(--font-m)", textDecoration:"none" }}>↗ {club.netlifyUrl}</a>
+                    : <span style={{ color:"var(--text4)", fontSize:12 }}>—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    </>}
+
+    {clubs.length === 0 && (
+      <Card style={{ padding:40, textAlign:"center" }}>
+        <div style={{ fontSize:32, marginBottom:12 }}>◉</div>
+        <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:600, marginBottom:8 }}>No clubs yet</div>
+        <div style={{ fontSize:14, color:"var(--text3)" }}>Add the first club to get started.</div>
+      </Card>
+    )}
+  </div>;
+}
+
+// ── Clubs List ────────────────────────────────────────────────────────────────
+function ClubsList({ clubs, onSelect, onAdd, onRefresh }) {
+  const [search, setSearch] = useState("");
+  const filtered = clubs.filter(c =>
+    (c.name||c.id).toLowerCase().includes(search.toLowerCase()) ||
+    (c.adminEmail||"").toLowerCase().includes(search.toLowerCase()) ||
+    c.id.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+      <div>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700 }}>Clubs</h1>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
+          {clubs.length} club{clubs.length!==1?"s":""} registered
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <Btn variant="ghost" size="sm" onClick={onRefresh}>↺ Refresh</Btn>
+        <Btn size="sm" onClick={onAdd}>+ Add Club</Btn>
+      </div>
+    </div>
+
+    <div style={{ marginBottom:16 }}>
+      <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clubs…" style={{ maxWidth:300 }} />
+    </div>
+
+    <Card>
+      <table style={{ width:"100%", borderCollapse:"collapse" }}>
+        <thead>
+          <tr style={{ borderBottom:"2px solid var(--border)", background:"var(--bg3)" }}>
+            {["Club","Plan","Status","Admin Email","Portal URL","Created","Actions"].map(h=>(
+              <th key={h} style={{ padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11,
+                color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left" }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.length===0 && (
+            <tr><td colSpan={7} style={{ padding:40, textAlign:"center", color:"var(--text4)", fontSize:13 }}>No clubs found.</td></tr>
+          )}
+          {filtered.map((club,i)=>(
+            <tr key={club.id} style={{ borderBottom:"1px solid var(--bg3)", background:i%2===0?"var(--bg2)":"var(--bg)" }}>
+              <td style={{ padding:"12px 16px" }}>
+                <div style={{ fontWeight:600, fontSize:14 }}>{club.name||club.id}</div>
+                {club.shortName && <div style={{ fontSize:11, color:"var(--text3)", fontFamily:"var(--font-m)" }}>{club.shortName}</div>}
+                <div style={{ fontSize:10, color:"var(--text4)", fontFamily:"var(--font-m)", marginTop:1 }}>ID: {club.id}</div>
+              </td>
+              <td style={{ padding:"12px 16px" }}><PlanBadge plan={club.plan||"tc"}/></td>
+              <td style={{ padding:"12px 16px" }}><StatusBadge status={club.status||"trial"}/></td>
+              <td style={{ padding:"12px 16px", fontSize:13, color:"var(--text2)", fontFamily:"var(--font-m)" }}>{club.adminEmail||"—"}</td>
+              <td style={{ padding:"12px 16px" }}>
+                {club.netlifyUrl
+                  ? <a href={"https://"+club.netlifyUrl} target="_blank"
+                      style={{ fontSize:12, color:"var(--accent)", fontFamily:"var(--font-m)", textDecoration:"none" }}>↗ {club.netlifyUrl}</a>
+                  : <span style={{ color:"var(--text4)", fontSize:12 }}>—</span>}
+              </td>
+              <td style={{ padding:"12px 16px", fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", whiteSpace:"nowrap" }}>
+                {club.createdAt ? new Date(club.createdAt).toLocaleDateString("en-AU") : "—"}
+              </td>
+              <td style={{ padding:"12px 16px" }}>
+                <Btn size="sm" variant="ghost" onClick={()=>onSelect(club)}>Edit</Btn>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  </div>;
+}
+
+// ── Club Detail / Edit ────────────────────────────────────────────────────────
+function ClubDetail({ club, onSave, onBack, onDelete }) {
+  const [form, setForm] = useState({
+    name:        club.name||"",
+    shortName:   club.shortName||"",
+    plan:        club.plan||"tc",
+    status:      club.status||"trial",
+    adminEmail:  club.adminEmail||"",
+    netlifyUrl:  club.netlifyUrl||"",
+    notes:       club.notes||"",
+    trialEndsAt: club.trialEndsAt||"",
+  });
+  const [saving, setSaving]           = useState(false);
+  const [saved, setSaved]             = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting]       = useState(false);
+
+  function upd(k,v) { setForm(f=>({...f,[k]:v})); setSaved(false); }
+
+  async function save() {
+    setSaving(true);
+    await db.collection("clubs").doc(club.id).set(form, { merge:true });
+    setSaving(false); setSaved(true);
+    onSave({ ...club, ...form });
+  }
+
+  async function doDelete() {
+    setDeleting(true);
+    await db.collection("clubs").doc(club.id).delete();
+    onDelete(club.id);
+  }
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer",
+        fontSize:20, color:"var(--text3)", lineHeight:1, padding:"4px 8px" }}>←</button>
+      <div style={{ flex:1 }}>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:700 }}>{club.name||club.id}</h1>
+        <div style={{ fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", marginTop:2 }}>Club ID: {club.id}</div>
+      </div>
+      <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+        {saved && <span style={{ fontSize:12, color:"var(--green)", fontFamily:"var(--font-m)" }}>✓ Saved</span>}
+        <Btn onClick={save} disabled={saving}>{saving?"Saving…":"Save Changes"}</Btn>
+      </div>
+    </div>
+
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Club Identity</div>
+        <Field label="Club Name" required><Input value={form.name} onChange={e=>upd("name",e.target.value)}/></Field>
+        <Field label="Short Name / Abbreviation"><Input value={form.shortName} onChange={e=>upd("shortName",e.target.value)} placeholder="e.g. CMCA"/></Field>
+        <Field label="Admin Email"><Input type="email" value={form.adminEmail} onChange={e=>upd("adminEmail",e.target.value)}/></Field>
+        <Field label="Portal URL" hint="Without https:// — e.g. demo.torqueclub.com.au">
+          <Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)} placeholder="subdomain.torqueclub.com.au"/>
+        </Field>
+      </Card>
+
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Subscription & Status</div>
+        <Field label="Plan">
+          <Sel value={form.plan} onChange={e=>upd("plan",e.target.value)}>
+            {Object.entries(PLATFORM_CONFIG.plans).map(([k,p])=>(
+              <option key={k} value={k}>{p.label} — A${p.price}/yr</option>
+            ))}
+          </Sel>
+        </Field>
+        <Field label="Status">
+          <Sel value={form.status} onChange={e=>upd("status",e.target.value)}>
+            <option value="active">Active</option>
+            <option value="trial">Trial</option>
+            <option value="suspended">Suspended</option>
+          </Sel>
+        </Field>
+        <Field label="Trial Ends (if applicable)">
+          <Input type="date" value={form.trialEndsAt} onChange={e=>upd("trialEndsAt",e.target.value)}/>
+        </Field>
+        <Field label="Internal Notes">
+          <textarea value={form.notes} onChange={e=>upd("notes",e.target.value)}
+            placeholder="Referral source, special requirements, billing notes…"
+            style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
+              fontFamily:"var(--font-b)", fontSize:14, resize:"vertical", minHeight:80, outline:"none",
+              color:"var(--text)", background:"var(--bg2)" }}/>
+        </Field>
+      </Card>
+    </div>
+
+    <Card style={{ padding:20, marginTop:24, border:"1px solid rgba(192,48,48,.2)" }}>
+      <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--red)", textTransform:"uppercase",
+        letterSpacing:"0.1em", marginBottom:12 }}>Danger Zone</div>
+      {!confirmDelete
+        ? <Btn variant="danger" size="sm" onClick={()=>setConfirmDelete(true)}>Delete Club Record</Btn>
+        : <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
+            <span style={{ fontSize:13, color:"var(--red)" }}>
+              Delete platform record for "{club.name||club.id}"? Club data in Firestore is NOT deleted.
+            </span>
+            <Btn variant="danger" size="sm" disabled={deleting} onClick={doDelete}>
+              {deleting?"Deleting…":"Confirm Delete"}
+            </Btn>
+            <Btn variant="ghost" size="sm" onClick={()=>setConfirmDelete(false)}>Cancel</Btn>
+          </div>
+      }
+    </Card>
+  </div>;
+}
+
+// ── Add Club ──────────────────────────────────────────────────────────────────
+function AddClub({ onSave, onBack }) {
+  const [form, setForm] = useState({
+    id:"", name:"", shortName:"", plan:"tc", status:"trial",
+    adminEmail:"", netlifyUrl:"", notes:"", trialEndsAt:"",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr]       = useState("");
+
+  function upd(k,v) { setForm(f=>({...f,[k]:v})); setErr(""); }
+
+  async function save() {
+    const id = form.id.trim();
+    if (!id)         { setErr("Club ID required."); return; }
+    if (!form.name.trim()) { setErr("Club name required."); return; }
+    if (!/^[a-z0-9-]+$/.test(id)) { setErr("Club ID: lowercase letters, numbers, hyphens only."); return; }
+    setSaving(true);
+    const existing = await db.collection("clubs").doc(id).get();
+    if (existing.exists) { setErr("Club ID already in use. Choose a different ID."); setSaving(false); return; }
+    const data = { ...form, id, createdAt:new Date().toISOString() };
+    delete data.id; // don't store id as field — it's the doc ID
+    await db.collection("clubs").doc(id).set(data);
+    // Seed minimal accountSettings so club portal can initialise
+    await db.collection("clubs").doc(id).collection("data").doc("accountSettings").set({
+      value: JSON.stringify({
+        clubName:   form.name,
+        shortName:  form.shortName,
+        adminEmail: form.adminEmail,
+      }),
+      updated: new Date().toISOString(),
+    });
+    setSaving(false);
+    onSave({ id, ...data });
+  }
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer",
+        fontSize:20, color:"var(--text3)", lineHeight:1, padding:"4px 8px" }}>←</button>
+      <div>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:700 }}>Add New Club</h1>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:2 }}>Register a new club on the TorqueClub platform</div>
+      </div>
+    </div>
+
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Club Details</div>
+        <Field label="Club ID" required hint="Unique identifier. Lowercase, no spaces. Cannot be changed later.">
+          <Input value={form.id}
+            onChange={e=>upd("id",e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))}
+            placeholder="e.g. cmca, rover-vic, classic-aus" />
+        </Field>
+        <Field label="Club Name" required>
+          <Input value={form.name} onChange={e=>upd("name",e.target.value)} placeholder="Full registered name"/>
+        </Field>
+        <Field label="Short Name / Abbreviation">
+          <Input value={form.shortName} onChange={e=>upd("shortName",e.target.value)} placeholder="e.g. CMCA"/>
+        </Field>
+        <Field label="Admin Email">
+          <Input type="email" value={form.adminEmail} onChange={e=>upd("adminEmail",e.target.value)}
+            placeholder="admin@clubname.com.au"/>
+        </Field>
+        <Field label="Portal URL" hint="Without https://">
+          <Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)}
+            placeholder="clubname.torqueclub.com.au"/>
+        </Field>
+      </Card>
+
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Subscription</div>
+        <Field label="Plan">
+          <Sel value={form.plan} onChange={e=>upd("plan",e.target.value)}>
+            {Object.entries(PLATFORM_CONFIG.plans).map(([k,p])=>(
+              <option key={k} value={k}>{p.label} — A${p.price}/yr</option>
+            ))}
+          </Sel>
+        </Field>
+        <Field label="Status">
+          <Sel value={form.status} onChange={e=>upd("status",e.target.value)}>
+            <option value="trial">Trial</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+          </Sel>
+        </Field>
+        <Field label="Trial Ends (if applicable)">
+          <Input type="date" value={form.trialEndsAt} onChange={e=>upd("trialEndsAt",e.target.value)}/>
+        </Field>
+        <Field label="Internal Notes">
+          <textarea value={form.notes} onChange={e=>upd("notes",e.target.value)}
+            placeholder="How they signed up, referral source, special requirements…"
+            style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
+              fontFamily:"var(--font-b)", fontSize:14, resize:"vertical", minHeight:90, outline:"none",
+              color:"var(--text)", background:"var(--bg2)" }}/>
+        </Field>
+      </Card>
+    </div>
+
+    {err && <div style={{ marginTop:16, padding:"10px 16px", background:"var(--red-bg)",
+      border:"1px solid rgba(192,48,48,.2)", borderRadius:"var(--r)",
+      color:"var(--red)", fontSize:13, fontFamily:"var(--font-m)" }}>{err}</div>}
+
+    <div style={{ marginTop:20, display:"flex", gap:10 }}>
+      <Btn onClick={save} disabled={saving}>{saving?"Creating…":"Create Club"}</Btn>
+      <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
+    </div>
+  </div>;
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id:"dashboard", icon:"⊞", label:"Dashboard" },
+  { id:"clubs",     icon:"◉", label:"Clubs"     },
+];
+
+function Sidebar({ tab, setTab, userEmail, onSignOut }) {
+  return <nav style={{ width:220, background:"var(--primary2)", height:"100vh", display:"flex",
+    flexDirection:"column", flexShrink:0, position:"sticky", top:0 }}>
+    <div style={{ padding:"22px 18px 16px", borderBottom:"1px solid rgba(255,255,255,.07)" }}>
+      <div style={{ fontFamily:"var(--font-c)", fontSize:14, fontWeight:700, color:"var(--accent)", letterSpacing:"0.18em" }}>TORQUECLUB</div>
+      <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.3)", letterSpacing:"0.22em", marginTop:4, textTransform:"uppercase" }}>Super Admin</div>
+    </div>
+
+    <div style={{ flex:1, padding:"12px 8px", overflowY:"auto" }}>
+      {NAV_ITEMS.map(n=>{
+        const active = tab===n.id;
+        return <button key={n.id} onClick={()=>setTab(n.id)} style={{
+          display:"flex", alignItems:"center", gap:10, width:"100%", padding:"9px 12px",
+          border:"none", cursor:"pointer", borderRadius:"var(--r)", marginBottom:2,
+          fontSize:13, fontFamily:"var(--font-b)", fontWeight:active?600:400,
+          background:active?"rgba(201,146,42,.15)":"transparent",
+          color:active?"var(--accent)":"rgba(255,255,255,.5)",
+          transition:"all .15s",
+        }}>
+          <span style={{ fontSize:16, width:20, textAlign:"center", flexShrink:0 }}>{n.icon}</span>
+          {n.label}
+        </button>;
+      })}
+    </div>
+
+    <div style={{ padding:"12px 8px 16px", borderTop:"1px solid rgba(255,255,255,.07)" }}>
+      {userEmail && <div style={{ padding:"6px 12px 10px", fontFamily:"var(--font-m)", fontSize:10,
+        color:"rgba(255,255,255,.25)", wordBreak:"break-all" }}>{userEmail}</div>}
+      <button onClick={onSignOut} style={{ display:"flex", alignItems:"center", gap:10, width:"100%",
+        padding:"8px 12px", border:"none", cursor:"pointer", borderRadius:"var(--r)",
+        fontSize:12, fontFamily:"var(--font-b)", background:"transparent", color:"rgba(255,255,255,.28)" }}>
+        <span>↩</span> Sign Out
+      </button>
+    </div>
+  </nav>;
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [authLoading, setAuthLoading]   = useState(true);
+  const [authUser, setAuthUser]         = useState(null);
+  const [clubs, setClubs]               = useState([]);
+  const [clubsLoading, setClubsLoading] = useState(false);
+  const [tab, setTab]                   = useState("dashboard");
+  const [view, setView]                 = useState("list");   // list | edit | add
+  const [selectedClub, setSelectedClub] = useState(null);
+
+  useEffect(() => {
+    firebase.auth().onAuthStateChanged(user => {
+      const allowed = user && user.email &&
+        PLATFORM_CONFIG.superAdminEmails.includes(user.email.toLowerCase());
+      if (allowed) {
+        setAuthUser(user);
+        loadClubs();
+      } else {
+        if (user) firebase.auth().signOut();
+        setAuthUser(null);
+      }
+      setAuthLoading(false);
+    });
+  }, []);
+
+  async function loadClubs() {
+    setClubsLoading(true);
+    try {
+      const snap = await db.collection("clubs").get();
+      const list = snap.docs.map(doc => ({ id:doc.id, ...doc.data() }));
+      setClubs(list);
+    } catch(e) {
+      console.error("loadClubs:", e);
+    }
+    setClubsLoading(false);
+  }
+
+  function handleSaveClub(updated) {
+    setClubs(cs => cs.map(c => c.id===updated.id ? updated : c));
+    setView("list"); setSelectedClub(null);
+  }
+
+  function handleAddClub(newClub) {
+    setClubs(cs => [...cs, newClub]);
+    setTab("clubs"); setView("list");
+  }
+
+  function handleDeleteClub(clubId) {
+    setClubs(cs => cs.filter(c => c.id!==clubId));
+    setView("list"); setSelectedClub(null);
+  }
+
+  function changeTab(t) {
+    setTab(t); setView("list"); setSelectedClub(null);
+  }
+
+  function signOut() { firebase.auth().signOut(); setAuthUser(null); }
+
+  if (authLoading) return <LoadingScreen/>;
+  if (!authUser)   return <LoginScreen onLogin={u=>setAuthUser(u)}/>;
+
+  return <div style={{ display:"flex", minHeight:"100vh" }}>
+    <Sidebar tab={tab} setTab={changeTab} userEmail={authUser.email} onSignOut={signOut}/>
+
+    <main style={{ flex:1, padding:32, overflowY:"auto", minWidth:0, maxWidth:"calc(100vw - 220px)" }}>
+      {clubsLoading && <Spinner/>}
+
+      {!clubsLoading && tab==="dashboard" && (
+        <Dashboard clubs={clubs} onViewClubs={()=>changeTab("clubs")}/>
+      )}
+
+      {!clubsLoading && tab==="clubs" && view==="list" && (
+        <ClubsList
+          clubs={clubs}
+          onSelect={c=>{ setSelectedClub(c); setView("edit"); }}
+          onAdd={()=>setView("add")}
+          onRefresh={loadClubs}
+        />
+      )}
+      {!clubsLoading && tab==="clubs" && view==="edit" && selectedClub && (
+        <ClubDetail
+          club={selectedClub}
+          onSave={handleSaveClub}
+          onBack={()=>{ setView("list"); setSelectedClub(null); }}
+          onDelete={handleDeleteClub}
+        />
+      )}
+      {!clubsLoading && tab==="clubs" && view==="add" && (
+        <AddClub
+          onSave={handleAddClub}
+          onBack={()=>setView("list")}
+        />
+      )}
+    </main>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
