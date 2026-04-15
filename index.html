@@ -8696,14 +8696,15 @@ function App() {// ════════════════════�
     { divider: true, label: "Administration" },
     { id:"administration",label:"Administration",  icon:"⚙" },
     { id:"account",       label:"Account",         icon:"🏛" },
-    { divider: true },
     { id:"myplan",        label:"My Plan",          icon:"◈" },
+    { divider: true },
     { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
   const PORTAL_NAV_MEMBER = [
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"membership",   label:"My Membership",    icon:"◉" },
+    { id:"myplan",       label:"My Plan",          icon:"◈" },
     { id:"committee",    label:"Committee",         icon:"👥" },
     { id:"cars",         label:"My Vehicles",      icon:"◎" },
     { id:"permits",      label:"Club Permits",     icon:"P6" },
@@ -8722,7 +8723,6 @@ function App() {// ════════════════════�
     { divider: true, label: "Recognition" },
     { id:"points",       label:"Points & Awards",  icon:"🏆" },
     { divider: true },
-    { id:"myplan",       label:"My Plan",          icon:"◈" },
     { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
 
@@ -16012,13 +16012,13 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
 // MY PLAN SECTION
 // ══════════════════════════════════════════════════════════════════════════════
 function MyPlanSection({ user }) {
-  const [loading, setLoading]       = useState(true);
-  const [clubPlanId, setClubPlanId] = useState(null);
-  const [plans, setPlans]           = useState([]);
-  const [features, setFeatures]     = useState([]);
-  const [upgradeMsg, setUpgradeMsg] = useState("");
+  const [loading, setLoading]       = React.useState(true);
+  const [clubPlanId, setClubPlanId] = React.useState(null);
+  const [plans, setPlans]           = React.useState([]);
+  const [features, setFeatures]     = React.useState([]);
+  const [upgradeMsg, setUpgradeMsg] = React.useState("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     Promise.all([
       db.collection('clubs').doc(CLUB_ID).get(),
       db.collection('platform').doc('plans').get(),
