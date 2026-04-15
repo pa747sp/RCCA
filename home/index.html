@@ -1,13 +1,11 @@
 <!DOCTYPE html>
-<!-- TorqueClub Marketing Site v1.0 -->
+<!-- TorqueClub Marketing Site v2.0 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>TorqueClub — Club Management for Vehicle Enthusiasts</title>
   <meta name="description" content="TorqueClub is the all-in-one club management platform built for Australian vehicle enthusiast clubs."/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -25,46 +23,74 @@
     firebase.initializeApp(firebaseConfig);
     var db = firebase.firestore();
   </script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --primary:   #2A3A4A;
-      --primary2:  #1e2c38;
-      --primary3:  #243342;
-      --gold:      #C9922A;
-      --gold2:     #e8a930;
-      --gold-light:#f5e3ba;
-      --text:      #1a2530;
-      --text2:     #3a4a5a;
-      --text3:     #6a7a8a;
-      --text4:     #9aaaba;
-      --bg:        #f5f7fa;
-      --bg2:       #ffffff;
-      --border:    #e0e6ed;
-      --green:     #2a7a4a;
-      --r:         8px;
-      --font-h:    'Barlow Condensed', sans-serif;
-      --font-b:    'Inter', sans-serif;
-      --font-m:    'JetBrains Mono', monospace;
-    }
-    html { scroll-behavior: smooth; }
-    body { font-family: var(--font-b); background: var(--bg); color: var(--text); line-height: 1.6; }
-    a { color: inherit; text-decoration: none; }
-    img { max-width: 100%; }
-    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
-    .fade-up { animation: fadeUp .4s ease both; }
-  </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel" data-presets="react">
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect } = React;
+
+// ── Fonts & Global CSS ────────────────────────────────────────────────────────
+const FL = document.createElement("link");
+FL.rel = "stylesheet";
+FL.href = "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@300;400;500&family=Source+Sans+3:wght@300;400;600;700&display=swap";
+document.head.appendChild(FL);
+
+const ST = document.createElement("style");
+ST.textContent = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --burg:    #2A3A4A;
+    --burg2:   #3a4a5a;
+    --burg3:   #4a5a6a;
+    --burg-dk: #1a2a3a;
+    --burg-xdk:#0d1a24;
+    --gold:    #C9922A;
+    --gold2:   #e8a930;
+    --gold3:   #1a1210;
+    --gold-lt: #fdf6e3;
+    --bg:      #f8f5f0;
+    --bg2:     #ffffff;
+    --bg3:     #f2ede6;
+    --bg4:     #ede6dc;
+    --border:  #e0d8cc;
+    --border2: #d0c8bc;
+    --text:    #1a1210;
+    --text2:   #3d3028;
+    --text3:   #7a6a58;
+    --text4:   #a89880;
+    --green:   #1e6840;
+    --green2:  #2a9058;
+    --red:     #c0282a;
+    --font-c:  'Cinzel', serif;
+    --font-d:  'Playfair Display', Georgia, serif;
+    --font-m:  'DM Mono', monospace;
+    --font-b:  'Source Sans 3', sans-serif;
+    --r:       8px;
+    --shadow:  0 4px 24px rgba(0,0,0,.12);
+  }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-b); line-height: 1.6; }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; }
+  ::selection { background: var(--gold); color: #fff; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg3); }
+  ::-webkit-scrollbar-thumb { background: var(--burg); border-radius: 3px; }
+  @keyframes fadeUp  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  .fade-up { animation: fadeUp .35s ease both; }
+  .fade-in { animation: fadeIn .25s ease both; }
+  .hover-lift { transition: transform .2s, box-shadow .2s; }
+  .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,.13); }
+`;
+document.head.appendChild(ST);
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const FEATURES = [
   { icon:"👥", title:"Member Management",    desc:"Add, edit, and manage members with full profile and dues tracking." },
   { icon:"🚗", title:"Vehicle Register",     desc:"Register club vehicles, manage permits, and track ownership history." },
-  { icon:"📅", title:"Events & Shows",       desc:"Schedule events, manage RSVPs, catering, and risk plans." },
+  { icon:"📅", title:"Events & Shows",       desc:"Schedule events, manage RSVPs, catering, check-in, and risk plans." },
   { icon:"📋", title:"Meetings & Minutes",   desc:"Agenda builder, RSVP tracking, and searchable minutes archive." },
   { icon:"💰", title:"Finance Module",       desc:"Income/expense ledger, invoicing, and financial year reporting." },
   { icon:"🌐", title:"Public Website",       desc:"Built-in public site with news, events, and membership applications." },
@@ -97,12 +123,10 @@ function fmtDate(str) {
 function buildICS(ev) {
   const dt = ev.date ? ev.date.replace(/-/g,"") : "";
   const tm = ev.time ? ev.time.replace(/:/g,"")+"00" : "120000";
-  const dtend = dt; // same day
   const lines = [
     "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//TorqueClub//EN",
     "BEGIN:VEVENT",
-    `DTSTART:${dt}T${tm}`,
-    `DTEND:${dt}T${tm}`,
+    `DTSTART:${dt}T${tm}`,`DTEND:${dt}T${tm}`,
     `SUMMARY:${(ev.title||"").replace(/,/g,"\\,")}`,
     `DESCRIPTION:${(ev.description||"").replace(/\n/g,"\\n").replace(/,/g,"\\,")}`,
     `LOCATION:${(ev.location||"").replace(/,/g,"\\,")}`,
@@ -121,39 +145,79 @@ function downloadICS(ev) {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
+// ── Shared UI primitives ──────────────────────────────────────────────────────
+function Btn({ children, variant="primary", size="md", style:s={}, ...p }) {
+  const base = { borderRadius:"var(--r)", fontFamily:"var(--font-b)", fontWeight:700,
+    cursor:"pointer", border:"none", transition:"all .15s", letterSpacing:"0.03em", display:"inline-flex",
+    alignItems:"center", gap:6 };
+  const sizes = { sm:{padding:"5px 14px",fontSize:12}, md:{padding:"9px 20px",fontSize:14}, lg:{padding:"12px 28px",fontSize:15} };
+  const vars = {
+    primary: { background:"var(--burg)", color:"#ffffff" },
+    gold:    { background:"var(--gold)", color:"var(--burg-xdk)" },
+    ghost:   { background:"none", color:"var(--text2)", border:"1px solid var(--border2)" },
+    outline: { background:"none", color:"var(--gold)", border:"1px solid var(--gold)" },
+    dark:    { background:"rgba(255,255,255,.12)", color:"rgba(255,255,255,.9)", border:"1px solid rgba(255,255,255,.2)" },
+  };
+  return <button style={{...base,...sizes[size||"md"],...vars[variant||"primary"],...s}} {...p}>{children}</button>;
+}
+
+function Card({ children, style:s={}, className="", onClick }) {
+  return <div className={className}
+    style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:"var(--r)",...s}}
+    onClick={onClick}>{children}</div>;
+}
+
+function Divider({ label }) {
+  return <div style={{display:"flex",alignItems:"center",gap:16,margin:"48px 0 36px"}}>
+    <div style={{flex:1,height:1,background:"var(--border)"}}/>
+    {label&&<div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)",letterSpacing:"0.18em",textTransform:"uppercase",flexShrink:0}}>{label}</div>}
+    <div style={{flex:1,height:1,background:"var(--border)"}}/>
+  </div>;
+}
+
+function Spinner({ size=22 }) {
+  return <div style={{width:size,height:size,border:"2px solid var(--border2)",borderTopColor:"var(--gold)",
+    borderRadius:"50%",animation:"spin .7s linear infinite",margin:"0 auto"}}/>;
+}
+
+function SectionLabel({ children }) {
+  return <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--gold)",letterSpacing:"0.22em",
+    textTransform:"uppercase",marginBottom:10}}>{children}</div>;
+}
+
 // ── Nav ───────────────────────────────────────────────────────────────────────
 function Nav({ page, setPage }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const links = [
     { id:"home",   label:"Home"         },
     { id:"clubs",  label:"Member Clubs" },
     { id:"events", label:"Events"       },
   ];
-  return <header style={{ background:  "var(--primary)", position:"sticky", top:0, zIndex:100,
-    borderBottom:"3px solid var(--gold)" }}>
-    <div style={{ maxWidth:1120, margin:"0 auto", padding:"0 24px",
-      display:"flex", alignItems:"center", justifyContent:"space-between", height:60 }}>
-      <button onClick={()=>setPage("home")} style={{ background:"none", border:"none", cursor:"pointer",
-        display:"flex", alignItems:"center", gap:10 }}>
-        <div style={{ fontFamily:"var(--font-h)", fontSize:22, fontWeight:900, color:"var(--gold)",
-          letterSpacing:"0.18em" }}>TORQUECLUB</div>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.35)",
-          letterSpacing:"0.18em", paddingTop:2 }}>PLATFORM</div>
+  return <header style={{background:"var(--burg)",position:"sticky",top:0,zIndex:100,
+    borderBottom:"3px solid var(--gold)",boxShadow:"0 2px 12px rgba(0,0,0,.22)"}}>
+    <div style={{maxWidth:1160,margin:"0 auto",padding:"0 28px",
+      display:"flex",alignItems:"center",justifyContent:"space-between",height:62}}>
+      <button onClick={()=>setPage("home")} style={{background:"none",border:"none",cursor:"pointer",
+        display:"flex",alignItems:"baseline",gap:10,padding:0}}>
+        <span style={{fontFamily:"var(--font-c)",fontSize:19,fontWeight:700,color:"var(--gold)",
+          letterSpacing:"0.22em"}}>TORQUECLUB</span>
+        <span style={{fontFamily:"var(--font-m)",fontSize:8,color:"rgba(255,255,255,.28)",
+          letterSpacing:"0.2em",textTransform:"uppercase"}}>Platform</span>
       </button>
-      <nav style={{ display:"flex", gap:4 }}>
+      <nav style={{display:"flex",alignItems:"center",gap:2}}>
         {links.map(l=>(
           <button key={l.id} onClick={()=>setPage(l.id)} style={{
-            background:"none", border:"none", cursor:"pointer", padding:"8px 14px",
-            fontFamily:"var(--font-b)", fontSize:14, fontWeight:500,
-            color: page===l.id ? "var(--gold)" : "rgba(255,255,255,.65)",
-            borderBottom: page===l.id ? "2px solid var(--gold)" : "2px solid transparent",
-            transition:"all .15s",
+            background:"none",border:"none",cursor:"pointer",padding:"20px 14px",
+            fontFamily:"var(--font-b)",fontSize:13,fontWeight:page===l.id?700:400,
+            color:page===l.id?"var(--gold)":"rgba(255,255,255,.58)",
+            borderBottom:page===l.id?"3px solid var(--gold)":"3px solid transparent",
+            marginBottom:-3,transition:"all .15s",
           }}>{l.label}</button>
         ))}
         <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
-          style={{ marginLeft:8, padding:"7px 16px", background:"var(--gold)", color:"var(--primary)",
-            borderRadius:6, fontSize:13, fontWeight:700, fontFamily:"var(--font-b)",
-            display:"inline-flex", alignItems:"center" }}>
+          style={{marginLeft:12,padding:"8px 18px",background:"var(--gold)",color:"var(--burg-xdk)",
+            borderRadius:"var(--r)",fontSize:12,fontWeight:700,fontFamily:"var(--font-b)",
+            display:"inline-flex",alignItems:"center",gap:6,letterSpacing:"0.02em",
+            boxShadow:"0 1px 4px rgba(0,0,0,.25)"}}>
           Live Demo →
         </a>
       </nav>
@@ -164,135 +228,144 @@ function Nav({ page, setPage }) {
 // ── Home page ─────────────────────────────────────────────────────────────────
 function HomePage({ setPage }) {
   return <div className="fade-up">
+
     {/* Hero */}
-    <section style={{ background:`linear-gradient(135deg, var(--primary2) 0%, var(--primary) 60%, #3a4a30 100%)`,
-      padding:"80px 24px 72px", textAlign:"center", position:"relative", overflow:"hidden" }}>
-      <div style={{ position:"absolute", inset:0, opacity:.04,
-        backgroundImage:"repeating-linear-gradient(45deg, white 0, white 1px, transparent 0, transparent 50%)",
-        backgroundSize:"20px 20px" }}/>
-      <div style={{ position:"relative", maxWidth:760, margin:"0 auto" }}>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.25em",
-          textTransform:"uppercase", marginBottom:16 }}>Club Management Platform</div>
-        <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(42px,7vw,80px)", fontWeight:900,
-          color:"white", lineHeight:1.05, letterSpacing:"0.02em", marginBottom:20 }}>
+    <section style={{background:`linear-gradient(160deg, var(--burg-xdk) 0%, var(--burg-dk) 45%, var(--burg) 100%)`,
+      padding:"88px 28px 80px",textAlign:"center",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,opacity:.035,
+        backgroundImage:"repeating-linear-gradient(45deg,#fff 0,#fff 1px,transparent 0,transparent 50%)",
+        backgroundSize:"18px 18px",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:120,
+        background:"linear-gradient(to bottom,transparent,var(--bg))",pointerEvents:"none"}}/>
+      <div style={{position:"relative",maxWidth:800,margin:"0 auto"}}>
+        <SectionLabel>Club Management Platform</SectionLabel>
+        <h1 style={{fontFamily:"var(--font-c)",fontSize:"clamp(36px,6vw,68px)",fontWeight:700,
+          color:"white",lineHeight:1.1,letterSpacing:"0.04em",marginBottom:24}}>
           Everything your club needs.<br/>
-          <span style={{ color:"var(--gold)" }}>In one place.</span>
+          <span style={{color:"var(--gold)"}}>In one place.</span>
         </h1>
-        <p style={{ fontSize:"clamp(15px,2vw,18px)", color:"rgba(255,255,255,.75)", lineHeight:1.7,
-          marginBottom:36, maxWidth:580, margin:"0 auto 36px" }}>
-          TorqueClub is the all-in-one management platform built specifically for Australian vehicle enthusiast clubs —
+        <p style={{fontFamily:"var(--font-b)",fontSize:"clamp(15px,1.8vw,18px)",color:"rgba(255,255,255,.72)",
+          lineHeight:1.75,marginBottom:40,maxWidth:580,marginLeft:"auto",marginRight:"auto"}}>
+          TorqueClub is the all-in-one management platform built for Australian vehicle enthusiast clubs —
           from classic car clubs to motorcycle groups and everything in between.
         </p>
-        <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+        <div style={{display:"flex",gap:12,justifyContent:"center",flexWrap:"wrap"}}>
           <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
-            style={{ padding:"13px 28px", background:"var(--gold)", color:"var(--primary)",
-              borderRadius:8, fontWeight:700, fontSize:15, fontFamily:"var(--font-b)" }}>
+            style={{padding:"12px 28px",background:"var(--gold)",color:"var(--burg-xdk)",
+              borderRadius:"var(--r)",fontWeight:700,fontSize:14,fontFamily:"var(--font-b)",
+              letterSpacing:"0.02em",boxShadow:"0 2px 12px rgba(201,146,42,.35)"}}>
             Try the Live Demo →
           </a>
           <button onClick={()=>setPage("clubs")}
-            style={{ padding:"13px 28px", background:"rgba(255,255,255,.1)", color:"white",
-              border:"1px solid rgba(255,255,255,.25)", borderRadius:8, fontWeight:600,
-              fontSize:15, fontFamily:"var(--font-b)", cursor:"pointer" }}>
-            Member Clubs
+            style={{padding:"12px 28px",background:"rgba(255,255,255,.1)",color:"rgba(255,255,255,.85)",
+              border:"1px solid rgba(255,255,255,.22)",borderRadius:"var(--r)",fontWeight:600,
+              fontSize:14,fontFamily:"var(--font-b)",cursor:"pointer"}}>
+            See Member Clubs
           </button>
         </div>
       </div>
     </section>
 
-    {/* Features grid */}
-    <section style={{ maxWidth:1120, margin:"0 auto", padding:"64px 24px" }}>
-      <div style={{ textAlign:"center", marginBottom:48 }}>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
-          textTransform:"uppercase", marginBottom:10 }}>What's included</div>
-        <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,42px)", fontWeight:800,
-          color:"var(--primary)", letterSpacing:"0.02em" }}>A complete toolkit for your club</h2>
+    {/* Features */}
+    <section style={{maxWidth:1160,margin:"0 auto",padding:"64px 28px"}}>
+      <div style={{textAlign:"center",marginBottom:52}}>
+        <SectionLabel>What's included</SectionLabel>
+        <h2 style={{fontFamily:"var(--font-d)",fontSize:"clamp(26px,3.5vw,40px)",fontWeight:700,
+          color:"var(--text)",letterSpacing:"0.01em"}}>A complete toolkit for your club</h2>
+        <p style={{fontSize:15,color:"var(--text3)",marginTop:10,maxWidth:520,margin:"10px auto 0"}}>
+          Every module your club needs — bundled into a single, easy-to-use portal.
+        </p>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:20 }}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(250px,1fr))",gap:16}}>
         {FEATURES.map(f=>(
-          <div key={f.title} style={{ background:"var(--bg2)", border:"1px solid var(--border)",
-            borderRadius:10, padding:24, transition:"box-shadow .2s",
-            boxShadow:"0 1px 3px rgba(0,0,0,.04)" }}>
-            <div style={{ fontSize:28, marginBottom:12 }}>{f.icon}</div>
-            <div style={{ fontFamily:"var(--font-b)", fontSize:15, fontWeight:700, color:"var(--text)",
-              marginBottom:6 }}>{f.title}</div>
-            <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>{f.desc}</div>
-          </div>
+          <Card key={f.title} className="hover-lift" style={{padding:22}}>
+            <div style={{fontSize:26,marginBottom:12,lineHeight:1}}>{f.icon}</div>
+            <div style={{fontFamily:"var(--font-b)",fontSize:14,fontWeight:700,color:"var(--text)",
+              marginBottom:6}}>{f.title}</div>
+            <div style={{fontSize:13,color:"var(--text3)",lineHeight:1.65}}>{f.desc}</div>
+          </Card>
         ))}
       </div>
     </section>
 
+    {/* Divider */}
+    <div style={{maxWidth:1160,margin:"0 auto",padding:"0 28px"}}>
+      <Divider label="Pricing"/>
+    </div>
+
     {/* Pricing */}
-    <section style={{ background:"var(--primary)", padding:"64px 24px" }}>
-      <div style={{ maxWidth:900, margin:"0 auto" }}>
-        <div style={{ textAlign:"center", marginBottom:48 }}>
-          <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
-            textTransform:"uppercase", marginBottom:10 }}>Pricing</div>
-          <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,42px)", fontWeight:800,
-            color:"white", letterSpacing:"0.02em" }}>Simple, club-friendly pricing</h2>
-          <p style={{ color:"rgba(255,255,255,.6)", fontSize:15, marginTop:10 }}>
-            Flat annual fee per club. No per-member charges.
-          </p>
-        </div>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:20 }}>
-          {PLANS.map(plan=>(
-            <div key={plan.id} style={{ background: plan.highlight ? "var(--gold)" : "rgba(255,255,255,.06)",
-              border: plan.highlight ? "none" : "1px solid rgba(255,255,255,.1)",
-              borderRadius:12, padding:28, position:"relative" }}>
-              {plan.highlight && <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)",
-                background:"var(--primary)", color:"var(--gold)", fontFamily:"var(--font-m)", fontSize:10,
-                fontWeight:700, letterSpacing:"0.15em", padding:"4px 14px", borderRadius:20,
-                border:"1px solid var(--gold)", textTransform:"uppercase" }}>Most Popular</div>}
-              <div style={{ fontFamily:"var(--font-h)", fontSize:22, fontWeight:700,
-                color: plan.highlight ? "var(--primary)" : "white",
-                letterSpacing:"0.1em", marginBottom:4 }}>{plan.name}</div>
-              <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:12 }}>
-                <span style={{ fontFamily:"var(--font-h)", fontSize:42, fontWeight:900,
-                  color: plan.highlight ? "var(--primary)" : "var(--gold)" }}>A${plan.price}</span>
-                <span style={{ fontSize:13, color: plan.highlight ? "rgba(42,58,74,.6)" : "rgba(255,255,255,.5)" }}>/{plan.period}</span>
-              </div>
-              <div style={{ fontSize:13, color: plan.highlight ? "rgba(42,58,74,.75)" : "rgba(255,255,255,.6)",
-                marginBottom:20, lineHeight:1.6 }}>{plan.desc}</div>
-              <ul style={{ listStyle:"none" }}>
-                {plan.features.map(feat=>(
-                  <li key={feat} style={{ display:"flex", gap:8, alignItems:"flex-start",
-                    fontSize:13, color: plan.highlight ? "var(--primary)" : "rgba(255,255,255,.8)",
-                    marginBottom:8, lineHeight:1.5 }}>
-                    <span style={{ color: plan.highlight ? "var(--primary)" : "var(--gold)",
-                      fontWeight:700, flexShrink:0 }}>✓</span>
-                    {feat}
-                  </li>
-                ))}
-              </ul>
+    <section style={{maxWidth:1160,margin:"0 auto",padding:"0 28px 72px"}}>
+      <div style={{textAlign:"center",marginBottom:48}}>
+        <SectionLabel>Plans</SectionLabel>
+        <h2 style={{fontFamily:"var(--font-d)",fontSize:"clamp(26px,3.5vw,40px)",fontWeight:700,
+          color:"var(--text)",letterSpacing:"0.01em",marginBottom:8}}>Simple, club-friendly pricing</h2>
+        <p style={{fontSize:15,color:"var(--text3)"}}>
+          Flat annual fee per club. No per-member charges. No lock-in.
+        </p>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:20,maxWidth:760,margin:"0 auto"}}>
+        {PLANS.map(plan=>(
+          <Card key={plan.id} style={{padding:30,position:"relative",
+            border:plan.highlight?"2px solid var(--gold)":"1px solid var(--border)",
+            boxShadow:plan.highlight?"0 8px 32px rgba(201,146,42,.15)":"none"}}>
+            {plan.highlight&&<div style={{position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",
+              background:"var(--gold)",color:"var(--burg-xdk)",fontFamily:"var(--font-m)",fontSize:9,
+              fontWeight:700,letterSpacing:"0.18em",padding:"4px 16px",borderRadius:20,
+              textTransform:"uppercase",whiteSpace:"nowrap"}}>Most Popular</div>}
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+              <div style={{fontFamily:"var(--font-c)",fontSize:16,fontWeight:700,color:"var(--burg)",
+                letterSpacing:"0.14em"}}>{plan.name.toUpperCase()}</div>
             </div>
-          ))}
-        </div>
-        <div style={{ textAlign:"center", marginTop:32, fontSize:13, color:"rgba(255,255,255,.4)" }}>
-          All plans include setup support and access to new features as they're released.
-        </div>
+            <div style={{display:"flex",alignItems:"baseline",gap:3,marginBottom:12}}>
+              <span style={{fontFamily:"var(--font-d)",fontSize:40,fontWeight:700,color:"var(--text)"}}>A${plan.price}</span>
+              <span style={{fontSize:12,color:"var(--text4)",fontFamily:"var(--font-m)"}}> / {plan.period}</span>
+            </div>
+            <div style={{fontSize:13,color:"var(--text3)",lineHeight:1.65,marginBottom:20,
+              paddingBottom:20,borderBottom:"1px solid var(--border)"}}>{plan.desc}</div>
+            <ul style={{listStyle:"none"}}>
+              {plan.features.map(feat=>(
+                <li key={feat} style={{display:"flex",gap:8,alignItems:"flex-start",
+                  fontSize:13,color:"var(--text2)",marginBottom:8,lineHeight:1.5}}>
+                  <span style={{color:"var(--gold)",fontWeight:700,flexShrink:0,marginTop:1}}>✓</span>
+                  {feat}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+      </div>
+      <div style={{textAlign:"center",marginTop:24,fontSize:12,color:"var(--text4)",fontFamily:"var(--font-m)"}}>
+        All plans include setup support · Access to new features as released
       </div>
     </section>
 
-    {/* CTA */}
-    <section style={{ maxWidth:720, margin:"0 auto", padding:"72px 24px", textAlign:"center" }}>
-      <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(26px,4vw,40px)", fontWeight:800,
-        color:"var(--primary)", letterSpacing:"0.02em", marginBottom:16 }}>
-        Ready to streamline your club?
-      </h2>
-      <p style={{ fontSize:15, color:"var(--text3)", lineHeight:1.7, marginBottom:32 }}>
-        See TorqueClub in action with our live demo — pre-loaded with sample data so you can explore every feature.
-      </p>
-      <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
-        style={{ display:"inline-block", padding:"13px 32px", background:"var(--gold)",
-          color:"var(--primary)", borderRadius:8, fontWeight:700, fontSize:15, fontFamily:"var(--font-b)" }}>
-        Explore the Demo Portal →
-      </a>
+    {/* CTA strip */}
+    <section style={{background:`linear-gradient(135deg,var(--burg-dk),var(--burg))`,
+      borderTop:"3px solid var(--gold)",padding:"56px 28px",textAlign:"center"}}>
+      <div style={{maxWidth:680,margin:"0 auto"}}>
+        <SectionLabel>Get started</SectionLabel>
+        <h2 style={{fontFamily:"var(--font-c)",fontSize:"clamp(22px,3vw,34px)",fontWeight:700,
+          color:"white",letterSpacing:"0.06em",marginBottom:14}}>
+          Ready to streamline your club?
+        </h2>
+        <p style={{fontSize:15,color:"rgba(255,255,255,.65)",lineHeight:1.75,marginBottom:32}}>
+          Explore the live demo — pre-loaded with sample data so you can try every feature before committing.
+        </p>
+        <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
+          style={{display:"inline-flex",alignItems:"center",gap:8,padding:"12px 30px",
+            background:"var(--gold)",color:"var(--burg-xdk)",borderRadius:"var(--r)",
+            fontWeight:700,fontSize:14,fontFamily:"var(--font-b)",letterSpacing:"0.02em",
+            boxShadow:"0 2px 12px rgba(201,146,42,.3)"}}>
+          Explore the Demo Portal →
+        </a>
+      </div>
     </section>
   </div>;
 }
 
 // ── Member Clubs page ─────────────────────────────────────────────────────────
 function ClubsPage() {
-  const [clubs, setClubs]   = useState([]);
+  const [clubs, setClubs]     = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -300,16 +373,13 @@ function ClubsPage() {
       try {
         const snap = await db.collection("clubs").get();
         const raw  = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-        // For each active club, try to fetch accountSettings
         const withSettings = await Promise.all(raw.map(async club => {
           if (club.status !== "active") return null;
           try {
             const doc = await db.collection("clubs").doc(club.id).collection("data").doc("accountSettings").get();
             const acct = doc.exists ? JSON.parse(doc.data().value) : {};
             return { ...club, acct };
-          } catch(e) {
-            return { ...club, acct:{} };
-          }
+          } catch(e) { return { ...club, acct:{} }; }
         }));
         setClubs(withSettings.filter(Boolean));
       } catch(e) { console.error("loadClubs:", e); }
@@ -318,71 +388,74 @@ function ClubsPage() {
     load();
   }, []);
 
-  if (loading) return <LoadingPage/>;
-
-  return <div className="fade-up" style={{ maxWidth:1120, margin:"0 auto", padding:"48px 24px" }}>
-    <div style={{ marginBottom:40 }}>
-      <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
-        textTransform:"uppercase", marginBottom:8 }}>Directory</div>
-      <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,44px)", fontWeight:800,
-        color:"var(--primary)", letterSpacing:"0.02em" }}>Member Clubs</h1>
-      <p style={{ fontSize:15, color:"var(--text3)", marginTop:8 }}>
+  return <div className="fade-up" style={{maxWidth:1160,margin:"0 auto",padding:"52px 28px 72px"}}>
+    <div style={{marginBottom:44}}>
+      <SectionLabel>Directory</SectionLabel>
+      <h1 style={{fontFamily:"var(--font-d)",fontSize:"clamp(26px,3.5vw,40px)",fontWeight:700,
+        color:"var(--text)",marginBottom:8}}>Member Clubs</h1>
+      <p style={{fontSize:15,color:"var(--text3)"}}>
         Australian vehicle enthusiast clubs powered by TorqueClub.
       </p>
     </div>
 
-    {clubs.length === 0 && (
-      <div style={{ textAlign:"center", padding:"60px 0", color:"var(--text4)", fontSize:14 }}>
+    {loading&&<div style={{padding:"60px 0",textAlign:"center"}}><Spinner size={28}/></div>}
+
+    {!loading&&clubs.length===0&&(
+      <div style={{textAlign:"center",padding:"60px 0",color:"var(--text4)",
+        fontFamily:"var(--font-m)",fontSize:13,letterSpacing:"0.08em"}}>
         No clubs listed yet.
       </div>
     )}
 
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:20 }}>
-      {clubs.map(club=>{
-        const a = club.acct || {};
-        const logo    = a.logo || null;
-        const blurb   = a.blurb || "";
-        const website = a.website || club.netlifyUrl || "";
-        const name    = a.registeredName || a.tradingName || club.name || club.id;
-        return (
-          <div key={club.id} style={{ background:"var(--bg2)", border:"1px solid var(--border)",
-            borderRadius:12, padding:24, display:"flex", flexDirection:"column", gap:12 }}>
-            <div style={{ display:"flex", alignItems:"center", gap:14, minHeight:52 }}>
-              {logo
-                ? <img src={logo} alt={name} style={{ height:52, width:"auto", maxWidth:100,
-                    objectFit:"contain", flexShrink:0 }}/>
-                : <div style={{ width:52, height:52, background:"var(--primary)", borderRadius:8,
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    flexShrink:0, fontFamily:"var(--font-h)", fontSize:20, fontWeight:900,
-                    color:"var(--gold)", letterSpacing:"0.08em" }}>
-                    {(name||"?")[0].toUpperCase()}
-                  </div>
-              }
-              <div style={{ fontFamily:"var(--font-b)", fontSize:15, fontWeight:700, color:"var(--text)" }}>
-                {name}
+    {!loading&&clubs.length>0&&(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
+        {clubs.map(club=>{
+          const a = club.acct || {};
+          const logo    = a.logo || null;
+          const blurb   = a.blurb || "";
+          const website = a.website || club.netlifyUrl || "";
+          const name    = a.registeredName || a.tradingName || club.name || club.id;
+          return (
+            <Card key={club.id} className="hover-lift" style={{padding:22,display:"flex",flexDirection:"column",gap:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:14}}>
+                {logo
+                  ? <img src={logo} alt={name} style={{height:48,width:"auto",maxWidth:100,
+                      objectFit:"contain",flexShrink:0,borderRadius:6,
+                      border:"1px solid var(--border)",padding:4,background:"white"}}/>
+                  : <div style={{width:48,height:48,background:"var(--burg)",borderRadius:8,
+                      display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,
+                      fontFamily:"var(--font-c)",fontSize:18,fontWeight:700,color:"var(--gold)"}}>
+                      {(name||"?")[0].toUpperCase()}
+                    </div>
+                }
+                <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,color:"var(--text)",lineHeight:1.3}}>
+                  {name}
+                </div>
               </div>
-            </div>
-            {blurb && <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>{blurb}</div>}
-            {website && (
-              <a href={website.startsWith("http")?website:"https://"+website}
-                target="_blank" rel="noopener noreferrer"
-                style={{ fontSize:13, color:"var(--gold)", fontWeight:600,
-                  display:"inline-flex", alignItems:"center", gap:4 }}>
-                Visit Club Portal →
-              </a>
-            )}
-          </div>
-        );
-      })}
-    </div>
+              {blurb&&<div style={{fontSize:13,color:"var(--text3)",lineHeight:1.7,
+                paddingTop:10,borderTop:"1px solid var(--border)"}}>{blurb}</div>}
+              {website&&(
+                <a href={website.startsWith("http")?website:"https://"+website}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:12,
+                    color:"var(--gold)",fontFamily:"var(--font-m)",fontWeight:500,
+                    letterSpacing:"0.04em"}}>
+                  Visit Club Portal →
+                </a>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    )}
   </div>;
 }
 
 // ── Events page ───────────────────────────────────────────────────────────────
 function EventsPage() {
-  const [events, setEvents]   = useState([]);
+  const [events,  setEvents]  = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView]       = useState("list"); // list | calendar
+  const [view,    setView]    = useState("list");
 
   useEffect(() => {
     async function load() {
@@ -400,150 +473,160 @@ function EventsPage() {
 
   const typeIcon = {show:"🏆",drive:"🚗",social:"🥂",charity:"❤️",competition:"🏁"};
   const typeName = {show:"Show",drive:"Drive",social:"Social",charity:"Charity",competition:"Competition"};
+  const today    = new Date().toISOString().slice(0,10);
+  const upcoming = events.filter(e => (e.date||"") >= today);
+  const past     = events.filter(e => (e.date||"") <  today);
 
-  const upcoming = events.filter(e => e.date >= new Date().toISOString().slice(0,10));
-  const past     = events.filter(e => e.date <  new Date().toISOString().slice(0,10));
-
-  if (loading) return <LoadingPage/>;
+  function EventCard({ ev }) {
+    return <Card style={{padding:20,display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
+      <div style={{width:48,height:48,background:"var(--bg3)",border:"1px solid var(--border)",
+        borderRadius:"var(--r)",display:"flex",alignItems:"center",justifyContent:"center",
+        fontSize:22,flexShrink:0}}>{typeIcon[ev.type]||"★"}</div>
+      <div style={{flex:1,minWidth:200}}>
+        <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:700,color:"var(--text)",marginBottom:4}}>
+          {ev.title}
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:"4px 16px",marginBottom:6}}>
+          <span style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text4)",letterSpacing:"0.04em"}}>
+            {fmtDate(ev.date)}{ev.time?" · "+ev.time:""}
+          </span>
+          {(ev.type||"")&&<span style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--gold)",
+            letterSpacing:"0.06em",textTransform:"uppercase"}}>{typeName[ev.type]||ev.type}</span>}
+        </div>
+        <div style={{fontSize:13,color:"var(--text2)",marginBottom:ev.clubName||ev.description?6:0}}>
+          📍 {ev.location}
+        </div>
+        {ev.clubName&&<div style={{fontSize:12,color:"var(--text4)",fontFamily:"var(--font-m)",
+          marginBottom:ev.description?6:0}}>Hosted by {ev.clubName}</div>}
+        {ev.description&&<div style={{fontSize:13,color:"var(--text3)",lineHeight:1.65}}>
+          {ev.description.slice(0,220)}{ev.description.length>220?"…":""}
+        </div>}
+      </div>
+      <button onClick={()=>downloadICS(ev)}
+        style={{padding:"7px 16px",background:"none",border:"1px solid var(--border2)",
+          borderRadius:"var(--r)",fontSize:12,color:"var(--text3)",cursor:"pointer",
+          fontFamily:"var(--font-b)",fontWeight:600,flexShrink:0,display:"flex",
+          alignItems:"center",gap:5,transition:"all .15s"}}
+        onMouseEnter={e=>{e.currentTarget.style.borderColor="var(--gold)";e.currentTarget.style.color="var(--gold)";}}
+        onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border2)";e.currentTarget.style.color="var(--text3)";}}>
+        📅 Add to Calendar
+      </button>
+    </Card>;
+  }
 
   function CalendarView() {
-    const today = new Date();
-    const [month, setMonth] = useState(today.getMonth());
-    const [year,  setYear]  = useState(today.getFullYear());
+    const now = new Date();
+    const [month, setMonth] = useState(now.getMonth());
+    const [year,  setYear]  = useState(now.getFullYear());
 
     const daysInMonth = new Date(year, month+1, 0).getDate();
-    const firstDay    = new Date(year, month, 1).getDay(); // 0=Sun
+    const firstDay    = new Date(year, month, 1).getDay();
     const monthName   = new Date(year, month, 1).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
 
     const cells = [];
-    for (let i=0; i<firstDay; i++) cells.push(null);
-    for (let d=1; d<=daysInMonth; d++) cells.push(d);
+    for (let i=0;i<firstDay;i++) cells.push(null);
+    for (let d=1;d<=daysInMonth;d++) cells.push(d);
 
     function eventsOnDay(d) {
       const str = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
-      return events.filter(e => e.date===str);
+      return events.filter(e=>e.date===str);
     }
 
     return <div>
-      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
         <button onClick={()=>{ const m=month-1<0?11:month-1; setMonth(m); if(m===11)setYear(y=>y-1); }}
-          style={{ background:"none", border:"1px solid var(--border)", borderRadius:6, padding:"6px 12px",
-            cursor:"pointer", fontSize:16, color:"var(--text2)" }}>‹</button>
-        <div style={{ flex:1, textAlign:"center", fontFamily:"var(--font-h)", fontSize:20,
-          fontWeight:700, color:"var(--primary)", letterSpacing:"0.06em" }}>{monthName}</div>
+          style={{background:"none",border:"1px solid var(--border)",borderRadius:"var(--r)",
+            padding:"6px 14px",cursor:"pointer",fontSize:16,color:"var(--text3)",
+            fontFamily:"var(--font-d)",transition:"all .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.borderColor="var(--gold)"}
+          onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>‹</button>
+        <div style={{flex:1,textAlign:"center",fontFamily:"var(--font-d)",fontSize:20,
+          fontWeight:700,color:"var(--text)",letterSpacing:"0.02em"}}>{monthName}</div>
         <button onClick={()=>{ const m=month+1>11?0:month+1; setMonth(m); if(m===0)setYear(y=>y+1); }}
-          style={{ background:"none", border:"1px solid var(--border)", borderRadius:6, padding:"6px 12px",
-            cursor:"pointer", fontSize:16, color:"var(--text2)" }}>›</button>
+          style={{background:"none",border:"1px solid var(--border)",borderRadius:"var(--r)",
+            padding:"6px 14px",cursor:"pointer",fontSize:16,color:"var(--text3)",
+            fontFamily:"var(--font-d)",transition:"all .15s"}}
+          onMouseEnter={e=>e.currentTarget.style.borderColor="var(--gold)"}
+          onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border)"}>›</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(
-          <div key={d} style={{ textAlign:"center", fontFamily:"var(--font-m)", fontSize:10,
-            color:"var(--text4)", padding:"6px 0", letterSpacing:"0.1em" }}>{d}</div>
+          <div key={d} style={{textAlign:"center",fontFamily:"var(--font-m)",fontSize:9,
+            color:"var(--text4)",padding:"6px 0",letterSpacing:"0.14em",textTransform:"uppercase"}}>{d}</div>
         ))}
         {cells.map((d,i)=>{
-          const evs = d ? eventsOnDay(d) : [];
-          const isToday = d && today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
-          return <div key={i} style={{ minHeight:64, border:"1px solid var(--border)", borderRadius:6,
-            background: isToday ? "#fff8ed" : "var(--bg2)", padding:4,
-            borderColor: isToday ? "var(--gold)" : "var(--border)" }}>
-            {d && <div style={{ fontSize:11, fontWeight:isToday?700:400,
-              color:isToday?"var(--gold)":"var(--text3)", marginBottom:3 }}>{d}</div>}
+          const evs    = d ? eventsOnDay(d) : [];
+          const isTday = d&&now.getDate()===d&&now.getMonth()===month&&now.getFullYear()===year;
+          return <div key={i} style={{minHeight:60,border:"1px solid",
+            borderColor:isTday?"var(--gold)":"var(--border)",borderRadius:6,
+            background:isTday?"#fffbf2":"var(--bg2)",padding:"4px 5px"}}>
+            {d&&<div style={{fontSize:10,fontFamily:"var(--font-m)",
+              fontWeight:isTday?700:400,color:isTday?"var(--gold)":"var(--text4)",marginBottom:3}}>{d}</div>}
             {evs.map(ev=>(
-              <div key={ev.docId} title={ev.title}
-                style={{ fontSize:10, background:"var(--gold)", color:"var(--primary)",
-                  borderRadius:3, padding:"1px 5px", marginBottom:2, fontWeight:600,
-                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                  cursor:"pointer" }} onClick={()=>downloadICS(ev)}>
+              <div key={ev.docId} title={`${ev.title} — click to download .ics`}
+                onClick={()=>downloadICS(ev)}
+                style={{fontSize:9,background:"var(--burg)",color:"white",borderRadius:3,
+                  padding:"2px 5px",marginBottom:2,fontFamily:"var(--font-m)",
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                  cursor:"pointer",letterSpacing:"0.02em"}}>
                 {typeIcon[ev.type]||"★"} {ev.title}
               </div>
             ))}
           </div>;
         })}
       </div>
-      <div style={{ marginTop:12, fontSize:11, color:"var(--text4)", fontFamily:"var(--font-m)", textAlign:"center" }}>
-        Click an event on the calendar to download .ics
-      </div>
+      <div style={{marginTop:10,fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)",
+        textAlign:"center",letterSpacing:"0.06em"}}>Click any event to download .ics calendar file</div>
     </div>;
   }
 
-  function EventCard({ ev }) {
-    return <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:12,
-      padding:24, display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
-      <div style={{ fontSize:32, flexShrink:0 }}>{typeIcon[ev.type]||"★"}</div>
-      <div style={{ flex:1, minWidth:200 }}>
-        <div style={{ fontFamily:"var(--font-b)", fontSize:16, fontWeight:700, color:"var(--text)", marginBottom:4 }}>
-          {ev.title}
-        </div>
-        <div style={{ fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", marginBottom:6 }}>
-          {fmtDate(ev.date)}{ev.time?" · "+ev.time:""} · {typeName[ev.type]||ev.type}
-        </div>
-        <div style={{ fontSize:13, color:"var(--text2)", marginBottom:6 }}>📍 {ev.location}</div>
-        {ev.clubName && <div style={{ fontSize:12, color:"var(--text4)", marginBottom:8 }}>
-          Hosted by {ev.clubName}
-        </div>}
-        {ev.description && <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>
-          {ev.description.slice(0,200)}{ev.description.length>200?"…":""}
-        </div>}
-      </div>
-      <button onClick={()=>downloadICS(ev)}
-        style={{ padding:"8px 16px", background:"none", border:"1px solid var(--border)",
-          borderRadius:7, fontSize:12, color:"var(--text2)", cursor:"pointer",
-          fontFamily:"var(--font-b)", fontWeight:600, flexShrink:0,
-          display:"flex", alignItems:"center", gap:6 }}>
-        📅 Add to Calendar
-      </button>
-    </div>;
-  }
-
-  return <div className="fade-up" style={{ maxWidth:1120, margin:"0 auto", padding:"48px 24px" }}>
-    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between",
-      marginBottom:32, flexWrap:"wrap", gap:16 }}>
+  return <div className="fade-up" style={{maxWidth:1160,margin:"0 auto",padding:"52px 28px 72px"}}>
+    <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",
+      marginBottom:44,flexWrap:"wrap",gap:16}}>
       <div>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
-          textTransform:"uppercase", marginBottom:8 }}>Community Calendar</div>
-        <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,44px)", fontWeight:800,
-          color:"var(--primary)", letterSpacing:"0.02em" }}>Upcoming Events</h1>
-        <p style={{ fontSize:15, color:"var(--text3)", marginTop:8 }}>
+        <SectionLabel>Community Calendar</SectionLabel>
+        <h1 style={{fontFamily:"var(--font-d)",fontSize:"clamp(26px,3.5vw,40px)",fontWeight:700,
+          color:"var(--text)",marginBottom:8}}>Upcoming Events</h1>
+        <p style={{fontSize:15,color:"var(--text3)"}}>
           Events from TorqueClub member clubs across Australia.
         </p>
       </div>
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={()=>setView("list")}
-          style={{ padding:"8px 16px", border:"1px solid var(--border)", borderRadius:7, cursor:"pointer",
-            fontSize:13, fontWeight:600, fontFamily:"var(--font-b)",
-            background:view==="list"?"var(--primary)":"var(--bg2)",
-            color:view==="list"?"white":"var(--text2)" }}>
-          List
-        </button>
-        <button onClick={()=>setView("calendar")}
-          style={{ padding:"8px 16px", border:"1px solid var(--border)", borderRadius:7, cursor:"pointer",
-            fontSize:13, fontWeight:600, fontFamily:"var(--font-b)",
-            background:view==="calendar"?"var(--primary)":"var(--bg2)",
-            color:view==="calendar"?"white":"var(--text2)" }}>
-          Calendar
-        </button>
+      <div style={{display:"flex",gap:4,background:"var(--bg3)",border:"1px solid var(--border)",
+        borderRadius:"var(--r)",padding:4}}>
+        {["list","calendar"].map(v=>(
+          <button key={v} onClick={()=>setView(v)}
+            style={{padding:"7px 18px",border:"none",borderRadius:6,cursor:"pointer",
+              fontSize:12,fontWeight:600,fontFamily:"var(--font-m)",letterSpacing:"0.06em",
+              textTransform:"uppercase",transition:"all .15s",
+              background:view===v?"var(--burg)":"none",
+              color:view===v?"white":"var(--text3)"}}>
+            {v==="list"?"List":"Cal"}
+          </button>
+        ))}
       </div>
     </div>
 
-    {view==="calendar" && <CalendarView/>}
+    {loading&&<div style={{padding:"60px 0",textAlign:"center"}}><Spinner size={28}/></div>}
 
-    {view==="list" && <>
-      {upcoming.length===0 && past.length===0 && (
-        <div style={{ textAlign:"center", padding:"60px 0", color:"var(--text4)", fontSize:14 }}>
+    {!loading&&view==="calendar"&&<CalendarView/>}
+
+    {!loading&&view==="list"&&<>
+      {upcoming.length===0&&past.length===0&&(
+        <div style={{textAlign:"center",padding:"60px 0",color:"var(--text4)",
+          fontFamily:"var(--font-m)",fontSize:13,letterSpacing:"0.08em"}}>
           No events currently listed.
         </div>
       )}
-      {upcoming.length>0 && <>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", letterSpacing:"0.12em",
-          textTransform:"uppercase", marginBottom:12 }}>Upcoming ({upcoming.length})</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:36 }}>
+      {upcoming.length>0&&<>
+        <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)",letterSpacing:"0.16em",
+          textTransform:"uppercase",marginBottom:12}}>Upcoming · {upcoming.length}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:40}}>
           {upcoming.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
         </div>
       </>}
-      {past.length>0 && <>
-        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", letterSpacing:"0.12em",
-          textTransform:"uppercase", marginBottom:12 }}>Past Events ({past.length})</div>
-        <div style={{ display:"flex", flexDirection:"column", gap:12, opacity:0.6 }}>
+      {past.length>0&&<>
+        <Divider label="Past Events"/>
+        <div style={{display:"flex",flexDirection:"column",gap:10,opacity:.6}}>
           {past.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
         </div>
       </>}
@@ -551,39 +634,31 @@ function EventsPage() {
   </div>;
 }
 
-// ── Loading ───────────────────────────────────────────────────────────────────
-function LoadingPage() {
-  return <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
-    minHeight:"40vh", gap:12, color:"var(--text4)", fontSize:14, fontFamily:"var(--font-m)" }}>
-    <div style={{ width:18, height:18, border:"2px solid var(--border)", borderTopColor:"var(--gold)",
-      borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
-    Loading…
-    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-  </div>;
-}
-
 // ── Footer ────────────────────────────────────────────────────────────────────
 function Footer({ setPage }) {
-  return <footer style={{ background:"var(--primary2)", borderTop:"3px solid var(--gold)",
-    padding:"32px 24px", marginTop:64 }}>
-    <div style={{ maxWidth:1120, margin:"0 auto", display:"flex", alignItems:"center",
-      justifyContent:"space-between", flexWrap:"wrap", gap:16 }}>
+  return <footer style={{background:"var(--burg-dk)",borderTop:"3px solid var(--gold)",
+    padding:"32px 28px",marginTop:0}}>
+    <div style={{maxWidth:1160,margin:"0 auto",display:"flex",alignItems:"center",
+      justifyContent:"space-between",flexWrap:"wrap",gap:20}}>
       <div>
-        <div style={{ fontFamily:"var(--font-h)", fontSize:18, fontWeight:900, color:"var(--gold)",
-          letterSpacing:"0.18em", marginBottom:4 }}>TORQUECLUB</div>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,.3)", fontFamily:"var(--font-m)" }}>
-          Club Management Platform · Australia
-        </div>
+        <div style={{fontFamily:"var(--font-c)",fontSize:16,fontWeight:700,color:"var(--gold)",
+          letterSpacing:"0.22em",marginBottom:4}}>TORQUECLUB</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,.28)",fontFamily:"var(--font-m)",
+          letterSpacing:"0.1em"}}>Club Management Platform · Australia</div>
       </div>
-      <div style={{ display:"flex", gap:20 }}>
+      <nav style={{display:"flex",gap:6}}>
         {[["home","Home"],["clubs","Member Clubs"],["events","Events"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setPage(id)} style={{ background:"none", border:"none",
-            cursor:"pointer", fontSize:13, color:"rgba(255,255,255,.45)", fontFamily:"var(--font-b)" }}>
+          <button key={id} onClick={()=>setPage(id)}
+            style={{background:"none",border:"none",cursor:"pointer",
+              fontSize:12,color:"rgba(255,255,255,.38)",fontFamily:"var(--font-b)",
+              padding:"4px 10px",transition:"color .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.color="rgba(255,255,255,.8)"}
+            onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,.38)"}>
             {label}
           </button>
         ))}
-      </div>
-      <div style={{ fontSize:12, color:"rgba(255,255,255,.2)", fontFamily:"var(--font-m)" }}>
+      </nav>
+      <div style={{fontSize:11,color:"rgba(255,255,255,.18)",fontFamily:"var(--font-m)"}}>
         © {new Date().getFullYear()} TorqueClub
       </div>
     </div>
@@ -593,10 +668,7 @@ function Footer({ setPage }) {
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   const [page, setPage] = useState("home");
-
-  // Sync scroll to top on page change
-  useEffect(() => { window.scrollTo(0,0); }, [page]);
-
+  useEffect(() => { window.scrollTo({top:0,behavior:"smooth"}); }, [page]);
   return <>
     <Nav page={page} setPage={setPage}/>
     {page==="home"   && <HomePage  setPage={setPage}/>}
