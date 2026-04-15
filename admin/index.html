@@ -57,6 +57,43 @@ const SEED_PLANS = [
   { id:"tc+", name:"Club Plus", price:200, description:"Extended features including competitions, advanced reporting and priority support", features:[] },
 ];
 
+// Canonical list of portal features — mirrors actual modules/flags in the demo portal.
+// IDs use "portal_" prefix so they're distinguishable from admin-created features.
+// ADD HERE whenever a new section or feature flag is added to index.html.
+const PORTAL_FEATURES = [
+  // ── Core modules ──────────────────────────────────────────────────────────
+  { id:"portal_members",       name:"Members Management",           description:"Add, edit, suspend and search members; membership type controls" },
+  { id:"portal_applications",  name:"Membership Applications",      description:"Online application form; admin approve/reject workflow with invoice generation" },
+  { id:"portal_membership_types",name:"Membership Types",           description:"Create and price multiple membership tiers (full, associate, concession, etc.)" },
+  { id:"portal_vehicles",      name:"Vehicle Register",             description:"Register vehicles, pending approvals, and REGO AI scanning" },
+  { id:"portal_dues",          name:"Dues & Renewals",              description:"Track member dues, renewal dates, and outstanding payments" },
+  { id:"portal_meetings",      name:"Meetings",                     description:"Schedule meetings, agenda editor, minutes recording, and RSVPs" },
+  { id:"portal_events",        name:"Events & Shows",               description:"Events with RSVPs, check-in, trip logs, catering, and risk management plans" },
+  { id:"portal_tasks",         name:"Task Board",                   description:"Kanban-style task management with member assignments and due dates" },
+  { id:"portal_marketplace",   name:"Marketplace",                  description:"Member-to-member vehicle and parts classified listings" },
+  { id:"portal_shop",          name:"Club Shop",                    description:"Sell club merchandise and branded items with order management" },
+  { id:"portal_permits",       name:"Club Permits",                 description:"Club permit scheme vehicle management and trip log recording" },
+  { id:"portal_committee",     name:"Committee Display",            description:"Auto-generated committee page from member role assignments" },
+  { id:"portal_gallery",       name:"Photo Gallery",                description:"Club photo gallery with admin upload and member viewing" },
+  { id:"portal_transfers",     name:"Transfer History",             description:"Audit trail of vehicle ownership transfers between members" },
+  { id:"portal_bulk_import",   name:"Bulk Import",                  description:"CSV import for members, vehicles, and dues records" },
+  // ── Advanced / TC+ modules ────────────────────────────────────────────────
+  { id:"portal_finance",       name:"Finance Module",               description:"Income/expense tracking, financial reports, payment methods, and invoicing" },
+  { id:"portal_website",       name:"Website Builder",              description:"Manage public website content, news articles, custom pages, and hero image" },
+  { id:"portal_newsletter",    name:"Newsletter Builder",           description:"Build and export branded HTML newsletters for member mailouts" },
+  { id:"portal_library",       name:"Library",                      description:"Club book library catalogue with borrowing management (CLUB_CONFIG.features.library)" },
+  { id:"portal_parts",         name:"Parts Catalogue & Inventory",  description:"Parts catalogue with inventory tracking and storage location management" },
+  { id:"portal_records",       name:"Records & Archive",            description:"Club archive, quality system documentation, and historical records" },
+  { id:"portal_recognition",   name:"Points & Awards",              description:"Member points system, trophies, and achievement recognition" },
+  { id:"portal_competitions",  name:"Show & Shine / Competitions",  description:"Competition management, class judging, and results (CLUB_CONFIG.features.competitionResults)" },
+  { id:"portal_contacts",      name:"Contacts & Suppliers",         description:"External contacts directory and supplier/vendor management" },
+  { id:"portal_permissions",   name:"Permissions Management",       description:"Granular role and permission controls per member" },
+  { id:"portal_polls",         name:"Polls & Surveys",              description:"Create, publish, and tally member polls and surveys (CLUB_CONFIG.features.surveys)" },
+  { id:"portal_incidents",     name:"Incident Reporting",           description:"Log, track, and manage safety and incident reports (CLUB_CONFIG.features.incidentReporting)" },
+  { id:"portal_ai_scanning",   name:"AI REGO Scanning",             description:"AI-powered vehicle registration plate scanning for event check-in (CLUB_CONFIG.features.aiScanning)" },
+  { id:"portal_forum",         name:"Forum / Messaging",            description:"Internal club discussion board and messaging (CLUB_CONFIG.features.forum)" },
+];
+
 const { useState, useEffect } = React;
 
 // ── Fonts ─────────────────────────────────────────────────────────────────────
@@ -1298,7 +1335,18 @@ function App() {
         db.collection('platform').doc('features').get(),
         db.collection('platform').doc('plans').get(),
       ]);
-      setFeatures(featDoc.exists ? (featDoc.data().items || []) : []);
+
+      // Merge PORTAL_FEATURES into Firestore — add any that don't exist yet (by id).
+      // This keeps the list in sync whenever new features are added to PORTAL_FEATURES.
+      let feats = featDoc.exists ? (featDoc.data().items || []) : [];
+      const existingIds = new Set(feats.map(f => f.id));
+      const missing = PORTAL_FEATURES.filter(f => !existingIds.has(f.id));
+      if (missing.length > 0) {
+        feats = [...feats, ...missing];
+        await db.collection('platform').doc('features').set({ items: feats });
+      }
+      setFeatures(feats);
+
       let plansList = plansDoc.exists ? (plansDoc.data().items || []) : [];
       if (plansList.length === 0) {
         plansList = SEED_PLANS;
