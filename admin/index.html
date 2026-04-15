@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- TorqueClub Super Admin Portal v1.0 -->
+<!-- TorqueClub Super Admin Portal v2.0 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -47,11 +47,15 @@ const PLATFORM_CONFIG = {
   superAdminEmails: ["superadmin@torqueclub.com.au"],
   primaryColour:    "#2A3A4A",
   accentColour:     "#C9922A",
-  plans: {
-    "tc":  { label:"TC (Club)",       price:120, description:"Core portal features" },
-    "tc+": { label:"TC+ (Club Plus)", price:200, description:"Extended features"    },
-  },
 };
+
+// Firestore paths: platform/features, platform/plans, platform/meta
+// clubs/{id}/invoices/{invId}
+
+const SEED_PLANS = [
+  { id:"tc",  name:"Club",      price:120, description:"Core portal features for vehicle enthusiast clubs", features:[] },
+  { id:"tc+", name:"Club Plus", price:200, description:"Extended features including competitions, advanced reporting and priority support", features:[] },
+];
 
 const { useState, useEffect } = React;
 
@@ -107,6 +111,79 @@ ST.textContent = `
 `;
 document.head.appendChild(ST);
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function today() { return new Date().toISOString().split('T')[0]; }
+function addDays(d, n) {
+  const dt = new Date(d); dt.setDate(dt.getDate() + n);
+  return dt.toISOString().split('T')[0];
+}
+function fmtDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-AU", { day:"numeric", month:"short", year:"numeric" });
+}
+
+async function getNextInvoiceNumber() {
+  const metaRef = db.collection('platform').doc('meta');
+  const meta = await metaRef.get();
+  const last = meta.exists ? (meta.data().lastInvoiceNumber || 0) : 0;
+  const next = last + 1;
+  await metaRef.set({ lastInvoiceNumber: next }, { merge: true });
+  return "TC-" + String(next).padStart(4, "0");
+}
+
+function printInvoice(inv) {
+  const win = window.open('', '_blank', 'width=820,height=640');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>Invoice ${inv.invoiceNumber}</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;padding:48px;max-width:720px;margin:0 auto;color:#1a2530}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;padding-bottom:24px;border-bottom:3px solid #2A3A4A}
+  .brand{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#2A3A4A;letter-spacing:.04em}
+  .brand-sub{font-size:12px;color:#607080;margin-top:4px}
+  .inv-label{text-align:right}
+  .inv-label h2{font-size:26px;color:#C9922A;margin:0;letter-spacing:.06em}
+  .inv-label p{font-size:13px;color:#607080;margin:4px 0 0}
+  .meta{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;margin-bottom:32px;border:1px solid #d0d8e0;border-radius:6px;overflow:hidden}
+  .meta-cell{padding:12px 16px;border-right:1px solid #d0d8e0}
+  .meta-cell:last-child{border-right:none}
+  .meta-lbl{font-size:10px;color:#607080;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .meta-val{font-size:14px;font-weight:600;color:#1a2530}
+  table{width:100%;border-collapse:collapse;margin-bottom:24px}
+  thead th{background:#2A3A4A;color:#fff;padding:10px 14px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  tbody td{padding:12px 14px;border-bottom:1px solid #e8ecf0;font-size:13px}
+  .total-row td{background:#f0f3f5;font-weight:700;font-size:15px;border-bottom:none}
+  .amount{text-align:right}
+  .footer{margin-top:32px;padding-top:20px;border-top:1px solid #d0d8e0;font-size:11px;color:#90a0b0;text-align:center}
+  .print-btn{display:block;margin:24px auto 0;padding:10px 28px;background:#2A3A4A;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer}
+  @media print{.print-btn{display:none}}
+</style></head><body>
+<div class="hdr">
+  <div><div class="brand">TORQUECLUB</div><div class="brand-sub">Club Management Platform</div></div>
+  <div class="inv-label"><h2>INVOICE</h2><p>${inv.invoiceNumber}</p></div>
+</div>
+<div class="meta">
+  <div class="meta-cell"><div class="meta-lbl">Billed To</div><div class="meta-val">${inv.clubName}</div></div>
+  <div class="meta-cell"><div class="meta-lbl">Invoice Date</div><div class="meta-val">${fmtDate(inv.invoiceDate)}</div></div>
+  <div class="meta-cell"><div class="meta-lbl">Due Date</div><div class="meta-val">${fmtDate(inv.dueDate)}</div></div>
+</div>
+<table>
+  <thead><tr><th>Description</th><th class="amount">Amount (AUD)</th></tr></thead>
+  <tbody>
+    <tr><td>${inv.planName} — Annual Platform Subscription</td><td class="amount">$${Number(inv.amount).toFixed(2)}</td></tr>
+    ${inv.notes ? '<tr><td colspan="2" style="font-size:12px;color:#607080">Note: ' + inv.notes + '</td></tr>' : ''}
+  </tbody>
+  <tfoot>
+    <tr class="total-row"><td>Total</td><td class="amount">A$${Number(inv.amount).toFixed(2)}</td></tr>
+  </tfoot>
+</table>
+<div class="footer">TorqueClub Platform &nbsp;|&nbsp; torqueclub.com.au &nbsp;|&nbsp; billing@torqueclub.com.au</div>
+<button class="print-btn" onclick="window.print()">Print / Save as PDF</button>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 600);
+}
+
 // ── Primitives ────────────────────────────────────────────────────────────────
 function Card({ children, style }) {
   return <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:"var(--r)", boxShadow:"var(--shadow)", ...style }}>{children}</div>;
@@ -118,10 +195,10 @@ function Btn({ children, onClick, variant="primary", size="md", disabled, style 
     border:"none", borderRadius:"var(--r)", transition:"all .15s", opacity:disabled?.6:1 };
   const sizes = { sm:{padding:"6px 12px",fontSize:12}, md:{padding:"9px 18px",fontSize:14}, lg:{padding:"12px 24px",fontSize:15} };
   const variants = {
-    primary:   { background:"var(--accent)",   color:"#fff" },
-    secondary: { background:"var(--primary)",  color:"#fff" },
-    ghost:     { background:"transparent",     color:"var(--text2)", border:"1px solid var(--border)" },
-    danger:    { background:"var(--red)",      color:"#fff" },
+    primary:   { background:"var(--accent)",  color:"#fff" },
+    secondary: { background:"var(--primary)", color:"#fff" },
+    ghost:     { background:"transparent",    color:"var(--text2)", border:"1px solid var(--border)" },
+    danger:    { background:"var(--red)",     color:"#fff" },
   };
   return <button onClick={disabled?undefined:onClick}
     style={{...base,...sizes[size],...(variants[variant]||variants.primary),...style}}>{children}</button>;
@@ -156,26 +233,33 @@ function Field({ label, required, children, hint }) {
   </div>;
 }
 
+function Textarea({ value, onChange, placeholder, style }) {
+  return <textarea value={value} onChange={onChange} placeholder={placeholder}
+    style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
+      fontFamily:"var(--font-b)", fontSize:14, color:"var(--text)", background:"var(--bg2)",
+      outline:"none", resize:"vertical", minHeight:72, ...style }}/>;
+}
+
 function StatusBadge({ status }) {
   const map = {
     active:    { bg:"var(--green-bg)", color:"var(--green)", label:"Active"    },
     trial:     { bg:"var(--amber-bg)", color:"var(--amber)", label:"Trial"     },
     suspended: { bg:"var(--red-bg)",   color:"var(--red)",   label:"Suspended" },
+    unpaid:    { bg:"var(--red-bg)",   color:"var(--red)",   label:"Unpaid"    },
+    paid:      { bg:"var(--green-bg)", color:"var(--green)", label:"Paid"      },
   };
   const s = map[status] || map.trial;
   return <span style={{ display:"inline-block", padding:"2px 9px", borderRadius:20, fontSize:11,
     fontFamily:"var(--font-m)", fontWeight:500, background:s.bg, color:s.color }}>{s.label}</span>;
 }
 
-function PlanBadge({ plan }) {
-  const isPlus = plan === "tc+";
+function PlanBadge({ planId, plans }) {
+  if (!planId) return <span style={{ color:"var(--text4)", fontSize:12 }}>—</span>;
+  const p = plans && plans.find(x => x.id === planId);
+  const label = p ? p.name : planId;
   return <span style={{ display:"inline-block", padding:"2px 9px", borderRadius:20, fontSize:11,
-    fontFamily:"var(--font-m)", fontWeight:600,
-    background:isPlus?"var(--primary)":"var(--bg3)",
-    color:isPlus?"var(--accent)":"var(--text3)",
-    border:isPlus?"1px solid var(--accent3)":"none" }}>
-    {isPlus ? "TC+" : "TC"}
-  </span>;
+    fontFamily:"var(--font-m)", fontWeight:600, background:"var(--primary)", color:"var(--accent)",
+    border:"1px solid var(--accent3)" }}>{label}</span>;
 }
 
 function Spinner({ size=28 }) {
@@ -199,6 +283,23 @@ function StatCard({ icon, label, value, sub, accent }) {
       </div>
     </div>
   </Card>;
+}
+
+function Modal({ title, onClose, children, width=560 }) {
+  return <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,.45)", zIndex:1000,
+    display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+    onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{ background:"var(--bg2)", borderRadius:"var(--r)", width:"100%", maxWidth:width,
+      maxHeight:"90vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,.3)" }}>
+      <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border)",
+        display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:600 }}>{title}</div>
+        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer",
+          fontSize:22, color:"var(--text3)", lineHeight:1 }}>×</button>
+      </div>
+      <div style={{ padding:20 }}>{children}</div>
+    </div>
+  </div>;
 }
 
 // ── Loading ───────────────────────────────────────────────────────────────────
@@ -235,9 +336,8 @@ function LoginScreen({ onLogin }) {
   const inputStyle = { background:"rgba(255,255,255,.07)", border:"1px solid rgba(255,255,255,.13)", color:"#fff" };
 
   return <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
-      background:`linear-gradient(135deg, var(--primary3) 0%, var(--primary2) 60%, var(--primary3) 100%)` }}>
+      background:"linear-gradient(135deg, var(--primary3) 0%, var(--primary2) 60%, var(--primary3) 100%)" }}>
     <div style={{ width:"100%", maxWidth:400, padding:24 }} className="fade-up">
-
       <div style={{ textAlign:"center", marginBottom:36 }}>
         <div style={{ width:56, height:56, borderRadius:14, background:"var(--accent)", display:"flex",
           alignItems:"center", justifyContent:"center", fontSize:26, margin:"0 auto 16px",
@@ -245,8 +345,7 @@ function LoginScreen({ onLogin }) {
         <div style={{ fontFamily:"var(--font-c)", fontSize:20, fontWeight:700, color:"var(--accent)", letterSpacing:"0.18em" }}>TORQUECLUB</div>
         <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.35)", letterSpacing:"0.22em", marginTop:5, textTransform:"uppercase" }}>Super Admin Portal</div>
       </div>
-
-      <Card style={{ padding:28, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.09)", backdropFilter:"blur(12px)" }}>
+      <Card style={{ padding:28, background:"rgba(255,255,255,.05)", border:"1px solid rgba(255,255,255,.09)" }}>
         <Field label="Email">
           <Input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
             placeholder="superadmin@torqueclub.com.au" style={inputStyle}
@@ -268,31 +367,30 @@ function LoginScreen({ onLogin }) {
 }
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-function Dashboard({ clubs, onViewClubs }) {
+function Dashboard({ clubs, plans, onViewClubs }) {
   const active    = clubs.filter(c=>c.status==="active").length;
   const trial     = clubs.filter(c=>c.status==="trial").length;
   const suspended = clubs.filter(c=>c.status==="suspended").length;
   const annualRevenue = clubs.reduce((s,c)=>{
-    const p = PLATFORM_CONFIG.plans[c.plan||"tc"];
-    return s + (p && c.status==="active" ? p.price : 0);
+    if (c.status !== "active") return s;
+    const p = plans.find(x => x.id === (c.plan || "tc"));
+    return s + (p ? p.price : 0);
   }, 0);
 
   return <div className="fade-up">
     <div style={{ marginBottom:28 }}>
-      <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700, color:"var(--text)" }}>Dashboard</h1>
+      <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700 }}>Dashboard</h1>
       <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
         {new Date().toLocaleDateString("en-AU",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
       </div>
     </div>
-
     <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))", gap:16, marginBottom:32 }}>
-      <StatCard icon="◉" label="Total Clubs"       value={clubs.length} sub={`${active} active, ${trial} trial`} />
-      <StatCard icon="✓" label="Active"             value={active}       sub="paying subscribers" accent />
-      <StatCard icon="◎" label="On Trial"           value={trial}        sub="trial clubs" />
-      <StatCard icon="⊘" label="Suspended"          value={suspended}    sub="suspended accounts" />
-      <StatCard icon="$" label="Annual Revenue"     value={`$${annualRevenue}`} sub="AUD — active clubs" />
+      <StatCard icon="◉" label="Total Clubs"    value={clubs.length} sub={`${active} active, ${trial} trial`} />
+      <StatCard icon="✓" label="Active"          value={active}       sub="paying subscribers" accent />
+      <StatCard icon="◎" label="On Trial"        value={trial}        sub="trial accounts" />
+      <StatCard icon="⊘" label="Suspended"       value={suspended}    sub="suspended accounts" />
+      <StatCard icon="$" label="Annual Revenue"  value={`$${annualRevenue}`} sub="AUD — active clubs" />
     </div>
-
     {clubs.length > 0 && <>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
         <h2 style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:600 }}>All Clubs</h2>
@@ -315,7 +413,7 @@ function Dashboard({ clubs, onViewClubs }) {
                   <div style={{ fontWeight:600, fontSize:14 }}>{club.name||club.id}</div>
                   <div style={{ fontSize:11, color:"var(--text3)", fontFamily:"var(--font-m)" }}>{club.id}</div>
                 </td>
-                <td style={{ padding:"12px 16px" }}><PlanBadge plan={club.plan||"tc"}/></td>
+                <td style={{ padding:"12px 16px" }}><PlanBadge planId={club.plan} plans={plans}/></td>
                 <td style={{ padding:"12px 16px" }}><StatusBadge status={club.status||"trial"}/></td>
                 <td style={{ padding:"12px 16px", fontSize:13, color:"var(--text2)", fontFamily:"var(--font-m)" }}>{club.adminEmail||"—"}</td>
                 <td style={{ padding:"12px 16px" }}>
@@ -330,7 +428,6 @@ function Dashboard({ clubs, onViewClubs }) {
         </table>
       </Card>
     </>}
-
     {clubs.length === 0 && (
       <Card style={{ padding:40, textAlign:"center" }}>
         <div style={{ fontSize:32, marginBottom:12 }}>◉</div>
@@ -342,7 +439,7 @@ function Dashboard({ clubs, onViewClubs }) {
 }
 
 // ── Clubs List ────────────────────────────────────────────────────────────────
-function ClubsList({ clubs, onSelect, onAdd, onRefresh }) {
+function ClubsList({ clubs, plans, onSelect, onAdd, onRefresh }) {
   const [search, setSearch] = useState("");
   const filtered = clubs.filter(c =>
     (c.name||c.id).toLowerCase().includes(search.toLowerCase()) ||
@@ -354,26 +451,22 @@ function ClubsList({ clubs, onSelect, onAdd, onRefresh }) {
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
       <div>
         <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700 }}>Clubs</h1>
-        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
-          {clubs.length} club{clubs.length!==1?"s":""} registered
-        </div>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>{clubs.length} club{clubs.length!==1?"s":""} registered</div>
       </div>
       <div style={{ display:"flex", gap:8 }}>
         <Btn variant="ghost" size="sm" onClick={onRefresh}>↺ Refresh</Btn>
         <Btn size="sm" onClick={onAdd}>+ Add Club</Btn>
       </div>
     </div>
-
     <div style={{ marginBottom:16 }}>
       <Input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search clubs…" style={{ maxWidth:300 }} />
     </div>
-
     <Card>
       <table style={{ width:"100%", borderCollapse:"collapse" }}>
         <thead>
           <tr style={{ borderBottom:"2px solid var(--border)", background:"var(--bg3)" }}>
-            {["Club","Plan","Status","Admin Email","Portal URL","Created","Actions"].map(h=>(
-              <th key={h} style={{ padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11,
+            {["Club","Plan","Status","Admin Email","Portal URL","Created",""].map((h,i)=>(
+              <th key={i} style={{ padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11,
                 color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left" }}>{h}</th>
             ))}
           </tr>
@@ -389,7 +482,7 @@ function ClubsList({ clubs, onSelect, onAdd, onRefresh }) {
                 {club.shortName && <div style={{ fontSize:11, color:"var(--text3)", fontFamily:"var(--font-m)" }}>{club.shortName}</div>}
                 <div style={{ fontSize:10, color:"var(--text4)", fontFamily:"var(--font-m)", marginTop:1 }}>ID: {club.id}</div>
               </td>
-              <td style={{ padding:"12px 16px" }}><PlanBadge plan={club.plan||"tc"}/></td>
+              <td style={{ padding:"12px 16px" }}><PlanBadge planId={club.plan} plans={plans}/></td>
               <td style={{ padding:"12px 16px" }}><StatusBadge status={club.status||"trial"}/></td>
               <td style={{ padding:"12px 16px", fontSize:13, color:"var(--text2)", fontFamily:"var(--font-m)" }}>{club.adminEmail||"—"}</td>
               <td style={{ padding:"12px 16px" }}>
@@ -412,12 +505,92 @@ function ClubsList({ clubs, onSelect, onAdd, onRefresh }) {
   </div>;
 }
 
+// ── Invoice Modal ─────────────────────────────────────────────────────────────
+function InvoiceModal({ club, plans, onClose, onCreated }) {
+  const defaultPlan = plans.find(p => p.id === club.plan) || plans[0] || {};
+  const [form, setForm] = useState({
+    planId:      defaultPlan.id || "",
+    amount:      defaultPlan.price || "",
+    invoiceDate: today(),
+    dueDate:     addDays(today(), 30),
+    notes:       "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [err, setErr]       = useState("");
+
+  function upd(k,v) { setForm(f=>({...f,[k]:v})); setErr(""); }
+
+  function changePlan(planId) {
+    const p = plans.find(x => x.id === planId);
+    setForm(f => ({ ...f, planId, amount: p ? p.price : f.amount }));
+  }
+
+  async function generate() {
+    if (!form.planId) { setErr("Select a plan."); return; }
+    if (!form.amount || isNaN(Number(form.amount))) { setErr("Enter a valid amount."); return; }
+    setSaving(true);
+    try {
+      const invoiceNumber = await getNextInvoiceNumber();
+      const planData = plans.find(p => p.id === form.planId);
+      const inv = {
+        invoiceNumber,
+        clubId:      club.id,
+        clubName:    club.name || club.id,
+        planId:      form.planId,
+        planName:    planData ? planData.name : form.planId,
+        amount:      Number(form.amount),
+        invoiceDate: form.invoiceDate,
+        dueDate:     form.dueDate,
+        notes:       form.notes,
+        status:      "unpaid",
+        createdAt:   new Date().toISOString(),
+      };
+      const ref = await db.collection('clubs').doc(club.id).collection('invoices').add(inv);
+      onCreated({ id: ref.id, ...inv });
+    } catch(e) {
+      setErr("Error generating invoice: " + e.message);
+    }
+    setSaving(false);
+  }
+
+  return <Modal title="Generate Invoice" onClose={onClose} width={480}>
+    <Field label="Plan" required>
+      <Sel value={form.planId} onChange={e=>changePlan(e.target.value)}>
+        <option value="">Select plan…</option>
+        {plans.map(p=>(
+          <option key={p.id} value={p.id}>{p.name} — A${p.price}/yr</option>
+        ))}
+      </Sel>
+    </Field>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+      <Field label="Invoice Date">
+        <Input type="date" value={form.invoiceDate} onChange={e=>upd("invoiceDate",e.target.value)}/>
+      </Field>
+      <Field label="Due Date">
+        <Input type="date" value={form.dueDate} onChange={e=>upd("dueDate",e.target.value)}/>
+      </Field>
+    </div>
+    <Field label="Amount (AUD)" required>
+      <Input type="number" value={form.amount} onChange={e=>upd("amount",e.target.value)} placeholder="120"/>
+    </Field>
+    <Field label="Notes (optional)">
+      <Textarea value={form.notes} onChange={e=>upd("notes",e.target.value)} placeholder="Billing period, reference number…"/>
+    </Field>
+    {err && <div style={{ padding:"8px 12px", background:"var(--red-bg)", borderRadius:"var(--r)",
+      color:"var(--red)", fontSize:12, fontFamily:"var(--font-m)", marginBottom:12 }}>{err}</div>}
+    <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+      <Btn variant="ghost" onClick={onClose}>Cancel</Btn>
+      <Btn onClick={generate} disabled={saving}>{saving?"Generating…":"Generate Invoice"}</Btn>
+    </div>
+  </Modal>;
+}
+
 // ── Club Detail / Edit ────────────────────────────────────────────────────────
-function ClubDetail({ club, onSave, onBack, onDelete }) {
+function ClubDetail({ club, plans, onSave, onBack, onDelete }) {
   const [form, setForm] = useState({
     name:        club.name||"",
     shortName:   club.shortName||"",
-    plan:        club.plan||"tc",
+    plan:        club.plan||"",
     status:      club.status||"trial",
     adminEmail:  club.adminEmail||"",
     netlifyUrl:  club.netlifyUrl||"",
@@ -428,6 +601,20 @@ function ClubDetail({ club, onSave, onBack, onDelete }) {
   const [saved, setSaved]             = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting]       = useState(false);
+  const [invoices, setInvoices]       = useState([]);
+  const [invLoading, setInvLoading]   = useState(true);
+  const [showInvModal, setShowInvModal] = useState(false);
+
+  useEffect(() => {
+    db.collection('clubs').doc(club.id).collection('invoices')
+      .orderBy('createdAt', 'desc')
+      .get()
+      .then(snap => {
+        setInvoices(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+        setInvLoading(false);
+      })
+      .catch(() => setInvLoading(false));
+  }, [club.id]);
 
   function upd(k,v) { setForm(f=>({...f,[k]:v})); setSaved(false); }
 
@@ -444,6 +631,16 @@ function ClubDetail({ club, onSave, onBack, onDelete }) {
     onDelete(club.id);
   }
 
+  async function markInvoicePaid(invId) {
+    await db.collection('clubs').doc(club.id).collection('invoices').doc(invId).update({ status:"paid" });
+    setInvoices(is => is.map(i => i.id===invId ? {...i, status:"paid"} : i));
+  }
+
+  const thStyle = { padding:"9px 14px", fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)",
+    textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left", background:"var(--bg3)",
+    borderBottom:"1px solid var(--border)" };
+  const tdStyle = { padding:"11px 14px", fontSize:13, borderBottom:"1px solid var(--bg3)" };
+
   return <div className="fade-up">
     <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
       <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer",
@@ -458,16 +655,14 @@ function ClubDetail({ club, onSave, onBack, onDelete }) {
       </div>
     </div>
 
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:24 }}>
       <Card style={{ padding:24 }}>
         <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
           letterSpacing:"0.1em", marginBottom:20 }}>Club Identity</div>
         <Field label="Club Name" required><Input value={form.name} onChange={e=>upd("name",e.target.value)}/></Field>
         <Field label="Short Name / Abbreviation"><Input value={form.shortName} onChange={e=>upd("shortName",e.target.value)} placeholder="e.g. CMCA"/></Field>
         <Field label="Admin Email"><Input type="email" value={form.adminEmail} onChange={e=>upd("adminEmail",e.target.value)}/></Field>
-        <Field label="Portal URL" hint="Without https:// — e.g. demo.torqueclub.com.au">
-          <Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)} placeholder="subdomain.torqueclub.com.au"/>
-        </Field>
+        <Field label="Portal URL" hint="Without https://"><Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)} placeholder="subdomain.torqueclub.com.au"/></Field>
       </Card>
 
       <Card style={{ padding:24 }}>
@@ -475,8 +670,9 @@ function ClubDetail({ club, onSave, onBack, onDelete }) {
           letterSpacing:"0.1em", marginBottom:20 }}>Subscription & Status</div>
         <Field label="Plan">
           <Sel value={form.plan} onChange={e=>upd("plan",e.target.value)}>
-            {Object.entries(PLATFORM_CONFIG.plans).map(([k,p])=>(
-              <option key={k} value={k}>{p.label} — A${p.price}/yr</option>
+            <option value="">— No plan assigned —</option>
+            {plans.map(p=>(
+              <option key={p.id} value={p.id}>{p.name} — A${p.price}/yr</option>
             ))}
           </Sel>
         </Field>
@@ -491,38 +687,87 @@ function ClubDetail({ club, onSave, onBack, onDelete }) {
           <Input type="date" value={form.trialEndsAt} onChange={e=>upd("trialEndsAt",e.target.value)}/>
         </Field>
         <Field label="Internal Notes">
-          <textarea value={form.notes} onChange={e=>upd("notes",e.target.value)}
-            placeholder="Referral source, special requirements, billing notes…"
-            style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
-              fontFamily:"var(--font-b)", fontSize:14, resize:"vertical", minHeight:80, outline:"none",
-              color:"var(--text)", background:"var(--bg2)" }}/>
+          <Textarea value={form.notes} onChange={e=>upd("notes",e.target.value)}
+            placeholder="Referral source, special requirements, billing notes…"/>
         </Field>
       </Card>
     </div>
 
-    <Card style={{ padding:20, marginTop:24, border:"1px solid rgba(192,48,48,.2)" }}>
+    {/* Invoices */}
+    <Card style={{ marginBottom:24 }}>
+      <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border)",
+        display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.1em" }}>Invoices</div>
+        <Btn size="sm" onClick={()=>setShowInvModal(true)}>+ Generate Invoice</Btn>
+      </div>
+      {invLoading ? <Spinner size={20}/> : invoices.length === 0 ? (
+        <div style={{ padding:"28px 20px", textAlign:"center", color:"var(--text4)", fontSize:13 }}>No invoices yet.</div>
+      ) : (
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Invoice #</th>
+              <th style={thStyle}>Date</th>
+              <th style={thStyle}>Due</th>
+              <th style={thStyle}>Plan</th>
+              <th style={thStyle}>Amount</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map(inv=>(
+              <tr key={inv.id}>
+                <td style={{...tdStyle, fontFamily:"var(--font-m)", fontWeight:600, color:"var(--accent)"}}>{inv.invoiceNumber}</td>
+                <td style={{...tdStyle, fontFamily:"var(--font-m)"}}>{fmtDate(inv.invoiceDate)}</td>
+                <td style={{...tdStyle, fontFamily:"var(--font-m)"}}>{fmtDate(inv.dueDate)}</td>
+                <td style={tdStyle}>{inv.planName||inv.planId}</td>
+                <td style={{...tdStyle, fontFamily:"var(--font-m)", fontWeight:600}}>A${inv.amount}</td>
+                <td style={tdStyle}><StatusBadge status={inv.status||"unpaid"}/></td>
+                <td style={{...tdStyle, display:"flex", gap:6}}>
+                  <Btn size="sm" variant="ghost" onClick={()=>printInvoice(inv)}>Print PDF</Btn>
+                  {inv.status!=="paid" && (
+                    <Btn size="sm" variant="secondary" onClick={()=>markInvoicePaid(inv.id)}>Mark Paid</Btn>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+
+    {/* Danger zone */}
+    <Card style={{ padding:20, border:"1px solid rgba(192,48,48,.2)" }}>
       <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--red)", textTransform:"uppercase",
         letterSpacing:"0.1em", marginBottom:12 }}>Danger Zone</div>
       {!confirmDelete
         ? <Btn variant="danger" size="sm" onClick={()=>setConfirmDelete(true)}>Delete Club Record</Btn>
         : <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap" }}>
             <span style={{ fontSize:13, color:"var(--red)" }}>
-              Delete platform record for "{club.name||club.id}"? Club data in Firestore is NOT deleted.
+              Delete platform record for "{club.name||club.id}"? Firestore data is NOT deleted.
             </span>
-            <Btn variant="danger" size="sm" disabled={deleting} onClick={doDelete}>
-              {deleting?"Deleting…":"Confirm Delete"}
-            </Btn>
+            <Btn variant="danger" size="sm" disabled={deleting} onClick={doDelete}>{deleting?"Deleting…":"Confirm Delete"}</Btn>
             <Btn variant="ghost" size="sm" onClick={()=>setConfirmDelete(false)}>Cancel</Btn>
           </div>
       }
     </Card>
+
+    {showInvModal && (
+      <InvoiceModal
+        club={{...club,...form}}
+        plans={plans}
+        onClose={()=>setShowInvModal(false)}
+        onCreated={inv=>{ setInvoices(is=>[inv,...is]); setShowInvModal(false); }}
+      />
+    )}
   </div>;
 }
 
 // ── Add Club ──────────────────────────────────────────────────────────────────
-function AddClub({ onSave, onBack }) {
+function AddClub({ plans, onSave, onBack }) {
   const [form, setForm] = useState({
-    id:"", name:"", shortName:"", plan:"tc", status:"trial",
+    id:"", name:"", shortName:"", plan: plans.length>0?plans[0].id:"", status:"trial",
     adminEmail:"", netlifyUrl:"", notes:"", trialEndsAt:"",
   });
   const [saving, setSaving] = useState(false);
@@ -532,22 +777,17 @@ function AddClub({ onSave, onBack }) {
 
   async function save() {
     const id = form.id.trim();
-    if (!id)         { setErr("Club ID required."); return; }
-    if (!form.name.trim()) { setErr("Club name required."); return; }
+    if (!id)              { setErr("Club ID required."); return; }
+    if (!form.name.trim()){ setErr("Club name required."); return; }
     if (!/^[a-z0-9-]+$/.test(id)) { setErr("Club ID: lowercase letters, numbers, hyphens only."); return; }
     setSaving(true);
     const existing = await db.collection("clubs").doc(id).get();
-    if (existing.exists) { setErr("Club ID already in use. Choose a different ID."); setSaving(false); return; }
-    const data = { ...form, id, createdAt:new Date().toISOString() };
-    delete data.id; // don't store id as field — it's the doc ID
+    if (existing.exists) { setErr("Club ID already in use."); setSaving(false); return; }
+    const data = { ...form, createdAt:new Date().toISOString() };
+    delete data.id;
     await db.collection("clubs").doc(id).set(data);
-    // Seed minimal accountSettings so club portal can initialise
     await db.collection("clubs").doc(id).collection("data").doc("accountSettings").set({
-      value: JSON.stringify({
-        clubName:   form.name,
-        shortName:  form.shortName,
-        adminEmail: form.adminEmail,
-      }),
+      value: JSON.stringify({ clubName:form.name, shortName:form.shortName, adminEmail:form.adminEmail }),
       updated: new Date().toISOString(),
     });
     setSaving(false);
@@ -560,42 +800,31 @@ function AddClub({ onSave, onBack }) {
         fontSize:20, color:"var(--text3)", lineHeight:1, padding:"4px 8px" }}>←</button>
       <div>
         <h1 style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:700 }}>Add New Club</h1>
-        <div style={{ fontSize:13, color:"var(--text3)", marginTop:2 }}>Register a new club on the TorqueClub platform</div>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:2 }}>Register a club on the TorqueClub platform</div>
       </div>
     </div>
-
     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
       <Card style={{ padding:24 }}>
         <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
           letterSpacing:"0.1em", marginBottom:20 }}>Club Details</div>
-        <Field label="Club ID" required hint="Unique identifier. Lowercase, no spaces. Cannot be changed later.">
+        <Field label="Club ID" required hint="Lowercase letters, numbers, hyphens only. Cannot be changed.">
           <Input value={form.id}
             onChange={e=>upd("id",e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))}
-            placeholder="e.g. cmca, rover-vic, classic-aus" />
+            placeholder="e.g. cmca, rover-vic" />
         </Field>
-        <Field label="Club Name" required>
-          <Input value={form.name} onChange={e=>upd("name",e.target.value)} placeholder="Full registered name"/>
-        </Field>
-        <Field label="Short Name / Abbreviation">
-          <Input value={form.shortName} onChange={e=>upd("shortName",e.target.value)} placeholder="e.g. CMCA"/>
-        </Field>
-        <Field label="Admin Email">
-          <Input type="email" value={form.adminEmail} onChange={e=>upd("adminEmail",e.target.value)}
-            placeholder="admin@clubname.com.au"/>
-        </Field>
-        <Field label="Portal URL" hint="Without https://">
-          <Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)}
-            placeholder="clubname.torqueclub.com.au"/>
-        </Field>
+        <Field label="Club Name" required><Input value={form.name} onChange={e=>upd("name",e.target.value)}/></Field>
+        <Field label="Short Name"><Input value={form.shortName} onChange={e=>upd("shortName",e.target.value)} placeholder="e.g. CMCA"/></Field>
+        <Field label="Admin Email"><Input type="email" value={form.adminEmail} onChange={e=>upd("adminEmail",e.target.value)}/></Field>
+        <Field label="Portal URL" hint="Without https://"><Input value={form.netlifyUrl} onChange={e=>upd("netlifyUrl",e.target.value)} placeholder="clubname.torqueclub.com.au"/></Field>
       </Card>
-
       <Card style={{ padding:24 }}>
         <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
           letterSpacing:"0.1em", marginBottom:20 }}>Subscription</div>
         <Field label="Plan">
           <Sel value={form.plan} onChange={e=>upd("plan",e.target.value)}>
-            {Object.entries(PLATFORM_CONFIG.plans).map(([k,p])=>(
-              <option key={k} value={k}>{p.label} — A${p.price}/yr</option>
+            <option value="">— No plan —</option>
+            {plans.map(p=>(
+              <option key={p.id} value={p.id}>{p.name} — A${p.price}/yr</option>
             ))}
           </Sel>
         </Field>
@@ -606,23 +835,13 @@ function AddClub({ onSave, onBack }) {
             <option value="suspended">Suspended</option>
           </Sel>
         </Field>
-        <Field label="Trial Ends (if applicable)">
-          <Input type="date" value={form.trialEndsAt} onChange={e=>upd("trialEndsAt",e.target.value)}/>
-        </Field>
-        <Field label="Internal Notes">
-          <textarea value={form.notes} onChange={e=>upd("notes",e.target.value)}
-            placeholder="How they signed up, referral source, special requirements…"
-            style={{ width:"100%", padding:"8px 12px", border:"1px solid var(--border)", borderRadius:"var(--r)",
-              fontFamily:"var(--font-b)", fontSize:14, resize:"vertical", minHeight:90, outline:"none",
-              color:"var(--text)", background:"var(--bg2)" }}/>
-        </Field>
+        <Field label="Trial Ends"><Input type="date" value={form.trialEndsAt} onChange={e=>upd("trialEndsAt",e.target.value)}/></Field>
+        <Field label="Internal Notes"><Textarea value={form.notes} onChange={e=>upd("notes",e.target.value)} placeholder="Referral source, requirements…"/></Field>
       </Card>
     </div>
-
     {err && <div style={{ marginTop:16, padding:"10px 16px", background:"var(--red-bg)",
       border:"1px solid rgba(192,48,48,.2)", borderRadius:"var(--r)",
       color:"var(--red)", fontSize:13, fontFamily:"var(--font-m)" }}>{err}</div>}
-
     <div style={{ marginTop:20, display:"flex", gap:10 }}>
       <Btn onClick={save} disabled={saving}>{saving?"Creating…":"Create Club"}</Btn>
       <Btn variant="ghost" onClick={onBack}>Cancel</Btn>
@@ -630,10 +849,369 @@ function AddClub({ onSave, onBack }) {
   </div>;
 }
 
+// ── Features Section ──────────────────────────────────────────────────────────
+function FeaturesSection({ features, onFeaturesChange }) {
+  const [adding, setAdding]   = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [saving, setSaving]   = useState(false);
+  const [err, setErr]         = useState("");
+
+  async function addFeature() {
+    const name = newName.trim();
+    if (!name) { setErr("Feature name required."); return; }
+    if (features.find(f => f.name.toLowerCase()===name.toLowerCase())) {
+      setErr("A feature with this name already exists."); return;
+    }
+    setSaving(true);
+    const id = "feat_" + Date.now();
+    const updated = [...features, { id, name, description:newDesc.trim() }];
+    await db.collection('platform').doc('features').set({ items: updated });
+    onFeaturesChange(updated);
+    setNewName(""); setNewDesc(""); setAdding(false); setSaving(false); setErr("");
+  }
+
+  async function deleteFeature(id) {
+    const updated = features.filter(f => f.id !== id);
+    await db.collection('platform').doc('features').set({ items: updated });
+    onFeaturesChange(updated);
+  }
+
+  const thStyle = { padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)",
+    textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left", background:"var(--bg3)",
+    borderBottom:"2px solid var(--border)" };
+  const tdStyle = { padding:"11px 16px", fontSize:13, borderBottom:"1px solid var(--bg3)" };
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+      <div>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700 }}>Features</h1>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
+          {features.length} feature{features.length!==1?"s":""} — assigned to plans to define what each plan includes
+        </div>
+      </div>
+      {!adding && <Btn size="sm" onClick={()=>setAdding(true)}>+ Add Feature</Btn>}
+    </div>
+
+    {adding && (
+      <Card style={{ padding:24, marginBottom:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:16 }}>New Feature</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 2fr", gap:12 }}>
+          <Field label="Feature Name" required>
+            <Input value={newName} onChange={e=>{setNewName(e.target.value);setErr("");}}
+              placeholder="e.g. Competitions Module" onKeyDown={e=>e.key==="Enter"&&addFeature()}/>
+          </Field>
+          <Field label="Description">
+            <Input value={newDesc} onChange={e=>setNewDesc(e.target.value)}
+              placeholder="Brief description of what this feature includes"/>
+          </Field>
+        </div>
+        {err && <div style={{ color:"var(--red)", fontSize:12, fontFamily:"var(--font-m)", marginBottom:12 }}>{err}</div>}
+        <div style={{ display:"flex", gap:8 }}>
+          <Btn onClick={addFeature} disabled={saving||!newName.trim()} size="sm">{saving?"Saving…":"Add Feature"}</Btn>
+          <Btn variant="ghost" size="sm" onClick={()=>{ setAdding(false); setNewName(""); setNewDesc(""); setErr(""); }}>Cancel</Btn>
+        </div>
+      </Card>
+    )}
+
+    <Card>
+      {features.length === 0 ? (
+        <div style={{ padding:40, textAlign:"center", color:"var(--text4)", fontSize:13 }}>
+          No features yet. Add features to assign them to plans.
+        </div>
+      ) : (
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Feature Name</th>
+              <th style={thStyle}>Description</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {features.map(f=>(
+              <tr key={f.id}>
+                <td style={{...tdStyle, fontWeight:600}}>{f.name}</td>
+                <td style={{...tdStyle, color:"var(--text3)"}}>{f.description||"—"}</td>
+                <td style={{...tdStyle, width:80}}>
+                  <Btn size="sm" variant="danger" onClick={()=>deleteFeature(f.id)}>Delete</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  </div>;
+}
+
+// ── Plan Form ─────────────────────────────────────────────────────────────────
+function PlanForm({ plan, features, allPlans, onSave, onBack, onDelete }) {
+  const isNew = !plan.id;
+  const [form, setForm] = useState({
+    id:          plan.id || "",
+    name:        plan.name || "",
+    price:       plan.price != null ? String(plan.price) : "",
+    description: plan.description || "",
+    features:    plan.features || [],
+  });
+  const [saving, setSaving]               = useState(false);
+  const [err, setErr]                     = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function upd(k,v) { setForm(f=>({...f,[k]:v})); setErr(""); }
+
+  function toggleFeature(fid) {
+    setForm(f => ({
+      ...f,
+      features: f.features.includes(fid)
+        ? f.features.filter(x=>x!==fid)
+        : [...f.features, fid],
+    }));
+  }
+
+  async function save() {
+    const id = form.id.trim();
+    if (!id)                           { setErr("Plan ID required."); return; }
+    if (!form.name.trim())             { setErr("Plan name required."); return; }
+    if (!/^[a-z0-9-+]+$/.test(id))    { setErr("Plan ID: lowercase, numbers, hyphens, + only."); return; }
+    if (isNaN(Number(form.price)) || Number(form.price) < 0) { setErr("Enter a valid price."); return; }
+    if (isNew && allPlans.find(p=>p.id===id)) { setErr("Plan ID already exists."); return; }
+    setSaving(true);
+    const planObj = { id, name:form.name.trim(), price:Number(form.price), description:form.description.trim(), features:form.features };
+    let updated;
+    if (isNew) {
+      updated = [...allPlans, planObj];
+    } else {
+      updated = allPlans.map(p => p.id===id ? planObj : p);
+    }
+    await db.collection('platform').doc('plans').set({ items: updated });
+    onSave(updated);
+    setSaving(false);
+  }
+
+  async function doDelete() {
+    const updated = allPlans.filter(p => p.id !== plan.id);
+    await db.collection('platform').doc('plans').set({ items: updated });
+    onDelete(updated);
+  }
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer",
+        fontSize:20, color:"var(--text3)", lineHeight:1, padding:"4px 8px" }}>←</button>
+      <div style={{ flex:1 }}>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:700 }}>
+          {isNew ? "New Plan" : `Edit: ${plan.name}`}
+        </h1>
+        {!isNew && <div style={{ fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", marginTop:2 }}>Plan ID: {plan.id}</div>}
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <Btn onClick={save} disabled={saving}>{saving?"Saving…":"Save Plan"}</Btn>
+      </div>
+    </div>
+
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24, marginBottom:24 }}>
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Plan Details</div>
+        {isNew && (
+          <Field label="Plan ID" required hint="Unique identifier. Lowercase/numbers/hyphens/+. Cannot change.">
+            <Input value={form.id}
+              onChange={e=>upd("id",e.target.value.toLowerCase().replace(/[^a-z0-9-+]/g,""))}
+              placeholder="e.g. tc, tc+, enterprise"/>
+          </Field>
+        )}
+        <Field label="Plan Name" required>
+          <Input value={form.name} onChange={e=>upd("name",e.target.value)} placeholder="e.g. Club, Club Plus"/>
+        </Field>
+        <Field label="Annual Price (AUD)" required>
+          <Input type="number" value={form.price} onChange={e=>upd("price",e.target.value)} placeholder="120"/>
+        </Field>
+        <Field label="Description">
+          <Textarea value={form.description} onChange={e=>upd("description",e.target.value)}
+            placeholder="Brief description shown to clubs on the plan comparison page…"/>
+        </Field>
+      </Card>
+
+      <Card style={{ padding:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:20 }}>Included Features</div>
+        {features.length === 0 ? (
+          <div style={{ fontSize:13, color:"var(--text4)", padding:"16px 0" }}>
+            No features defined yet. Add features in the Features section first.
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {features.map(f=>(
+              <label key={f.id} style={{ display:"flex", alignItems:"flex-start", gap:10, cursor:"pointer",
+                padding:"10px 12px", borderRadius:"var(--r)", background:"var(--bg3)",
+                border:"1px solid " + (form.features.includes(f.id) ? "var(--accent)" : "transparent") }}>
+                <input type="checkbox" checked={form.features.includes(f.id)}
+                  onChange={()=>toggleFeature(f.id)}
+                  style={{ marginTop:2, accentColor:"var(--accent)", flexShrink:0 }}/>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{f.name}</div>
+                  {f.description && <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>{f.description}</div>}
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+        {form.features.length > 0 && (
+          <div style={{ marginTop:12, fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)" }}>
+            {form.features.length} feature{form.features.length!==1?"s":""} included
+          </div>
+        )}
+      </Card>
+    </div>
+
+    {err && <div style={{ padding:"10px 16px", background:"var(--red-bg)", borderRadius:"var(--r)",
+      color:"var(--red)", fontSize:13, fontFamily:"var(--font-m)", marginBottom:16 }}>{err}</div>}
+
+    {!isNew && (
+      <Card style={{ padding:20, border:"1px solid rgba(192,48,48,.2)" }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--red)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:12 }}>Danger Zone</div>
+        {!confirmDelete
+          ? <Btn variant="danger" size="sm" onClick={()=>setConfirmDelete(true)}>Delete Plan</Btn>
+          : <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+              <span style={{ fontSize:13, color:"var(--red)" }}>Delete plan "{plan.name}"? This won't change existing club assignments.</span>
+              <Btn variant="danger" size="sm" onClick={doDelete}>Confirm Delete</Btn>
+              <Btn variant="ghost" size="sm" onClick={()=>setConfirmDelete(false)}>Cancel</Btn>
+            </div>
+        }
+      </Card>
+    )}
+  </div>;
+}
+
+// ── Plans Section ─────────────────────────────────────────────────────────────
+function PlansSection({ plans, features, onPlansChange }) {
+  const [view, setView]         = useState("list"); // list | edit | add
+  const [selected, setSelected] = useState(null);
+
+  const thStyle = { padding:"10px 16px", fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)",
+    textTransform:"uppercase", letterSpacing:"0.08em", textAlign:"left", background:"var(--bg3)",
+    borderBottom:"2px solid var(--border)" };
+  const tdStyle = { padding:"12px 16px", fontSize:13, borderBottom:"1px solid var(--bg3)" };
+
+  if (view==="add") return (
+    <PlanForm
+      plan={{}}
+      features={features}
+      allPlans={plans}
+      onSave={updated=>{ onPlansChange(updated); setView("list"); }}
+      onBack={()=>setView("list")}
+      onDelete={updated=>{ onPlansChange(updated); setView("list"); }}
+    />
+  );
+  if (view==="edit" && selected) return (
+    <PlanForm
+      plan={selected}
+      features={features}
+      allPlans={plans}
+      onSave={updated=>{ onPlansChange(updated); setView("list"); setSelected(null); }}
+      onBack={()=>{ setView("list"); setSelected(null); }}
+      onDelete={updated=>{ onPlansChange(updated); setView("list"); setSelected(null); }}
+    />
+  );
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+      <div>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:26, fontWeight:700 }}>Plans</h1>
+        <div style={{ fontSize:13, color:"var(--text3)", marginTop:4 }}>
+          {plans.length} plan{plans.length!==1?"s":""} available — assign to clubs on the Clubs screen
+        </div>
+      </div>
+      <Btn size="sm" onClick={()=>setView("add")}>+ New Plan</Btn>
+    </div>
+
+    {plans.length === 0 ? (
+      <Card style={{ padding:40, textAlign:"center" }}>
+        <div style={{ fontSize:32, marginBottom:12 }}>◈</div>
+        <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:600, marginBottom:8 }}>No plans yet</div>
+        <div style={{ fontSize:14, color:"var(--text3)", marginBottom:20 }}>Plans are seeded automatically when the page first loads.</div>
+      </Card>
+    ) : (
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:20 }}>
+        {plans.map(plan=>(
+          <Card key={plan.id} style={{ padding:24, display:"flex", flexDirection:"column" }}>
+            <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:12 }}>
+              <div>
+                <div style={{ fontFamily:"var(--font-d)", fontSize:18, fontWeight:700, color:"var(--text)" }}>{plan.name}</div>
+                <div style={{ fontFamily:"var(--font-m)", fontSize:10, color:"var(--text4)", marginTop:2, textTransform:"uppercase", letterSpacing:"0.1em" }}>ID: {plan.id}</div>
+              </div>
+              <div style={{ fontFamily:"var(--font-d)", fontSize:22, fontWeight:700, color:"var(--accent)" }}>
+                A${plan.price}<span style={{ fontSize:12, color:"var(--text3)", fontWeight:400 }}>/yr</span>
+              </div>
+            </div>
+            {plan.description && <div style={{ fontSize:13, color:"var(--text3)", marginBottom:14, lineHeight:1.5 }}>{plan.description}</div>}
+            {(plan.features||[]).length > 0 ? (
+              <div style={{ flex:1, marginBottom:16 }}>
+                <div style={{ fontFamily:"var(--font-m)", fontSize:10, color:"var(--text4)", textTransform:"uppercase", letterSpacing:"0.08em", marginBottom:8 }}>Included Features</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                  {(plan.features||[]).map(fid=>{
+                    const feat = features.find(f=>f.id===fid);
+                    return feat ? (
+                      <div key={fid} style={{ display:"flex", alignItems:"center", gap:6, fontSize:13 }}>
+                        <span style={{ color:"var(--green)", fontSize:11 }}>✓</span>
+                        {feat.name}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ flex:1, fontSize:12, color:"var(--text4)", marginBottom:16, fontStyle:"italic" }}>No features assigned</div>
+            )}
+            <Btn size="sm" variant="ghost" onClick={()=>{ setSelected(plan); setView("edit"); }}>Edit Plan</Btn>
+          </Card>
+        ))}
+      </div>
+    )}
+
+    {plans.length > 0 && (
+      <Card style={{ marginTop:24 }}>
+        <table style={{ width:"100%", borderCollapse:"collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Plan</th>
+              <th style={thStyle}>Price (AUD/yr)</th>
+              <th style={thStyle}>Features</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {plans.map(plan=>(
+              <tr key={plan.id}>
+                <td style={{...tdStyle, fontWeight:600}}>{plan.name}<div style={{ fontSize:10, color:"var(--text4)", fontFamily:"var(--font-m)", marginTop:1 }}>{plan.id}</div></td>
+                <td style={{...tdStyle, fontFamily:"var(--font-m)", fontWeight:600, color:"var(--accent)"}}>${plan.price}</td>
+                <td style={tdStyle}>
+                  <span style={{ fontSize:12, color:"var(--text3)" }}>
+                    {(plan.features||[]).length === 0 ? "None" : (plan.features||[]).map(fid=>{ const f=features.find(x=>x.id===fid); return f?f.name:fid; }).join(", ")}
+                  </span>
+                </td>
+                <td style={{...tdStyle, width:80}}>
+                  <Btn size="sm" variant="ghost" onClick={()=>{ setSelected(plan); setView("edit"); }}>Edit</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+    )}
+  </div>;
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id:"dashboard", icon:"⊞", label:"Dashboard" },
   { id:"clubs",     icon:"◉", label:"Clubs"     },
+  { id:"plans",     icon:"◈", label:"Plans"     },
+  { id:"features",  icon:"★", label:"Features"  },
 ];
 
 function Sidebar({ tab, setTab, userEmail, onSignOut }) {
@@ -643,7 +1221,6 @@ function Sidebar({ tab, setTab, userEmail, onSignOut }) {
       <div style={{ fontFamily:"var(--font-c)", fontSize:14, fontWeight:700, color:"var(--accent)", letterSpacing:"0.18em" }}>TORQUECLUB</div>
       <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.3)", letterSpacing:"0.22em", marginTop:4, textTransform:"uppercase" }}>Super Admin</div>
     </div>
-
     <div style={{ flex:1, padding:"12px 8px", overflowY:"auto" }}>
       {NAV_ITEMS.map(n=>{
         const active = tab===n.id;
@@ -660,7 +1237,6 @@ function Sidebar({ tab, setTab, userEmail, onSignOut }) {
         </button>;
       })}
     </div>
-
     <div style={{ padding:"12px 8px 16px", borderTop:"1px solid rgba(255,255,255,.07)" }}>
       {userEmail && <div style={{ padding:"6px 12px 10px", fontFamily:"var(--font-m)", fontSize:10,
         color:"rgba(255,255,255,.25)", wordBreak:"break-all" }}>{userEmail}</div>}
@@ -679,8 +1255,11 @@ function App() {
   const [authUser, setAuthUser]         = useState(null);
   const [clubs, setClubs]               = useState([]);
   const [clubsLoading, setClubsLoading] = useState(false);
+  const [features, setFeatures]         = useState([]);
+  const [plans, setPlans]               = useState([]);
+  const [platformLoading, setPlatformLoading] = useState(true);
   const [tab, setTab]                   = useState("dashboard");
-  const [view, setView]                 = useState("list");   // list | edit | add
+  const [clubsView, setClubsView]       = useState("list"); // list | edit | add
   const [selectedClub, setSelectedClub] = useState(null);
 
   useEffect(() => {
@@ -689,81 +1268,116 @@ function App() {
         PLATFORM_CONFIG.superAdminEmails.includes(user.email.toLowerCase());
       if (allowed) {
         setAuthUser(user);
-        loadClubs();
+        loadAll();
       } else {
         if (user) firebase.auth().signOut();
         setAuthUser(null);
+        setAuthLoading(false);
       }
-      setAuthLoading(false);
     });
   }, []);
+
+  async function loadAll() {
+    setAuthLoading(false);
+    await Promise.all([loadClubs(), loadPlatformData()]);
+  }
 
   async function loadClubs() {
     setClubsLoading(true);
     try {
       const snap = await db.collection("clubs").get();
-      const list = snap.docs.map(doc => ({ id:doc.id, ...doc.data() }));
-      setClubs(list);
-    } catch(e) {
-      console.error("loadClubs:", e);
-    }
+      setClubs(snap.docs.map(d => ({ id:d.id, ...d.data() })));
+    } catch(e) { console.error("loadClubs:", e); }
     setClubsLoading(false);
+  }
+
+  async function loadPlatformData() {
+    setPlatformLoading(true);
+    try {
+      const [featDoc, plansDoc] = await Promise.all([
+        db.collection('platform').doc('features').get(),
+        db.collection('platform').doc('plans').get(),
+      ]);
+      setFeatures(featDoc.exists ? (featDoc.data().items || []) : []);
+      let plansList = plansDoc.exists ? (plansDoc.data().items || []) : [];
+      if (plansList.length === 0) {
+        plansList = SEED_PLANS;
+        await db.collection('platform').doc('plans').set({ items: plansList });
+      }
+      setPlans(plansList);
+    } catch(e) { console.error("loadPlatformData:", e); }
+    setPlatformLoading(false);
   }
 
   function handleSaveClub(updated) {
     setClubs(cs => cs.map(c => c.id===updated.id ? updated : c));
-    setView("list"); setSelectedClub(null);
+    setClubsView("list"); setSelectedClub(null);
   }
-
   function handleAddClub(newClub) {
     setClubs(cs => [...cs, newClub]);
-    setTab("clubs"); setView("list");
+    setTab("clubs"); setClubsView("list");
   }
-
   function handleDeleteClub(clubId) {
     setClubs(cs => cs.filter(c => c.id!==clubId));
-    setView("list"); setSelectedClub(null);
+    setClubsView("list"); setSelectedClub(null);
   }
-
   function changeTab(t) {
-    setTab(t); setView("list"); setSelectedClub(null);
+    setTab(t); setClubsView("list"); setSelectedClub(null);
   }
-
   function signOut() { firebase.auth().signOut(); setAuthUser(null); }
 
   if (authLoading) return <LoadingScreen/>;
   if (!authUser)   return <LoginScreen onLogin={u=>setAuthUser(u)}/>;
 
+  const loading = clubsLoading || platformLoading;
+
   return <div style={{ display:"flex", minHeight:"100vh" }}>
     <Sidebar tab={tab} setTab={changeTab} userEmail={authUser.email} onSignOut={signOut}/>
 
     <main style={{ flex:1, padding:32, overflowY:"auto", minWidth:0, maxWidth:"calc(100vw - 220px)" }}>
-      {clubsLoading && <Spinner/>}
+      {loading && <Spinner/>}
 
-      {!clubsLoading && tab==="dashboard" && (
-        <Dashboard clubs={clubs} onViewClubs={()=>changeTab("clubs")}/>
+      {!loading && tab==="dashboard" && (
+        <Dashboard clubs={clubs} plans={plans} onViewClubs={()=>changeTab("clubs")}/>
       )}
 
-      {!clubsLoading && tab==="clubs" && view==="list" && (
+      {!loading && tab==="clubs" && clubsView==="list" && (
         <ClubsList
-          clubs={clubs}
-          onSelect={c=>{ setSelectedClub(c); setView("edit"); }}
-          onAdd={()=>setView("add")}
+          clubs={clubs} plans={plans}
+          onSelect={c=>{ setSelectedClub(c); setClubsView("edit"); }}
+          onAdd={()=>setClubsView("add")}
           onRefresh={loadClubs}
         />
       )}
-      {!clubsLoading && tab==="clubs" && view==="edit" && selectedClub && (
+      {!loading && tab==="clubs" && clubsView==="edit" && selectedClub && (
         <ClubDetail
           club={selectedClub}
+          plans={plans}
           onSave={handleSaveClub}
-          onBack={()=>{ setView("list"); setSelectedClub(null); }}
+          onBack={()=>{ setClubsView("list"); setSelectedClub(null); }}
           onDelete={handleDeleteClub}
         />
       )}
-      {!clubsLoading && tab==="clubs" && view==="add" && (
+      {!loading && tab==="clubs" && clubsView==="add" && (
         <AddClub
+          plans={plans}
           onSave={handleAddClub}
-          onBack={()=>setView("list")}
+          onBack={()=>setClubsView("list")}
+        />
+      )}
+
+      {!loading && tab==="plans" && (
+        <PlansSection
+          plans={plans}
+          features={features}
+          onPlansChange={updated=>setPlans(updated)}
+        />
+      )}
+
+      {!loading && tab==="features" && (
+        <FeaturesSection
+          features={features}
+          onFeaturesChange={updated=>setFeatures(updated)}
         />
       )}
     </main>

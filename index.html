@@ -841,6 +841,7 @@ const NAV = {
     { id:"shop",      label:"Club Shop",       icon:"⊕" },
     { id:"transfers", label:"Transfer History",icon:"→" },
     { id:"import", label:"Bulk Import", icon:"↑" },
+    { id:"myplan",    label:"My Plan",          icon:"◈" },
     { id:"profile",   label:"My Profile",      icon:"◑" },
   ],
   member: [
@@ -851,6 +852,7 @@ const NAV = {
     { id:"tasks",      label:"Tasks",           icon:"☑" },
     { id:"marketplace",label:"Marketplace",    icon:"⟳" },
     { id:"shop",       label:"Club Shop",       icon:"⊕" },
+    { id:"myplan",     label:"My Plan",         icon:"◈" },
     { id:"profile",    label:"My Profile",      icon:"◑" },
   ],
 };
@@ -8824,6 +8826,7 @@ function App() {// ════════════════════�
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="transfers"  &&user.role==="admin"&&<TransfersSection transfers={transfers}/>}
             {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="myplan"     &&<MyPlanSection user={user}/>}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
             {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
           </div>
@@ -16000,6 +16003,140 @@ function EventWorkflowModal({event,tasks,setTasks,members,user,onClose}) {
         )}
       </div>
     </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MY PLAN SECTION
+// ══════════════════════════════════════════════════════════════════════════════
+function MyPlanSection({ user }) {
+  const [loading, setLoading]       = useState(true);
+  const [clubPlanId, setClubPlanId] = useState(null);
+  const [plans, setPlans]           = useState([]);
+  const [features, setFeatures]     = useState([]);
+  const [upgradeMsg, setUpgradeMsg] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      db.collection('clubs').doc(CLUB_ID).get(),
+      db.collection('platform').doc('plans').get(),
+      db.collection('platform').doc('features').get(),
+    ]).then(([clubDoc, plansDoc, featDoc]) => {
+      setClubPlanId(clubDoc.exists ? (clubDoc.data().plan || null) : null);
+      setPlans(plansDoc.exists ? (plansDoc.data().items || []) : []);
+      setFeatures(featDoc.exists ? (featDoc.data().items || []) : []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div style={{padding:40,textAlign:"center"}}>
+      <div style={{fontSize:13,color:"var(--text3)"}}>Loading plan information…</div>
+    </div>
+  );
+
+  const currentPlan = plans.find(p => p.id === clubPlanId);
+  const otherPlans  = plans.filter(p => p.id !== clubPlanId);
+
+  function getPlanFeatures(plan) {
+    return (plan.features||[]).map(fid => features.find(f=>f.id===fid)).filter(Boolean);
+  }
+
+  return (
+    <div style={{padding:"0 0 40px",animation:"fadeIn .3s ease both"}}>
+      <div style={{marginBottom:28}}>
+        <h2 style={{fontFamily:"var(--font-d)",fontSize:22,fontWeight:700,color:"var(--gold3)",marginBottom:4}}>My Plan</h2>
+        <div style={{fontSize:13,color:"var(--text3)"}}>Your club's current subscription and available upgrades</div>
+      </div>
+
+      {/* Current plan card */}
+      <div style={{background:"linear-gradient(135deg,var(--bg2),var(--bg3))",border:"2px solid var(--burg)",borderRadius:10,padding:24,marginBottom:28,boxShadow:"0 4px 20px rgba(0,0,0,.08)"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:12}}>
+          <div>
+            <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:4}}>Current Plan</div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--text)"}}>{currentPlan ? currentPlan.name : "No plan assigned"}</div>
+          </div>
+          {currentPlan && (
+            <div style={{textAlign:"right"}}>
+              <div style={{fontFamily:"var(--font-d)",fontSize:28,fontWeight:700,color:"var(--burg)"}}>
+                A${currentPlan.price}<span style={{fontSize:13,fontWeight:400,color:"var(--text3)"}}>/year</span>
+              </div>
+            </div>
+          )}
+        </div>
+        {currentPlan && currentPlan.description && (
+          <div style={{fontSize:13,color:"var(--text2)",marginBottom:16,lineHeight:1.6}}>{currentPlan.description}</div>
+        )}
+        {currentPlan && getPlanFeatures(currentPlan).length > 0 && (
+          <div>
+            <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Included Features</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:8}}>
+              {getPlanFeatures(currentPlan).map(feat=>(
+                <div key={feat.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"8px 10px",background:"rgba(255,255,255,.6)",borderRadius:6,border:"1px solid var(--border)"}}>
+                  <span style={{color:"var(--burg)",fontSize:13,marginTop:1,flexShrink:0}}>✓</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{feat.name}</div>
+                    {feat.description && <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{feat.description}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {!currentPlan && (
+          <div style={{fontSize:13,color:"var(--text3)"}}>Contact TorqueClub to set up your subscription.</div>
+        )}
+      </div>
+
+      {/* Upgrade options */}
+      {otherPlans.length > 0 && (
+        <>
+          <h3 style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:600,color:"var(--gold3)",marginBottom:16}}>
+            {currentPlan ? "Available Upgrades" : "Available Plans"}
+          </h3>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
+            {otherPlans.map(plan=>{
+              const planFeats = getPlanFeatures(plan);
+              return (
+                <div key={plan.id} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:22,display:"flex",flexDirection:"column"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:17,fontWeight:700,color:"var(--text)"}}>{plan.name}</div>
+                    <div style={{fontFamily:"var(--font-d)",fontSize:19,fontWeight:700,color:"var(--burg)"}}>A${plan.price}<span style={{fontSize:11,fontWeight:400,color:"var(--text3)"}}>/yr</span></div>
+                  </div>
+                  {plan.description && <div style={{fontSize:12,color:"var(--text3)",marginBottom:12,lineHeight:1.5}}>{plan.description}</div>}
+                  {planFeats.length > 0 && (
+                    <div style={{flex:1,marginBottom:14}}>
+                      <div style={{fontFamily:"var(--font-m)",fontSize:9,color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:7}}>Includes</div>
+                      {planFeats.map(feat=>(
+                        <div key={feat.id} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,marginBottom:4}}>
+                          <span style={{color:"var(--green2)",fontSize:11}}>✓</span>
+                          <span>{feat.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {upgradeMsg===plan.id ? (
+                    <div style={{padding:"10px 12px",background:"var(--gold-lt)",border:"1px solid var(--gold)",borderRadius:6,fontSize:12,color:"var(--gold2)",textAlign:"center"}}>
+                      Contact <strong>billing@torqueclub.com.au</strong> to upgrade to {plan.name}.
+                    </div>
+                  ) : (
+                    <button onClick={()=>setUpgradeMsg(plan.id)} style={{padding:"9px 16px",background:"var(--burg)",color:"#fff",border:"none",borderRadius:6,fontFamily:"var(--font-b)",fontWeight:600,fontSize:13,cursor:"pointer"}}>
+                      Upgrade to {plan.name}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {plans.length === 0 && (
+        <div style={{padding:20,background:"var(--bg3)",borderRadius:8,fontSize:13,color:"var(--text3)"}}>
+          Plan information is not yet configured. Contact TorqueClub support.
+        </div>
+      )}
+    </div>
   );
 }
 
