@@ -781,6 +781,7 @@ const SEED_BOOKS = [
 // ══════════════════════════════════════════════════════════════════════════════
 function LoginScreen({ members, onLogin }) {
   const [email,setEmail]=useState(""); const [pw,setPw]=useState(""); const [err,setErr]=useState("");
+  const [forgot,setForgot]=useState(false); const [resetSent,setResetSent]=useState(false);
   function go() {
     firebase.auth().signInWithEmailAndPassword(email, pw)
       .then(cred => {
@@ -791,6 +792,13 @@ function LoginScreen({ members, onLogin }) {
       })
       .catch(e => { setErr("Invalid email or password."); });
   }
+  async function sendReset() {
+    if(!email.trim()){setErr("Enter your email address above first.");return;}
+    try{
+      await firebase.auth().sendPasswordResetEmail(email.trim());
+      setResetSent(true); setErr("");
+    }catch(e){setErr("Could not send reset email — check the address and try again.");}
+  }
   return (
     <div style={{
       minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
@@ -798,28 +806,47 @@ function LoginScreen({ members, onLogin }) {
       backgroundImage:"radial-gradient(ellipse at 30% 60%, rgba(107,26,42,.18) 0%, transparent 55%), radial-gradient(ellipse at 70% 20%, rgba(201,146,42,.07) 0%, transparent 50%)"
     }}>
       <div style={{width:"100%",maxWidth:420,padding:24}} className="fade-up">
-        {/* Header emblem */}
         <div style={{textAlign:"center",marginBottom:36}}>
           <h1 style={{fontFamily:"var(--font-d)",fontSize:24,fontWeight:700,color:"var(--gold3)",margin:"0 0 4px",lineHeight:1.2}}>{CLUB_CONFIG.name}</h1>
           <div style={{fontFamily:"var(--font-m)",fontSize:10,color:"var(--text4)",letterSpacing:"0.15em",textTransform:"uppercase"}}>Members Portal</div>
         </div>
-
         <Card style={{padding:28,background:"linear-gradient(135deg,var(--bg2),var(--bg3))",boxShadow:"0 20px 80px rgba(0,0,0,.7), inset 0 1px 0 rgba(201,146,42,.1)"}}>
-          <Field label="Email Address">
-            <Input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
-              placeholder="" onKeyDown={e=>e.key==="Enter"&&go()}/>
-          </Field>
-          <Field label="Password">
-            <Input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}}
-              placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&go()}/>
-          </Field>
-          {err && <div style={{color:"var(--red2)",fontSize:12,fontFamily:"var(--font-m)",marginBottom:12,padding:"8px 12px",background:"rgba(180,40,40,.1)",border:"1px solid rgba(180,40,40,.2)",borderRadius:6}}>{err}</div>}
-          <Btn onClick={go} size="lg" style={{width:"100%",letterSpacing:"0.05em"}}>Sign In to Members Portal</Btn>
-          <Divider/>
-          <div style={{fontSize:10,color:"var(--text4)",fontFamily:"var(--font-m)",textAlign:"center",lineHeight:1.8}}>
-            Demo Admin: admin@{CLUB_CONFIG.website} / admin123<br/>
-            Demo Member: member@{CLUB_CONFIG.website} / member123
-          </div>
+          {resetSent ? (
+            <div style={{textAlign:"center",padding:"20px 0"}}>
+              <div style={{fontSize:32,marginBottom:12}}>📧</div>
+              <div style={{fontFamily:"var(--font-d)",fontSize:16,color:"var(--gold3)",marginBottom:8}}>Reset email sent</div>
+              <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Check your inbox at <strong>{email}</strong> for a link to reset your password.</div>
+              <button onClick={()=>{setResetSent(false);setForgot(false);}} style={{background:"none",border:"none",color:"var(--burg)",fontFamily:"var(--font-b)",fontSize:13,cursor:"pointer",textDecoration:"underline"}}>← Back to sign in</button>
+            </div>
+          ) : (
+            <>
+              <Field label="Email Address">
+                <Input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}}
+                  placeholder="" onKeyDown={e=>e.key==="Enter"&&!forgot&&go()}/>
+              </Field>
+              {!forgot && (
+                <Field label="Password">
+                  <Input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}}
+                    placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&go()}/>
+                </Field>
+              )}
+              {err && <div style={{color:"var(--red2)",fontSize:12,fontFamily:"var(--font-m)",marginBottom:12,padding:"8px 12px",background:"rgba(180,40,40,.1)",border:"1px solid rgba(180,40,40,.2)",borderRadius:6}}>{err}</div>}
+              {!forgot
+                ? <Btn onClick={go} size="lg" style={{width:"100%",letterSpacing:"0.05em"}}>Sign In to Members Portal</Btn>
+                : <Btn onClick={sendReset} size="lg" style={{width:"100%"}}>Send Password Reset Email</Btn>
+              }
+              <div style={{textAlign:"center",marginTop:12}}>
+                <button onClick={()=>{setForgot(f=>!f);setErr("");}} style={{background:"none",border:"none",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>
+                  {forgot?"← Back to sign in":"Forgot password?"}
+                </button>
+              </div>
+              <Divider/>
+              <div style={{fontSize:10,color:"var(--text4)",fontFamily:"var(--font-m)",textAlign:"center",lineHeight:1.8}}>
+                Demo Admin: admin@{CLUB_CONFIG.website} / admin123<br/>
+                Demo Member: member@{CLUB_CONFIG.website} / member123
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </div>
@@ -1228,6 +1255,38 @@ function Dashboard({ user, members, setMembers, cars, setCars, dues, meetings, e
             {cars.filter(c=>c.ownerId===user.id&&c.status==="active").length===0 && <EmptyState icon="◎" text="No vehicles registered"/>}
           </Card>
         )}
+
+        {/* ── Recent Activity (admin only) ──────────────────────── */}
+        {isAdmin&&(()=>{
+          const thirtyDaysAgo=new Date();thirtyDaysAgo.setDate(thirtyDaysAgo.getDate()-30);
+          const cutoff=thirtyDaysAgo.toISOString().slice(0,10);
+          const recentJoins=(members||[]).filter(m=>m.joined&&m.joined>=cutoff).sort((a,b)=>b.joined.localeCompare(a.joined)).slice(0,5);
+          const recentRenewals=(dues||[]).filter(d=>d.paid&&d.paidDate&&d.paidDate>=cutoff).sort((a,b)=>b.paidDate.localeCompare(a.paidDate)).slice(0,5);
+          const recentEvents=(events||[]).filter(e=>e.createdAt&&e.createdAt.slice(0,10)>=cutoff).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
+          const activity=[];
+          recentJoins.forEach(m=>activity.push({type:"join",label:`${m.name} joined`,sub:`Member #${m.memberNumber||m.id}`,date:m.joined,icon:"◉",col:"var(--green)"}));
+          recentRenewals.forEach(d=>{const m=(members||[]).find(x=>x.id===d.memberId);if(m)activity.push({type:"renewal",label:`${m.name} renewed dues`,sub:`$${d.amount} paid ${d.paidDate}`,date:d.paidDate,icon:"◇",col:"var(--gold2)"});});
+          recentEvents.forEach(e=>activity.push({type:"event",label:`Event created: ${e.title}`,sub:`${e.date} · ${e.type||""}`,date:e.createdAt.slice(0,10),icon:"★",col:"var(--blue)"}));
+          activity.sort((a,b)=>b.date.localeCompare(a.date));
+          if(!activity.length)return null;
+          return(
+            <Card style={{padding:20,gridColumn:"1/-1"}}>
+              <div style={{fontFamily:"var(--font-d)",fontSize:17,color:"var(--gold3)",marginBottom:14,fontWeight:600}}>📋 Recent Activity</div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {activity.slice(0,8).map((a,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 12px",background:"var(--bg3)",borderRadius:6,borderLeft:`3px solid ${a.col}`}}>
+                    <span style={{fontSize:16,color:a.col}}>{a.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{a.label}</div>
+                      <div style={{fontSize:10.5,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:2}}>{a.sub}</div>
+                    </div>
+                    <div style={{fontSize:10,color:"var(--text4)",fontFamily:"var(--font-m)",flexShrink:0}}>{a.date}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })()}
       </div>
     </div>
   );
@@ -1261,6 +1320,7 @@ function SectionTabBar({tabs,active,onChange}){
 
 function MembersSection({ user, members, setMembers, cars, dues, setDues, applications, setApplications, setTab }) {
   const [mTab,setMTab]=useState("members");
+  const [memberStatusTab,setMemberStatusTab]=useState("all");
   const pending=(applications||[]).filter(a=>a.status==="pending").length;
   const overdueDues=(dues||[]).filter(d=>d.year===new Date().getFullYear()&&!d.paid).length;
 
@@ -1278,6 +1338,13 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues, applic
     </button>
   );
 
+  // Compute counts for status tabs
+  const yr2=new Date().getFullYear();
+  const mDues=id=>(dues||[]).find(d=>d.memberId===id&&d.year===yr2);
+  const currentCount=(members||[]).filter(m=>m.status==="active"&&mDues(m.id)?.paid).length;
+  const expiredCount=(members||[]).filter(m=>m.status==="active"&&(!mDues(m.id)||!mDues(m.id).paid)).length;
+  const inactiveCount=(members||[]).filter(m=>["resigned","suspended","deceased"].includes(m.status)).length;
+
   return(
     <div>
       <div style={{background:"var(--bg2)",borderBottom:"3px solid var(--burg)",padding:"4px 24px 0",display:"flex",gap:0,boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
@@ -1285,7 +1352,31 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues, applic
         {tabBtn("applications","Applications",pending)}
         {tabBtn("dues","Dues & Renewals",overdueDues)}
       </div>
-      {mTab==="members"&&<MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues}/>}
+      {mTab==="members"&&(
+        <div>
+          <div style={{padding:"4px 24px 0",borderBottom:"1px solid var(--border)",display:"flex",gap:0,background:"white"}}>
+            {[
+              {id:"all",label:"All",count:members.length},
+              {id:"current",label:"Current",count:currentCount},
+              {id:"expired",label:"Expired",count:expiredCount},
+              {id:"inactive",label:"Inactive",count:inactiveCount},
+            ].map(t=>(
+              <button key={t.id} onClick={()=>setMemberStatusTab(t.id)} style={{
+                padding:"7px 18px",background:"transparent",border:"none",
+                borderBottom:memberStatusTab===t.id?"3px solid var(--gold)":"3px solid transparent",
+                color:memberStatusTab===t.id?"var(--gold)":"var(--text3)",
+                fontWeight:memberStatusTab===t.id?700:400,cursor:"pointer",fontSize:12.5,
+                fontFamily:"var(--font-b)",display:"inline-flex",alignItems:"center",gap:6,
+                transition:"all .15s",marginBottom:-1,
+              }}>
+                {t.label}
+                <span style={{background:memberStatusTab===t.id?"var(--gold)":"var(--border)",color:memberStatusTab===t.id?"white":"var(--text3)",borderRadius:10,padding:"0 6px",fontSize:10,fontWeight:700}}>{t.count}</span>
+              </button>
+            ))}
+          </div>
+          <MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues} statusFilter={memberStatusTab}/>
+        </div>
+      )}
       {mTab==="applications"&&<ApplicationsSectionPlaceholder pending={pending} onView={()=>setTab&&setTab("applications")}/>}
       {mTab==="dues"&&<DuesSection members={members} dues={dues} setDues={setDues}/>}
     </div>
@@ -1303,10 +1394,12 @@ function ApplicationsSectionPlaceholder({pending, onView}) {
   );
 }
 
-function MembersSectionInner({ user, members, setMembers, cars, dues, setDues }) {
+function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, statusFilter="all" }) {
   const [search,setSearch]=useState(""); const [modal,setModal]=useState(null); const [form,setForm]=useState({});
   const [showWorkflow,setShowWorkflow]=useState(null);
   const [showFilters,setShowFilters]=useState(false);
+  const [formErr,setFormErr]=useState(""); const [saving,setSaving]=useState(false);
+  const [detailMember,setDetailMember]=useState(null);
   const [filters,setFilters]=useState({status:[],memberType:[],state:[],role:[],duesStatus:[],noDigital:false,hasEmail:false,hasPhone:false,joinedFrom:"",joinedTo:""});
 
   const setFilter=(key,val)=>setFilters(f=>({...f,[key]:val}));
@@ -1325,6 +1418,10 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
   const mDues=id=>dues.find(d=>d.memberId===id&&d.year===yr);
   const mCars=id=>cars.filter(c=>c.ownerId===id&&c.status==="active").length;
   const filtered=members.filter(m=>{
+    // Status tab filter
+    if(statusFilter==="current"){const d=mDues(m.id);if(m.status!=="active"||!d||!d.paid)return false;}
+    else if(statusFilter==="expired"){const d=mDues(m.id);if(m.status!=="active"||(!(!d||!d.paid)))return false;}
+    else if(statusFilter==="inactive"){if(!["resigned","suspended","deceased"].includes(m.status))return false;}
     const txt=`${m.name} ${m.email} ${m.memberNumber} ${m.phone||""} ${m.state||""} ${m.memberType||""}`.toLowerCase();
     if(search&&!txt.includes(search.toLowerCase()))return false;
     if(filters.status.length&&!filters.status.includes(m.status))return false;
@@ -1348,19 +1445,51 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
     const max=nums.length?Math.max(...nums):0;
     return String(max+1).padStart(3,"0");
   }
-  function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:nextMemberNumber()});setModal("add");}
-  function openEdit(m){setForm({...m});setModal({edit:m});}
+  function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:nextMemberNumber(),paymentStatus:"unpaid"});setFormErr("");setModal("add");}
+  function openEdit(m){setForm({...m});setFormErr("");setModal({edit:m});}
   async function handleSave(){
-    if(!form.name||!form.email)return console.log("Name and email required","error");
-    if(modal==="add"&&!form.password)return console.log("Password required","error");
-    let updated;
-    if(modal==="add"){
-      const nm={...form,id:uid("M"),avatar:form.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
-      updated=[...members,nm];
-      const nd=[...dues,{id:uid("D"),memberId:nm.id,year:yr,amount:nm.memberType==="Full"?150:100,paid:false,paidDate:null,method:null}];
-      setDues(nd); await dbSet(SK.dues,nd);
-    } else { updated=members.map(m=>m.id===form.id?{...form}:m); }
-    setMembers(updated); await dbSet(SK.members,updated); setModal(null);
+    if(!form.name||!form.email){setFormErr("Full name and email are required.");return;}
+    if(modal==="add"&&!form.password){setFormErr("Password is required for new member login.");return;}
+    setFormErr(""); setSaving(true);
+    try {
+      let updated;
+      if(modal==="add"){
+        // Create Firebase Auth account via secondary app instance (avoids signing out admin)
+        try {
+          const appName="addMember_"+Date.now();
+          const secondaryApp=firebase.initializeApp(firebaseConfig,appName);
+          try {
+            await secondaryApp.auth().createUserWithEmailAndPassword(form.email,form.password);
+            await secondaryApp.auth().signOut();
+          } finally {
+            try{await secondaryApp.delete();}catch(e){}
+          }
+        } catch(authErr) {
+          if(authErr.code==="auth/email-already-in-use"){
+            setFormErr("That email address already has a login account. Use a different email or edit the existing member.");
+            setSaving(false); return;
+          }
+          if(authErr.code==="auth/weak-password"){
+            setFormErr("Password must be at least 6 characters.");
+            setSaving(false); return;
+          }
+          // Other auth errors: proceed (member added to DB, they can reset password later)
+        }
+        const nm={...form,id:uid("M"),avatar:form.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
+        delete nm.password; delete nm.paymentStatus;
+        updated=[...members,nm];
+        const isPaid=form.paymentStatus==="paid";
+        const nd=[...dues,{id:uid("D"),memberId:nm.id,year:yr,amount:nm.memberType==="Full"?150:100,paid:isPaid,paidDate:isPaid?today:null,method:isPaid?"cash":null}];
+        setDues(nd); await dbSet(SK.dues,nd);
+      } else {
+        const cleanForm={...form}; delete cleanForm.password;
+        updated=members.map(m=>m.id===form.id?{...cleanForm}:m);
+      }
+      setMembers(updated); await dbSet(SK.members,updated); setModal(null);
+    } catch(e) {
+      setFormErr("Save failed: "+e.message);
+    }
+    setSaving(false);
   }
   async function toggleStatus(m,status){const u=members.map(x=>x.id===m.id?{...x,status}:x);setMembers(u);await dbSet(SK.members,u);setModal(null);}
   async function toggleRole(m){const u=members.map(x=>x.id===m.id?{...x,role:m.role==="admin"?"member":"admin"}:x);setMembers(u);await dbSet(SK.members,u);}
@@ -1482,7 +1611,8 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
                 <td style={{padding:"9px 12px"}}><Badge status={m.status}/>{m.noDigital&&<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>✉ POST</span>}{(()=>{const yrs=m.joined?new Date().getFullYear()-new Date(m.joined).getFullYear():null;const ms=[1,2,5,10,15,20,25,30,50,75];return yrs&&ms.includes(yrs)?<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#fff8e0",color:"#7a5010",border:"1px solid #f0c840",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>🏅 {yrs}yr{m.vtFlagged&&m.vtFlaggedYear===new Date().getFullYear()?" 📰":""}</span>:null;})()}</td>
                 <td style={{padding:"9px 12px"}}>
                   <Row gap={5} wrap>
-                    <Btn variant="ghost" size="sm" onClick={()=>openEdit(m)}>Edit</Btn>
+                    <Btn variant="ghost" size="sm" onClick={()=>setDetailMember(m)}>View</Btn>
+                    <Btn variant="ghost" size="sm" onClick={()=>openEdit(m)}>View / Edit</Btn>
                     {m.id!==user.id&&<>
                       {m.status==="active"?<Btn variant="ghost" size="sm" onClick={()=>setModal({confirm:{msg:`Suspend ${m.name}?`,fn:()=>toggleStatus(m,"suspended")}})}>Suspend</Btn>
                         :<Btn variant="success" size="sm" onClick={()=>toggleStatus(m,"active")}>Reinstate</Btn>}
@@ -1502,6 +1632,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
               Member number auto-assigned as <strong>#{nextMemberNumber()}</strong> — edit below if needed.
             </div>
           )}
+          {formErr&&<div style={{background:"#fff0f0",border:"1px solid #f0a0a0",borderRadius:6,padding:"8px 12px",fontSize:12,color:"#a02020",marginBottom:12}}>{formErr}</div>}
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Full Name" half><Input value={form.name||""} onChange={e=>setForm({...form,name:e.target.value})} placeholder="John Smith"/></Field>
             <Field label="Member No." half>
@@ -1513,7 +1644,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Email" half><Input type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
-            <Field label="Password" half><Input type="password" value={form.password||""} onChange={e=>setForm({...form,password:e.target.value})} placeholder={modal?.edit?"Leave blank to keep":""}/></Field>
+            <Field label={modal==="add"?"Password (for portal login)":"New Password"} half><Input type="password" value={form.password||""} onChange={e=>setForm({...form,password:e.target.value})} placeholder={modal?.edit?"Leave blank to keep":"Min 6 characters"}/></Field>
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Phone" half><Input value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
@@ -1524,7 +1655,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
             </Field>
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-            <Field label="Type" half><Select value={form.memberType||"Full"} onChange={e=>setForm({...form,memberType:e.target.value})}>{["Full","Associate","Honorary","Junior","Life"].map(t=><option key={t}>{t}</option>)}</Select></Field>
+            <Field label="Membership Type" half><Select value={form.memberType||"Full"} onChange={e=>setForm({...form,memberType:e.target.value})}>{["Full","Associate","Honorary","Junior","Life"].map(t=><option key={t}>{t}</option>)}</Select></Field>
             <Field label="Role" half><Select value={form.role||"member"} onChange={e=>setForm({...form,role:e.target.value})}><option value="member">Member</option><option value="admin">Admin</option></Select></Field>
             <Field label="Committee Position" half>
               <Select value={form.position||""} onChange={e=>setForm({...form,position:e.target.value})}>
@@ -1535,6 +1666,12 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
           </Row>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Status" half><Select value={form.status||"active"} onChange={e=>setForm({...form,status:e.target.value})}>{["active","suspended","resigned","deceased"].map(s=><option key={s}>{s}</option>)}</Select></Field>
+            {modal==="add"&&<Field label="Payment Status" half>
+              <Select value={form.paymentStatus||"unpaid"} onChange={e=>setForm({...form,paymentStatus:e.target.value})}>
+                <option value="unpaid">Unpaid / Pending</option>
+                <option value="paid">Paid — dues recorded as paid</option>
+              </Select>
+            </Field>}
             <div style={{position:"relative",width:"calc(50% - 6px)",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:5}}>
                 <label style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em"}}>Digital Access</label>
@@ -1545,9 +1682,54 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues })
             <Field label="Join Date" half><Input type="date" value={form.joined||""} onChange={e=>setForm({...form,joined:e.target.value})}/></Field>
           </Row>
           <Field label="Bio"><Textarea value={form.bio||""} onChange={e=>setForm({...form,bio:e.target.value})} placeholder="Member bio…"/></Field>
-          <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSave}>Save Member</Btn></Row>
+          <Row gap={8} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving?"Saving…":"Save Member"}</Btn></Row>
         </Modal>
       )}
+      {detailMember&&(()=>{
+        const dm=detailMember;
+        const d=mDues(dm.id);
+        const dmCars=cars.filter(c=>c.ownerId===dm.id&&c.status==="active");
+        return(
+          <Modal title="Member Detail" onClose={()=>setDetailMember(null)} wide>
+            <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20,paddingBottom:16,borderBottom:"1px solid var(--border)"}}>
+              <Avatar name={dm.name} size={56}/>
+              <div>
+                <div style={{fontFamily:"var(--font-d)",fontSize:20,fontWeight:700,color:"var(--text)"}}>{dm.name}</div>
+                <Row gap={8} style={{marginTop:4}}><Badge status={dm.status}/><Badge status={dm.role}/>{dm.memberType&&<Badge status="member" label={dm.memberType.toUpperCase()}/>}</Row>
+                <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:4}}>Member No. {dm.memberNumber||dm.id} · Joined {dm.joined||"Unknown"}</div>
+              </div>
+              <div style={{marginLeft:"auto"}}><Btn size="sm" onClick={()=>{setDetailMember(null);openEdit(dm);}}>Edit Member</Btn></div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              {[["Email",dm.email],["Phone",dm.phone||"—"],["State",dm.state||"—"],["Position",dm.position||"—"]].map(([k,v])=>(
+                <div key={k} style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px"}}>
+                  <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>{k}</div>
+                  <div style={{fontSize:13,color:"var(--text)",fontWeight:600}}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+              <div style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px"}}>
+                <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Dues {yr}</div>
+                {d?<div style={{display:"flex",alignItems:"center",gap:8}}><Badge status={d.paid?"paid":"overdue"} label={d.paid?"PAID":"OVERDUE"}/><span style={{fontSize:12,color:"var(--text3)"}}>${d.amount} {d.paidDate?"· Paid "+d.paidDate:""}</span></div>:<div style={{fontSize:12,color:"var(--text3)"}}>No record</div>}
+              </div>
+              <div style={{background:"var(--bg3)",borderRadius:6,padding:"10px 14px"}}>
+                <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:3}}>Vehicles ({dmCars.length})</div>
+                {dmCars.length===0?<div style={{fontSize:12,color:"var(--text3)"}}>None registered</div>:dmCars.map(c=><div key={c.id} style={{fontSize:12,color:"var(--text)"}}>{c.year} {c.make} {c.model}{c.reg?" · "+c.reg:""}</div>)}
+              </div>
+            </div>
+            {dm.bio&&<div style={{background:"var(--bg3)",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
+              <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Bio</div>
+              <div style={{fontSize:13,color:"var(--text2)",lineHeight:1.6}}>{dm.bio}</div>
+            </div>}
+            <Row gap={8} justify="flex-end">
+              {dm.id!==user.id&&dm.status==="active"&&<Btn variant="ghost" size="sm" onClick={()=>{setDetailMember(null);setModal({confirm:{msg:`Suspend ${dm.name}?`,fn:()=>toggleStatus(dm,"suspended")}});}}>Suspend</Btn>}
+              {dm.id!==user.id&&dm.status!=="active"&&<Btn variant="success" size="sm" onClick={()=>{setDetailMember(null);toggleStatus(dm,"active");}}>Reinstate</Btn>}
+              <Btn variant="ghost" onClick={()=>setDetailMember(null)}>Close</Btn>
+            </Row>
+          </Modal>
+        );
+      })()}
       {modal?.confirm&&<Confirm message={modal.confirm.msg} onConfirm={modal.confirm.fn} onCancel={()=>setModal(null)}/>}
       {showWorkflow&&<EventWorkflowModal event={showWorkflow} tasks={tasks} setTasks={setTasks} members={members} user={user} onClose={()=>setShowWorkflow(null)}/>}
     </div>
@@ -2997,14 +3179,19 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
 
   function openAdd(){setForm({title:"",date:today,time:"10:00",location:"",type:"show",status:"upcoming",description:"",organiser:user.id,maxAttendees:"",catering:false});setModal("add");}
   async function handleSave(){
-    if(!form.title||!form.date)return console.log("Title and date required","error");
-    const u=modal==="add"?[...events,{...form,id:uid("EV")}]:events.map(e=>e.id===form.id?{...form}:e);
-    setEvents(u);await dbSet(SK.events,u);setModal(null);
+    if(!form.title||!form.date)return;
+    const newEv=modal==="add"?{...form,id:uid("EV"),createdAt:new Date().toISOString()}:{...form};
+    const u=modal==="add"?[...events,newEv]:events.map(e=>e.id===form.id?newEv:e);
+    setEvents(u);await dbSet(SK.events,u);
+    if(view&&modal?.edit&&modal.edit.id===view.id)setView(newEv);
+    setModal(null);
   }
   async function del(id){const u=events.filter(e=>e.id!==id);setEvents(u);await dbSet(SK.events,u);setModal(null);setView(null);}
 
   const [tcSubmitted,setTcSubmitted]=useState({});
+  const [tcError,setTcError]=useState({});
   async function submitToTC(ev){
+    setTcError(p=>({...p,[ev.id]:null}));
     try{
       const docId=CLUB_ID+"_"+ev.id;
       await db.collection("platform").doc("events").collection("queue").doc(docId).set({
@@ -3016,7 +3203,10 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
         maxAttendees:ev.maxAttendees||0,submittedAt:new Date().toISOString()
       });
       setTcSubmitted(p=>({...p,[ev.id]:true}));
-    }catch(e){console.error("submitToTC error",e);}
+    }catch(e){
+      console.error("submitToTC error",e);
+      setTcError(p=>({...p,[ev.id]:e.message||"Submit failed"}));
+    }
   }
 
   const myR=eid=>rsvps.find(r=>r.eventId===eid&&r.memberId===user.id);
@@ -3089,14 +3279,21 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
                   : <Btn style={{width:"100%"}} onClick={()=>openRsvp(ev)} disabled={full}>{full?"Event Full":"Register for this Event"}</Btn>
                 }
               </div>}
-              {isAdmin&&ev.status==="upcoming"&&(
+              {isAdmin&&(
                 <div onClick={e=>e.stopPropagation()} style={{padding:"0 0 4px",borderTop:"1px solid var(--border2)",marginTop:8,paddingTop:10,display:"flex",flexDirection:"column",gap:6}}>
-                  <button onClick={()=>setShowWorkflow(ev)} style={{width:"100%",padding:"6px 0",background:"none",border:"1px solid var(--burg)",borderRadius:5,color:"var(--burg)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
-                    ⚙ Event Workflow & Risk Plan
-                  </button>
-                  <button onClick={()=>submitToTC(ev)} disabled={!!tcSubmitted[ev.id]} style={{width:"100%",padding:"6px 0",background:tcSubmitted[ev.id]?"#e8f5ee":"none",border:"1px solid "+(tcSubmitted[ev.id]?"var(--green2)":"var(--gold)"),borderRadius:5,color:tcSubmitted[ev.id]?"var(--green)":"var(--gold)",fontSize:12,fontWeight:700,cursor:tcSubmitted[ev.id]?"default":"pointer"}}>
-                    {tcSubmitted[ev.id]?"✓ Submitted to TC Directory":"🌐 Submit to TC Directory"}
-                  </button>
+                  <div style={{display:"flex",gap:6}}>
+                    <button onClick={()=>{setForm({...ev});setModal({edit:ev});}} style={{flex:1,padding:"6px 0",background:"none",border:"1px solid var(--burg)",borderRadius:5,color:"var(--burg)",fontSize:12,fontWeight:700,cursor:"pointer"}}>✎ Edit</button>
+                    <button onClick={()=>setModal({confirm:{msg:`Delete "${ev.title}"?`,fn:()=>del(ev.id)}})} style={{flex:1,padding:"6px 0",background:"none",border:"1px solid var(--border2)",borderRadius:5,color:"var(--text3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>🗑 Delete</button>
+                  </div>
+                  {ev.status==="upcoming"&&<>
+                    <button onClick={()=>setShowWorkflow(ev)} style={{width:"100%",padding:"6px 0",background:"none",border:"1px solid var(--burg)",borderRadius:5,color:"var(--burg)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      ⚙ Event Workflow & Risk Plan
+                    </button>
+                    <button onClick={()=>submitToTC(ev)} disabled={!!tcSubmitted[ev.id]} style={{width:"100%",padding:"6px 0",background:tcSubmitted[ev.id]?"#e8f5ee":"none",border:"1px solid "+(tcSubmitted[ev.id]?"var(--green2)":"var(--gold)"),borderRadius:5,color:tcSubmitted[ev.id]?"var(--green)":"var(--gold)",fontSize:12,fontWeight:700,cursor:tcSubmitted[ev.id]?"default":"pointer"}}>
+                      {tcSubmitted[ev.id]?"✓ Submitted to TC Directory":"🌐 Submit to TC Directory"}
+                    </button>
+                    {tcError[ev.id]&&<div style={{fontSize:11,color:"var(--burg)",background:"rgba(192,40,42,.08)",border:"1px solid rgba(192,40,42,.2)",borderRadius:4,padding:"4px 8px"}}>⚠ {tcError[ev.id]}</div>}
+                  </>}
                 </div>
               )}
             </div>
@@ -8669,6 +8866,15 @@ function App() {// ════════════════════�
       if(!si)await dbSet(SK.shopItems,SEED_SHOP);
       if(!nw)await dbSet(SK.news,SEED_NEWS);
       if(bk)setBooks(bk); else { setBooks(SEED_BOOKS); await dbSet(SK.books,SEED_BOOKS); }
+      // Restore auth session if Firebase Auth has a valid token
+      const loadedMembers=Array.isArray(fm)?fm:SEED_MEMBERS;
+      const authUser=await new Promise(resolve=>{
+        const unsub=firebase.auth().onAuthStateChanged(u=>{unsub();resolve(u);});
+      });
+      if(authUser){
+        const restored=loadedMembers.find(mem=>mem.email&&mem.email.toLowerCase()===authUser.email.toLowerCase());
+        if(restored&&restored.status!=="suspended"){setUser(restored);}
+      }
       setLoading(false);
     })();
   },[]);
@@ -12436,6 +12642,44 @@ function WebsiteSection(sp) {
 }
 
 // ── ACCOUNT SECTION ──────────────────────────────────────────────────────────
+// AccountSection helper components — defined OUTSIDE to prevent remount on each keystroke
+function AcctSLabel({children}){return <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)"}}>{children}</div>;}
+function AcctSInput({label,value,onChange,placeholder,type,half,hint}){
+  return(
+    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
+      <AcctSLabel>{label}</AcctSLabel>
+      <input type={type||"text"} value={value||""} onChange={onChange} placeholder={placeholder||""}
+        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none",boxSizing:"border-box"}}/>
+      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
+    </div>
+  );
+}
+function AcctSSelect({label,value,onChange,children,half}){
+  return(
+    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
+      <AcctSLabel>{label}</AcctSLabel>
+      <select value={value||""} onChange={onChange}
+        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"}}>
+        {children}
+      </select>
+    </div>
+  );
+}
+function AcctSColor({label,value,onChange,hint}){
+  return(
+    <div style={{flex:"1 1 calc(33% - 8px)",minWidth:140,marginBottom:16}}>
+      <AcctSLabel>{label}</AcctSLabel>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <input type="color" value={value||"#000000"} onChange={onChange}
+          style={{width:42,height:38,padding:2,border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",background:"none"}}/>
+        <input type="text" value={value||""} onChange={onChange}
+          style={{flex:1,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-m)"}}/>
+      </div>
+      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
+    </div>
+  );
+}
+
 function AccountSection({accountSettings,setAccountSettings,partsInventory,setPartsInventory}) {
   const AUS_STATES=["ACT","NSW","NT","QLD","SA","TAS","VIC","WA"];
   const FY_OPTIONS=[{v:"06-30",l:"30 June (most common)"},{v:"12-31",l:"31 December"},{v:"03-31",l:"31 March"},{v:"09-30",l:"30 September"}];
@@ -12545,37 +12789,10 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
     {id:"myplan",    label:"My Plan"},
   ];
 
-  const SLabel=({children})=><div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)"}}>{children}</div>;
-  const SInput=({label,value,onChange,placeholder,type,half,hint})=>(
-    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
-      <SLabel>{label}</SLabel>
-      <input type={type||"text"} value={value||""} onChange={onChange} placeholder={placeholder||""}
-        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"}}/>
-      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
-    </div>
-  );
-  const SSelect=({label,value,onChange,children,half})=>(
-    <div style={{flex:half?"1 1 calc(50% - 8px)":"1 1 100%",minWidth:half?160:undefined,marginBottom:16}}>
-      <SLabel>{label}</SLabel>
-      <select value={value||""} onChange={onChange}
-        style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"}}>
-        {children}
-      </select>
-    </div>
-  );
-  const SColor=({label,value,onChange,hint})=>(
-    <div style={{flex:"1 1 calc(33% - 8px)",minWidth:140,marginBottom:16}}>
-      <SLabel>{label}</SLabel>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <input type="color" value={value||"#000000"} onChange={onChange}
-          style={{width:42,height:38,padding:2,border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",background:"none"}}/>
-        <input type="text" value={value||""} onChange={onChange}
-          style={{flex:1,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-m)"}}/>
-      </div>
-      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
-    </div>
-  );
-
+  const SLabel=AcctSLabel;
+  const SInput=AcctSInput;
+  const SSelect=AcctSSelect;
+  const SColor=AcctSColor;
   const SaveBar=()=>(
     <div style={{marginTop:28,paddingTop:20,borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:14}}>
       <button onClick={handleSave} style={{padding:"10px 28px",background:"var(--burg)",color:"white",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)"}}>Save Changes</button>
