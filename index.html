@@ -8553,7 +8553,7 @@ function App() {// ════════════════════�
 
   const [loading,setLoading]=useState(true);
   const [user,setUser]=useState(null);
-  const [tab,setTab]=useState("dashboard");
+  const [tab,setTab]=useState(()=>{const h=window.location.hash.replace("#","");return h||"dashboard";});
   // Public site state
   const [publicPage,setPublicPage]=useState("home");
   const [showLogin,setShowLogin]=useState(false);
@@ -8666,6 +8666,8 @@ function App() {// ════════════════════�
   useEffect(()=>{
     if(user){const fresh=members.find(m=>m.id===user.id);if(fresh&&JSON.stringify(fresh)!==JSON.stringify(user))setUser(fresh);}
   },[members]);
+
+  useEffect(()=>{ if(tab) window.location.hash=tab; },[tab]);
 
   const notifs={
     library: user?(books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length:0,
