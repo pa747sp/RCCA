@@ -256,6 +256,9 @@ const SK = {
   partsEOI:_id+":partsEOI",
   invoices:_id+":invoices",
   accountSettings:_id+":accountSettings",
+  emailLog:_id+":emailLog",
+  emailTemplates:_id+":emailTemplates",
+  scheduledEmails:_id+":scheduledEmails",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -8602,16 +8605,20 @@ function App() {// ════════════════════�
   const [partsEOI,setPartsEOI]=useState([]);
   const [invoices,setInvoices]=useState([]);
   const [accountSettings,setAccountSettings]=useState(null);
+  const [emailLog,setEmailLog]=useState([]);
+  const [emailTemplates,setEmailTemplates]=useState({templates:[],groups:[]});
+  const [scheduledEmails,setScheduledEmails]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv,accs]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv,accs,el,etpl,se]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
         dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents),dbGet(SK.polls),
         dbGet(SK.partsCatalogue),dbGet(SK.partsEOI),
-        dbGet(SK.invoices),dbGet(SK.accountSettings)
+        dbGet(SK.invoices),dbGet(SK.accountSettings),
+        dbGet(SK.emailLog),dbGet(SK.emailTemplates),dbGet(SK.scheduledEmails)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -8648,6 +8655,9 @@ function App() {// ════════════════════�
       setPartsEOI(Array.isArray(peoi)?peoi:[]);
       setInvoices(Array.isArray(inv)?inv:[]);
       setAccountSettings(accs||null);
+      setEmailLog(Array.isArray(el)?el:[]);
+      setEmailTemplates((etpl&&typeof etpl==="object"&&!Array.isArray(etpl))?etpl:{templates:[],groups:[]});
+      setScheduledEmails(Array.isArray(se)?se:[]);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -8687,14 +8697,13 @@ function App() {// ════════════════════�
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"members",      label:"Members",          icon:"◉" },
-    { id:"applications", label:"Applications",   icon:"📋" },
     { id:"membershipTypes", label:"Membership Types", icon:"◈" },
     { id:"committee",    label:"Committee",         icon:"👥" },
     { divider: true, label: "Vehicles" },
@@ -8707,9 +8716,8 @@ function App() {// ════════════════════�
     { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
     { divider: true, label: "Commerce" },
     { id:"commerce",     label:"Commerce",         icon:"⊕" },
-    { divider: true, label: "Website" },
-    { id:"website",      label:"Website",          icon:"🌐" },
-    { id:"newsletter",   label:"Newsletter",       icon:"📰" },
+    { divider: true, label: "Communications" },
+    { id:"communications", label:"Communications", icon:"✉" },
     { divider: true, label: "Club Records" },
     { id:"records",      label:"Club Records",     icon:"📚" },
     { divider: true, label: "Recognition" },
@@ -8717,7 +8725,6 @@ function App() {// ════════════════════�
     { divider: true, label: "Administration" },
     { id:"administration",label:"Administration",  icon:"⚙" },
     { id:"account",       label:"Account",         icon:"🏛" },
-    { id:"myplan",        label:"My Plan",          icon:"◈" },
     { divider: true },
     { id:"profile",      label:"My Profile",       icon:"◑" },
   ];
@@ -8827,8 +8834,7 @@ function App() {// ════════════════════�
             {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
-            {tab==="website"    &&user.role==="admin"&&<WebsiteSection {...sp} setTab={setTab}/>}
-            {tab==="newsletter" &&user.role==="admin"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts} points={points} competitions={competitions} polls={polls}/>}
+            {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
@@ -12536,6 +12542,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
     {id:"emails",    label:"Departmental Emails"},
     {id:"venues",    label:"Venues"},
     {id:"storage",   label:"Storage Locations"},
+    {id:"myplan",    label:"My Plan"},
   ];
 
   const SLabel=({children})=><div style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)"}}>{children}</div>;
@@ -12758,6 +12765,12 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
         )}
 
         {/* TAB 6 — STORAGE LOCATIONS */}
+        {tab==="myplan"&&(
+          <div style={{padding:"8px 0"}}>
+            <MyPlanSection user={accountSettings}/>
+          </div>
+        )}
+
         {tab==="storage"&&(
           <div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
@@ -16164,6 +16177,575 @@ function MyPlanSection({ user }) {
         <div style={{padding:20,background:"var(--bg3)",borderRadius:8,fontSize:13,color:"var(--text3)"}}>
           Plan information is not yet configured. Contact TorqueClub support.
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── COMMUNICATIONS SECTION ───────────────────────────────────────────────────
+function CommunicationsSection(sp) {
+  const {user,members,contacts,setContacts,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,dues,siteContent,setSiteContent,news,setNews,pages,setPages,gallery,setGallery,events,books,archiveDocs,listings,parts,points,competitions,polls} = sp;
+  const [tab,setTab]=React.useState("email");
+  const tabs=[
+    {id:"email",    label:"Email Builder"},
+    {id:"contacts", label:"Contact List"},
+    {id:"website",  label:"Website"},
+    {id:"newsletter",label:"Newsletter"},
+  ];
+  return(
+    <div>
+      <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
+      <div style={{height:20}}/>
+      {tab==="email"&&<EmailBuilderSection user={user} members={members} contacts={contacts} dues={dues} emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} scheduledEmails={scheduledEmails} setScheduledEmails={setScheduledEmails}/>}
+      {tab==="contacts"&&<CommContactListSection user={user} members={members} contacts={contacts} setContacts={setContacts} dues={dues} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates}/>}
+      {tab==="website"&&<WebsiteSection user={user} siteContent={siteContent} setSiteContent={setSiteContent} news={news} setNews={setNews} pages={pages} setPages={setPages} gallery={gallery} setGallery={setGallery} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
+      {tab==="newsletter"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts} points={points} competitions={competitions} polls={polls}/>}
+    </div>
+  );
+}
+
+// ── EMAIL BUILDER ─────────────────────────────────────────────────────────────
+function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails}) {
+  const BLANK={fromAddress:(user?.email||""),subject:"",body:"",recipientType:"members",memberFilter:"current",selectedContactIds:[],groupId:"",sendNow:true,scheduledAt:"",scheduledTime:"09:00"};
+  const [mode,setMode]=React.useState("compose"); // compose|log|templates|scheduled
+  const [form,setForm]=React.useState(BLANK);
+  const [preview,setPreview]=React.useState(false);
+  const [tplName,setTplName]=React.useState("");
+  const [savingTpl,setSavingTpl]=React.useState(false);
+  const [toast,setToast]=React.useState("");
+  const [editTpl,setEditTpl]=React.useState(null);
+
+  const groups=(emailTemplates.groups||[]);
+  const templates=(emailTemplates.templates||[]);
+
+  const f=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),3000);}
+
+  function memberStatus(m){
+    const d=dues?.find(x=>x.memberId===m.id&&x.year===(new Date().getFullYear()));
+    if(m.status==="pending") return "pending";
+    if(d?.paid) return "current";
+    return "expired";
+  }
+
+  function buildRecipients(){
+    let list=[];
+    if(form.recipientType==="members"){
+      let src=members||[];
+      if(form.memberFilter==="current") src=src.filter(m=>memberStatus(m)==="current");
+      else if(form.memberFilter==="expired") src=src.filter(m=>memberStatus(m)==="expired");
+      else if(form.memberFilter==="pending") src=src.filter(m=>memberStatus(m)==="pending");
+      else if(form.memberFilter==="byType"&&form.memberTypeFilter) src=src.filter(m=>m.membershipType===form.memberTypeFilter);
+      list=src.filter(m=>m.email&&!m.unsubscribed).map(m=>({name:m.name,email:m.email}));
+    } else if(form.recipientType==="contacts"){
+      if(form.groupId){
+        const g=groups.find(x=>x.id===form.groupId);
+        if(g) list=(contacts||[]).filter(c=>(g.contactIds||[]).includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+      } else if(form.selectedContactIds.length){
+        list=(contacts||[]).filter(c=>form.selectedContactIds.includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+      } else {
+        list=(contacts||[]).filter(c=>c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+      }
+    } else if(form.recipientType==="all"){
+      const mems=(members||[]).filter(m=>m.email&&!m.unsubscribed).map(m=>({name:m.name,email:m.email}));
+      const cons=(contacts||[]).filter(c=>c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+      list=[...mems,...cons];
+    }
+    return list;
+  }
+
+  const recipients=buildRecipients();
+
+  async function handleSend(){
+    if(!form.subject.trim()||!form.body.trim()){showToast("Subject and body are required.");return;}
+    if(!recipients.length){showToast("No recipients — check filters and unsubscribe settings.");return;}
+    if(!form.sendNow){
+      // Schedule
+      const entry={id:uid("SE"),from:form.fromAddress,subject:form.subject,body:form.body,
+        recipients,scheduledAt:form.scheduledAt+"T"+form.scheduledTime,createdAt:new Date().toISOString(),
+        createdBy:user.name,status:"pending"};
+      const updated=[...(scheduledEmails||[]),entry];
+      setScheduledEmails(updated); await dbSet(SK.scheduledEmails,updated);
+      showToast("Email scheduled for "+form.scheduledAt+" at "+form.scheduledTime);
+      setForm(BLANK); return;
+    }
+    const entry={id:uid("EL"),from:form.fromAddress,subject:form.subject,body:form.body,
+      to:recipients,sentAt:new Date().toISOString(),sentBy:user.name,count:recipients.length};
+    console.log("EMAIL SEND",entry);
+    const updated=[entry,...(emailLog||[])];
+    setEmailLog(updated); await dbSet(SK.emailLog,updated);
+    showToast("Email sent to "+recipients.length+" recipient"+(recipients.length===1?"":"s")+".");
+    setForm(BLANK);
+  }
+
+  async function saveTemplate(){
+    if(!tplName.trim()){showToast("Enter a template name.");return;}
+    setSavingTpl(true);
+    const entry={id:editTpl||uid("ET"),name:tplName,subject:form.subject,body:form.body,savedAt:new Date().toISOString()};
+    const existing=templates.filter(t=>t.id!==entry.id);
+    const updated={...emailTemplates,templates:[...existing,entry]};
+    setEmailTemplates(updated); await dbSet(SK.emailTemplates,updated);
+    setSavingTpl(false); setTplName(""); setEditTpl(null);
+    showToast("Template \""+entry.name+"\" saved.");
+  }
+
+  async function deleteTpl(id){
+    const updated={...emailTemplates,templates:templates.filter(t=>t.id!==id)};
+    setEmailTemplates(updated); await dbSet(SK.emailTemplates,updated);
+  }
+
+  function loadTpl(t){setForm(p=>({...p,subject:t.subject,body:t.body}));setMode("compose");showToast("Template \""+t.name+"\" loaded.");}
+
+  async function deleteLog(id){
+    const updated=(emailLog||[]).filter(e=>e.id!==id);
+    setEmailLog(updated); await dbSet(SK.emailLog,updated);
+  }
+
+  async function cancelScheduled(id){
+    const updated=(scheduledEmails||[]).filter(e=>e.id!==id);
+    setScheduledEmails(updated); await dbSet(SK.scheduledEmails,updated);
+  }
+
+  const memberTypes=[...new Set((members||[]).map(m=>m.membershipType).filter(Boolean))];
+
+  const modeBtn=(id,label,count)=>(
+    <button onClick={()=>setMode(id)} style={{padding:"7px 16px",background:mode===id?"var(--burg)":"none",
+      color:mode===id?"white":"var(--text2)",border:"1px solid "+(mode===id?"var(--burg)":"var(--border)"),
+      borderRadius:"var(--r)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font-m)",
+      letterSpacing:"0.04em",display:"flex",alignItems:"center",gap:6}}>
+      {label}{count>0&&<span style={{background:"var(--gold)",color:"var(--burg-dk)",borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>{count}</span>}
+    </button>
+  );
+
+  const inputSt={width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"};
+  const labelSt={fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)",display:"block"};
+
+  return(
+    <div style={{maxWidth:960}}>
+      <SectionHeader title="Email Builder" subtitle="Compose, schedule and track club emails"/>
+
+      {toast&&<div style={{position:"fixed",bottom:28,right:28,background:"var(--burg)",color:"white",padding:"12px 20px",borderRadius:"var(--r)",fontSize:13,fontWeight:600,zIndex:9999,boxShadow:"0 4px 16px rgba(0,0,0,.2)",fontFamily:"var(--font-b)"}}>{toast}</div>}
+
+      {/* Mode bar */}
+      <div style={{display:"flex",gap:8,marginBottom:24,flexWrap:"wrap"}}>
+        {modeBtn("compose","✉ Compose",0)}
+        {modeBtn("templates","📄 Templates",templates.length)}
+        {modeBtn("log","📬 Sent Log",(emailLog||[]).length)}
+        {modeBtn("scheduled","🕐 Scheduled",(scheduledEmails||[]).filter(e=>e.status==="pending").length)}
+      </div>
+
+      {/* ── COMPOSE ── */}
+      {mode==="compose"&&(
+        <div style={{display:"grid",gridTemplateColumns:preview?"1fr 1fr":"1fr",gap:20}}>
+          <Card style={{padding:24}}>
+            <div style={{marginBottom:14}}>
+              <label style={labelSt}>From</label>
+              <input style={inputSt} value={form.fromAddress} onChange={e=>f("fromAddress",e.target.value)} placeholder="sender@club.org.au"/>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={labelSt}>Subject</label>
+              <input style={inputSt} value={form.subject} onChange={e=>f("subject",e.target.value)} placeholder="Email subject line"/>
+            </div>
+
+            {/* Recipients */}
+            <div style={{marginBottom:14,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--r)",padding:14}}>
+              <label style={labelSt}>Recipients</label>
+              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                {[["members","Members"],["contacts","Contacts"],["all","All"]].map(([v,l])=>(
+                  <button key={v} onClick={()=>f("recipientType",v)} style={{padding:"5px 14px",border:"1px solid "+(form.recipientType===v?"var(--burg)":"var(--border)"),
+                    background:form.recipientType===v?"var(--burg)":"var(--bg2)",color:form.recipientType===v?"white":"var(--text2)",
+                    borderRadius:5,fontSize:12,cursor:"pointer",fontWeight:600}}>{l}</button>
+                ))}
+              </div>
+              {form.recipientType==="members"&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  <select value={form.memberFilter} onChange={e=>f("memberFilter",e.target.value)} style={{...inputSt,width:"auto",flex:1,minWidth:140}}>
+                    <option value="all">All Members</option>
+                    <option value="current">Current (paid)</option>
+                    <option value="expired">Expired</option>
+                    <option value="pending">Pending</option>
+                    <option value="byType">By Type…</option>
+                  </select>
+                  {form.memberFilter==="byType"&&memberTypes.length>0&&(
+                    <select value={form.memberTypeFilter||""} onChange={e=>f("memberTypeFilter",e.target.value)} style={{...inputSt,width:"auto",flex:1,minWidth:140}}>
+                      <option value="">— Pick type —</option>
+                      {memberTypes.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  )}
+                </div>
+              )}
+              {form.recipientType==="contacts"&&(
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  <select value={form.groupId} onChange={e=>{f("groupId",e.target.value);f("selectedContactIds",[]);}} style={{...inputSt,width:"auto",flex:1,minWidth:160}}>
+                    <option value="">All contacts</option>
+                    {groups.map(g=><option key={g.id} value={g.id}>{g.name} ({(g.contactIds||[]).length})</option>)}
+                    <option value="__pick__">Pick individual…</option>
+                  </select>
+                  {form.groupId==="__pick__"&&(
+                    <div style={{width:"100%",marginTop:6,maxHeight:140,overflowY:"auto",border:"1px solid var(--border)",borderRadius:"var(--r)",background:"var(--bg2)"}}>
+                      {(contacts||[]).filter(c=>c.email).map(c=>(
+                        <label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",cursor:"pointer",borderBottom:"1px solid var(--border)"}}>
+                          <input type="checkbox" checked={form.selectedContactIds.includes(c.id)}
+                            onChange={e=>{const ids=e.target.checked?[...form.selectedContactIds,c.id]:form.selectedContactIds.filter(x=>x!==c.id);f("selectedContactIds",ids);}}/>
+                          <span style={{fontSize:12}}>{c.name} <span style={{color:"var(--text4)"}}>{c.email}</span></span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{marginTop:8,fontSize:12,color:recipients.length?"var(--green)":"var(--text4)",fontFamily:"var(--font-m)",fontWeight:600}}>
+                {recipients.length} recipient{recipients.length!==1?"s":""} selected
+                {recipients.length>0&&<span style={{fontWeight:400,color:"var(--text4)",marginLeft:6}}>({recipients.slice(0,3).map(r=>r.name).join(", ")}{recipients.length>3?", +more":""}) — unsubscribed excluded</span>}
+              </div>
+            </div>
+
+            {/* Body */}
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                <label style={labelSt}>Body (HTML accepted)</label>
+                <button onClick={()=>setPreview(p=>!p)} style={{fontSize:11,color:"var(--burg)",background:"none",border:"none",cursor:"pointer",fontFamily:"var(--font-m)",fontWeight:600}}>{preview?"Hide Preview":"Show Preview"}</button>
+              </div>
+              <textarea value={form.body} onChange={e=>f("body",e.target.value)}
+                style={{...inputSt,height:220,resize:"vertical",lineHeight:1.6}}
+                placeholder={"<p>Dear {name},</p>\n<p>Your message here.</p>"}/>
+            </div>
+
+            {/* Scheduling */}
+            <div style={{marginBottom:18,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--r)",padding:14}}>
+              <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:form.sendNow?0:10}}>
+                <label style={{display:"flex",alignItems:"center",gap:7,fontSize:13,cursor:"pointer",fontFamily:"var(--font-b)"}}>
+                  <input type="radio" name="timing" checked={form.sendNow} onChange={()=>f("sendNow",true)}/> Send now
+                </label>
+                <label style={{display:"flex",alignItems:"center",gap:7,fontSize:13,cursor:"pointer",fontFamily:"var(--font-b)"}}>
+                  <input type="radio" name="timing" checked={!form.sendNow} onChange={()=>f("sendNow",false)}/> Schedule for later
+                </label>
+              </div>
+              {!form.sendNow&&(
+                <div style={{display:"flex",gap:10,marginTop:10,flexWrap:"wrap"}}>
+                  <div style={{flex:1,minWidth:140}}>
+                    <label style={{...labelSt,fontSize:10}}>Date</label>
+                    <input type="date" value={form.scheduledAt} onChange={e=>f("scheduledAt",e.target.value)} style={{...inputSt,fontSize:12}}/>
+                  </div>
+                  <div style={{flex:1,minWidth:120}}>
+                    <label style={{...labelSt,fontSize:10}}>Time</label>
+                    <input type="time" value={form.scheduledTime} onChange={e=>f("scheduledTime",e.target.value)} style={{...inputSt,fontSize:12}}/>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Save as template */}
+            <div style={{marginBottom:20,display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:200}}>
+                <label style={labelSt}>Save as Template (optional)</label>
+                <input style={inputSt} value={tplName} onChange={e=>setTplName(e.target.value)} placeholder="Template name…"/>
+              </div>
+              <Btn variant="ghost" size="sm" onClick={saveTemplate} disabled={savingTpl||!tplName.trim()}>{savingTpl?"Saving…":"Save Template"}</Btn>
+            </div>
+
+            <div style={{display:"flex",gap:10}}>
+              <Btn onClick={handleSend} size="md">{form.sendNow?"Send Now":"Schedule Send"}</Btn>
+              <Btn variant="ghost" size="md" onClick={()=>setForm(BLANK)}>Clear</Btn>
+            </div>
+          </Card>
+
+          {/* Preview pane */}
+          {preview&&(
+            <Card style={{padding:0,overflow:"hidden"}}>
+              <div style={{padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",fontSize:11,fontFamily:"var(--font-m)",color:"var(--text3)",letterSpacing:"0.08em",textTransform:"uppercase"}}>Preview</div>
+              <div style={{padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
+                <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)",marginBottom:2}}>FROM: {form.fromAddress||"—"}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"var(--text)"}}>{form.subject||"(no subject)"}</div>
+              </div>
+              <div style={{padding:"20px",maxHeight:500,overflowY:"auto",fontSize:14,color:"var(--text)",lineHeight:1.7}}
+                dangerouslySetInnerHTML={{__html:form.body||"<p style='color:#aaa'>Body will appear here…</p>"}}/>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ── TEMPLATES ── */}
+      {mode==="templates"&&(
+        <Card>
+          <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em"}}>Saved Templates ({templates.length})</div>
+            <Btn size="sm" onClick={()=>setMode("compose")}>+ New Email</Btn>
+          </div>
+          {templates.length===0&&<div style={{padding:"40px 20px",textAlign:"center",color:"var(--text4)",fontSize:13}}>No templates yet. Compose an email and save it as a template.</div>}
+          {templates.map(t=>(
+            <div key={t.id} style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"flex-start",gap:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--text)",fontFamily:"var(--font-d)",marginBottom:3}}>{t.name}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:2}}>Subject: {t.subject}</div>
+                <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>{t.savedAt?new Date(t.savedAt).toLocaleDateString("en-AU"):""}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <Btn size="sm" onClick={()=>loadTpl(t)}>Use</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>{setEditTpl(t.id);setTplName(t.name);setForm(p=>({...p,subject:t.subject,body:t.body}));setMode("compose");}}>Edit</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>deleteTpl(t.id)} style={{color:"var(--red)"}}>Delete</Btn>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* ── SENT LOG ── */}
+      {mode==="log"&&(
+        <Card>
+          <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em"}}>Sent Log ({(emailLog||[]).length})</div>
+          </div>
+          {(emailLog||[]).length===0&&<div style={{padding:"40px 20px",textAlign:"center",color:"var(--text4)",fontSize:13}}>No sent emails yet.</div>}
+          {(emailLog||[]).map(e=>(
+            <div key={e.id} style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"flex-start",gap:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--text)",fontFamily:"var(--font-d)",marginBottom:3}}>{e.subject}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:2}}>From: {e.from} · To: {e.count} recipient{e.count!==1?"s":""}</div>
+                <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>Sent by {e.sentBy} · {e.sentAt?new Date(e.sentAt).toLocaleString("en-AU"):""}</div>
+              </div>
+              <Btn size="sm" variant="ghost" onClick={()=>deleteLog(e.id)} style={{color:"var(--red)",flexShrink:0}}>Remove</Btn>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* ── SCHEDULED ── */}
+      {mode==="scheduled"&&(
+        <Card>
+          <div style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em"}}>Scheduled Emails</div>
+            <Btn size="sm" onClick={()=>{setForm(p=>({...p,sendNow:false}));setMode("compose");}}>+ Schedule Email</Btn>
+          </div>
+          {(scheduledEmails||[]).length===0&&<div style={{padding:"40px 20px",textAlign:"center",color:"var(--text4)",fontSize:13}}>No scheduled emails.</div>}
+          {(scheduledEmails||[]).map(e=>(
+            <div key={e.id} style={{padding:"14px 20px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"flex-start",gap:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14,color:"var(--text)",fontFamily:"var(--font-d)",marginBottom:3}}>{e.subject}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginBottom:2}}>To: {(e.recipients||[]).length} recipients</div>
+                <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)"}}>Scheduled: {e.scheduledAt?new Date(e.scheduledAt).toLocaleString("en-AU"):"" } · by {e.createdBy}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0,alignItems:"center"}}>
+                <span style={{fontSize:10,fontFamily:"var(--font-m)",padding:"2px 8px",borderRadius:3,background:e.status==="sent"?"#e8f5ee":"#fff8ed",color:e.status==="sent"?"var(--green)":"var(--gold2)",border:"1px solid "+(e.status==="sent"?"var(--green2)":"var(--gold)"),fontWeight:700,textTransform:"uppercase"}}>{e.status}</span>
+                {e.status==="pending"&&<Btn size="sm" variant="ghost" onClick={()=>cancelScheduled(e.id)} style={{color:"var(--red)"}}>Cancel</Btn>}
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// ── COMMUNICATIONS CONTACT LIST ───────────────────────────────────────────────
+function CommContactListSection({user,members,contacts,setContacts,dues,emailTemplates,setEmailTemplates}) {
+  const [subTab,setSubTab]=React.useState("all"); // all|members|external|groups
+  const [search,setSearch]=React.useState("");
+  const [modal,setModal]=React.useState(null);
+  const [form,setForm]=React.useState({});
+  const [grpModal,setGrpModal]=React.useState(null);
+  const [grpForm,setGrpForm]=React.useState({});
+  const groups=emailTemplates.groups||[];
+
+  function memberStatus(m){
+    const d=dues?.find(x=>x.memberId===m.id&&x.year===(new Date().getFullYear()));
+    if(m.status==="pending") return "pending";
+    if(d?.paid) return "current";
+    return "expired";
+  }
+
+  const statusBadge=(s)=>{
+    const col={current:"var(--green)",expired:"var(--red)",pending:"var(--gold2)"};
+    return <span style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:col[s]||"#888",color:"white",textTransform:"uppercase"}}>{s}</span>;
+  };
+
+  async function saveContacts(updated){setContacts(updated);await dbSet(SK.contacts,updated);}
+  async function saveGroups(updatedGroups){
+    const updated={...emailTemplates,groups:updatedGroups};
+    setEmailTemplates(updated);await dbSet(SK.emailTemplates,updated);
+  }
+
+  async function toggleUnsub(id,isExternal){
+    if(isExternal){
+      const updated=(contacts||[]).map(c=>c.id===id?{...c,unsubscribed:!c.unsubscribed}:c);
+      await saveContacts(updated);
+    } else {
+      // Members — store unsubscribed flag in contacts list as a special override
+      const existing=(contacts||[]).find(c=>c._memberId===id);
+      if(existing){
+        const updated=(contacts||[]).map(c=>c._memberId===id?{...c,unsubscribed:!c.unsubscribed}:c);
+        await saveContacts(updated);
+      } else {
+        const member=members.find(m=>m.id===id);
+        await saveContacts([...(contacts||[]),{id:uid("MCO"),_memberId:id,name:member?.name||"",email:member?.email||"",unsubscribed:true}]);
+      }
+    }
+  }
+
+  function memberUnsubbed(id){return !!(contacts||[]).find(c=>c._memberId===id&&c.unsubscribed);}
+
+  function openAddContact(){setForm({name:"",email:"",phone:"",notes:"",unsubscribed:false});setModal("add");}
+  function openEditContact(c){setForm({...c});setModal({edit:c});}
+  async function handleSaveContact(){
+    if(!form.name?.trim()){return;}
+    if(modal==="add"){await saveContacts([...(contacts||[]),{...form,id:uid("EC"),createdAt:new Date().toISOString()}]);}
+    else{await saveContacts((contacts||[]).map(c=>c.id===form.id?{...form}:c));}
+    setModal(null);
+  }
+  async function delContact(id){if(!window.confirm("Delete this contact?"))return;await saveContacts((contacts||[]).filter(c=>c.id!==id));}
+
+  function openNewGroup(){setGrpForm({id:uid("GRP"),name:"",contactIds:[]});setGrpModal("new");}
+  function openEditGroup(g){setGrpForm({...g,contactIds:[...(g.contactIds||[])]});setGrpModal("edit");}
+  async function saveGroup(){
+    if(!grpForm.name?.trim())return;
+    const updated=grpModal==="new"?[...groups,grpForm]:groups.map(g=>g.id===grpForm.id?grpForm:g);
+    await saveGroups(updated);setGrpModal(null);
+  }
+  async function deleteGroup(id){await saveGroups(groups.filter(g=>g.id!==id));}
+
+  const externalContacts=(contacts||[]).filter(c=>!c._memberId);
+  const memberOverrides=(contacts||[]).filter(c=>c._memberId);
+
+  const filteredMembers=(members||[]).filter(m=>{
+    const txt=`${m.name} ${m.email||""}`.toLowerCase();
+    return txt.includes(search.toLowerCase());
+  });
+  const filteredExternal=externalContacts.filter(c=>{
+    const txt=`${c.name} ${c.email||""}`.toLowerCase();
+    return txt.includes(search.toLowerCase());
+  });
+
+  const rowSt={padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12};
+  const labelSt={fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)",display:"block"};
+  const inputSt={width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"};
+
+  const tabBtn=(id,label,count)=>(
+    <button onClick={()=>setSubTab(id)} style={{padding:"6px 14px",border:"1px solid "+(subTab===id?"var(--burg)":"var(--border)"),
+      background:subTab===id?"var(--burg)":"none",color:subTab===id?"white":"var(--text2)",
+      borderRadius:"var(--r)",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"var(--font-m)",display:"flex",alignItems:"center",gap:5}}>
+      {label}{count!=null&&<span style={{background:subTab===id?"rgba(255,255,255,.2)":"var(--bg3)",color:subTab===id?"white":"var(--text3)",borderRadius:10,padding:"0 6px",fontSize:10}}>{count}</span>}
+    </button>
+  );
+
+  return(
+    <div style={{maxWidth:960}}>
+      <SectionHeader title="Contact List" subtitle="Manage recipients for club emails"/>
+      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
+        {tabBtn("all","All",(members||[]).length+externalContacts.length)}
+        {tabBtn("members","Members",(members||[]).length)}
+        {tabBtn("external","External Contacts",externalContacts.length)}
+        {tabBtn("groups","Groups",groups.length)}
+        <div style={{flex:1}}/>
+        <input placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}
+          style={{...inputSt,width:"auto",minWidth:180,flex:"0 0 auto"}}/>
+        {subTab==="external"&&<Btn size="sm" onClick={openAddContact}>+ Add Contact</Btn>}
+        {subTab==="groups"&&<Btn size="sm" onClick={openNewGroup}>+ New Group</Btn>}
+      </div>
+
+      {/* GROUPS tab */}
+      {subTab==="groups"&&(
+        <div>
+          {groups.length===0&&<div style={{padding:"40px 0",textAlign:"center",color:"var(--text4)",fontSize:13}}>No groups yet. Create a group to send targeted emails.</div>}
+          {groups.map(g=>(
+            <Card key={g.id} style={{padding:"14px 18px",marginBottom:10,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:700,fontSize:14,fontFamily:"var(--font-d)",marginBottom:2}}>{g.name}</div>
+                <div style={{fontSize:12,color:"var(--text3)"}}>{(g.contactIds||[]).length} contact{(g.contactIds||[]).length!==1?"s":""}</div>
+              </div>
+              <Btn size="sm" variant="ghost" onClick={()=>openEditGroup(g)}>Edit</Btn>
+              <Btn size="sm" variant="ghost" onClick={()=>deleteGroup(g.id)} style={{color:"var(--red)"}}>Delete</Btn>
+            </Card>
+          ))}
+          {grpModal&&(
+            <Modal title={grpModal==="new"?"New Group":"Edit Group"} onClose={()=>setGrpModal(null)}>
+              <Field label="Group Name"><Input value={grpForm.name||""} onChange={e=>setGrpForm(p=>({...p,name:e.target.value}))}/></Field>
+              <Field label="Contacts">
+                <div style={{maxHeight:200,overflowY:"auto",border:"1px solid var(--border)",borderRadius:"var(--r)"}}>
+                  {externalContacts.filter(c=>c.email).map(c=>(
+                    <label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderBottom:"1px solid var(--border)",cursor:"pointer",fontSize:13}}>
+                      <input type="checkbox" checked={(grpForm.contactIds||[]).includes(c.id)}
+                        onChange={e=>{const ids=e.target.checked?[...grpForm.contactIds,c.id]:(grpForm.contactIds||[]).filter(x=>x!==c.id);setGrpForm(p=>({...p,contactIds:ids}));}}/>
+                      {c.name} <span style={{color:"var(--text4)",fontSize:12}}>{c.email}</span>
+                    </label>
+                  ))}
+                  {externalContacts.filter(c=>c.email).length===0&&<div style={{padding:12,fontSize:12,color:"var(--text4)"}}>No external contacts with email addresses.</div>}
+                </div>
+              </Field>
+              <Row gap={8} style={{marginTop:8}}>
+                <Btn onClick={saveGroup}>Save Group</Btn>
+                <Btn variant="ghost" onClick={()=>setGrpModal(null)}>Cancel</Btn>
+              </Row>
+            </Modal>
+          )}
+        </div>
+      )}
+
+      {/* MEMBERS tab */}
+      {(subTab==="members"||subTab==="all")&&(
+        <Card style={{marginBottom:16}}>
+          <div style={{padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>Members (auto-synced from membership data)</span>
+            <span style={{color:"var(--text4)"}}>Read-only — status derived from dues</span>
+          </div>
+          {filteredMembers.length===0&&<div style={{padding:"24px",fontSize:13,color:"var(--text4)",textAlign:"center"}}>No members found.</div>}
+          {filteredMembers.map(m=>{
+            const status=memberStatus(m);
+            const unsub=memberUnsubbed(m.id);
+            return(
+              <div key={m.id} style={{...rowSt,opacity:unsub?0.5:1}}>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
+                    {m.name} {statusBadge(status)}
+                    {unsub&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
+                  </div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{m.email||"— no email —"}</div>
+                </div>
+                {m.email&&<button onClick={()=>toggleUnsub(m.id,false)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:unsub?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600}}>{unsub?"Re-subscribe":"Unsubscribe"}</button>}
+              </div>
+            );
+          })}
+        </Card>
+      )}
+
+      {/* EXTERNAL tab */}
+      {(subTab==="external"||subTab==="all")&&(
+        <Card>
+          <div style={{padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em"}}>
+            External Contacts
+          </div>
+          {filteredExternal.length===0&&<div style={{padding:"24px",fontSize:13,color:"var(--text4)",textAlign:"center"}}>No external contacts.{subTab==="external"&&" Click + Add Contact to add one."}</div>}
+          {filteredExternal.map(c=>(
+            <div key={c.id} style={{...rowSt,opacity:c.unsubscribed?0.5:1}}>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
+                  {c.name}
+                  {c.unsubscribed&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
+                </div>
+                <div style={{fontSize:12,color:"var(--text3)"}}>{c.email||"— no email —"}{c.phone?" · "+c.phone:""}</div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                {c.email&&<button onClick={()=>toggleUnsub(c.id,true)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:c.unsubscribed?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600}}>{c.unsubscribed?"Re-subscribe":"Unsubscribe"}</button>}
+                <Btn size="sm" variant="ghost" onClick={()=>openEditContact(c)}>Edit</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>delContact(c.id)} style={{color:"var(--red)"}}>Del</Btn>
+              </div>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {/* Contact add/edit modal */}
+      {modal&&(
+        <Modal title={modal==="add"?"Add Contact":"Edit Contact"} onClose={()=>setModal(null)}>
+          <Field label="Name"><Input value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field>
+          <Field label="Email"><Input type="email" value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></Field>
+          <Field label="Phone"><Input value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></Field>
+          <Field label="Notes"><Textarea value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></Field>
+          <Row gap={8} style={{marginTop:8}}>
+            <Btn onClick={handleSaveContact}>Save</Btn>
+            <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+          </Row>
+        </Modal>
       )}
     </div>
   );
