@@ -8555,7 +8555,7 @@ function App() {// ════════════════════�
   const [user,setUser]=useState(null);
   const [tab,setTab]=useState(()=>{const h=window.location.hash.replace("#","");return h||"dashboard";});
   // Public site state
-  const [publicPage,setPublicPage]=useState("home");
+  const [publicPage,setPublicPage]=useState(()=>{const h=window.location.hash.replace("#","");return["home","about","news","events","membership","marketplace","shop","parts","gallery"].includes(h)?h:"home";});
   const [showLogin,setShowLogin]=useState(false);
   const [showApplicationForm,setShowApplicationForm]=useState(false);
   const [appFormType,setAppFormType]=useState(null);
