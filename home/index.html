@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<!-- TorqueClub Marketing Site v1.0 -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TorqueClub — Club Management for Vehicle Enthusiasts</title>
+  <meta name="description" content="TorqueClub is the all-in-one club management platform built for Australian vehicle enthusiast clubs."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script>
+    var firebaseConfig = {
+      apiKey: "AIzaSyBr5izWhkBc2qSsir5dbWXbbkLBMizwYXc",
+      authDomain: "torqueclub-eff69.firebaseapp.com",
+      projectId: "torqueclub-eff69",
+      storageBucket: "torqueclub-eff69.firebasestorage.app",
+      messagingSenderId: "635300845765",
+      appId: "1:635300845765:web:0372da43fba27a0a62f8ac"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:   #2A3A4A;
+      --primary2:  #1e2c38;
+      --primary3:  #243342;
+      --gold:      #C9922A;
+      --gold2:     #e8a930;
+      --gold-light:#f5e3ba;
+      --text:      #1a2530;
+      --text2:     #3a4a5a;
+      --text3:     #6a7a8a;
+      --text4:     #9aaaba;
+      --bg:        #f5f7fa;
+      --bg2:       #ffffff;
+      --border:    #e0e6ed;
+      --green:     #2a7a4a;
+      --r:         8px;
+      --font-h:    'Barlow Condensed', sans-serif;
+      --font-b:    'Inter', sans-serif;
+      --font-m:    'JetBrains Mono', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font-b); background: var(--bg); color: var(--text); line-height: 1.6; }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:none; } }
+    .fade-up { animation: fadeUp .4s ease both; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef } = React;
+
+// ── Data ──────────────────────────────────────────────────────────────────────
+const FEATURES = [
+  { icon:"👥", title:"Member Management",    desc:"Add, edit, and manage members with full profile and dues tracking." },
+  { icon:"🚗", title:"Vehicle Register",     desc:"Register club vehicles, manage permits, and track ownership history." },
+  { icon:"📅", title:"Events & Shows",       desc:"Schedule events, manage RSVPs, catering, and risk plans." },
+  { icon:"📋", title:"Meetings & Minutes",   desc:"Agenda builder, RSVP tracking, and searchable minutes archive." },
+  { icon:"💰", title:"Finance Module",       desc:"Income/expense ledger, invoicing, and financial year reporting." },
+  { icon:"🌐", title:"Public Website",       desc:"Built-in public site with news, events, and membership applications." },
+  { icon:"🏆", title:"Points & Awards",      desc:"Member recognition, trophy management, and show & shine results." },
+  { icon:"📦", title:"Parts & Commerce",     desc:"Parts catalogue, inventory, club shop, and marketplace listings." },
+  { icon:"📰", title:"Newsletter Builder",   desc:"Build and export branded HTML newsletters for member mailouts." },
+  { icon:"📊", title:"Polls & Surveys",      desc:"Create and run member polls with live result tallying." },
+  { icon:"⚠️", title:"Incident Reporting",  desc:"Log and track safety and incident reports with full audit trail." },
+  { icon:"📚", title:"Club Archive",         desc:"Quality documents, historical records, and photo gallery." },
+];
+
+const PLANS = [
+  { id:"tc",  name:"Club",      price:120, period:"year",
+    desc:"Everything a club needs to run day-to-day operations.",
+    features:["Members & dues","Vehicles & permits","Meetings & events","Tasks & incidents",
+               "Polls","Marketplace","Club shop","Points & awards","Public website"] },
+  { id:"tc+", name:"Club Plus", price:200, period:"year", highlight:true,
+    desc:"Advanced features for larger or more active clubs.",
+    features:["Everything in Club","Finance module","Newsletter builder","Parts catalogue & inventory",
+               "Competitions & show & shine","Contacts & suppliers","Advanced permissions","Priority support"] },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDate(str) {
+  if (!str) return "";
+  const [y,m,d] = str.split("-");
+  return new Date(+y,+m-1,+d).toLocaleDateString("en-AU",{day:"numeric",month:"short",year:"numeric"});
+}
+
+function buildICS(ev) {
+  const dt = ev.date ? ev.date.replace(/-/g,"") : "";
+  const tm = ev.time ? ev.time.replace(/:/g,"")+"00" : "120000";
+  const dtend = dt; // same day
+  const lines = [
+    "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//TorqueClub//EN",
+    "BEGIN:VEVENT",
+    `DTSTART:${dt}T${tm}`,
+    `DTEND:${dt}T${tm}`,
+    `SUMMARY:${(ev.title||"").replace(/,/g,"\\,")}`,
+    `DESCRIPTION:${(ev.description||"").replace(/\n/g,"\\n").replace(/,/g,"\\,")}`,
+    `LOCATION:${(ev.location||"").replace(/,/g,"\\,")}`,
+    `ORGANIZER:CN=${ev.clubName||ev.clubId||"Club"}`,
+    "END:VEVENT","END:VCALENDAR"
+  ];
+  return lines.join("\r\n");
+}
+
+function downloadICS(ev) {
+  const blob = new Blob([buildICS(ev)], {type:"text/calendar"});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url; a.download = (ev.title||"event").replace(/\s+/g,"-")+".ics";
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────────
+function Nav({ page, setPage }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const links = [
+    { id:"home",   label:"Home"         },
+    { id:"clubs",  label:"Member Clubs" },
+    { id:"events", label:"Events"       },
+  ];
+  return <header style={{ background:  "var(--primary)", position:"sticky", top:0, zIndex:100,
+    borderBottom:"3px solid var(--gold)" }}>
+    <div style={{ maxWidth:1120, margin:"0 auto", padding:"0 24px",
+      display:"flex", alignItems:"center", justifyContent:"space-between", height:60 }}>
+      <button onClick={()=>setPage("home")} style={{ background:"none", border:"none", cursor:"pointer",
+        display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ fontFamily:"var(--font-h)", fontSize:22, fontWeight:900, color:"var(--gold)",
+          letterSpacing:"0.18em" }}>TORQUECLUB</div>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:9, color:"rgba(255,255,255,.35)",
+          letterSpacing:"0.18em", paddingTop:2 }}>PLATFORM</div>
+      </button>
+      <nav style={{ display:"flex", gap:4 }}>
+        {links.map(l=>(
+          <button key={l.id} onClick={()=>setPage(l.id)} style={{
+            background:"none", border:"none", cursor:"pointer", padding:"8px 14px",
+            fontFamily:"var(--font-b)", fontSize:14, fontWeight:500,
+            color: page===l.id ? "var(--gold)" : "rgba(255,255,255,.65)",
+            borderBottom: page===l.id ? "2px solid var(--gold)" : "2px solid transparent",
+            transition:"all .15s",
+          }}>{l.label}</button>
+        ))}
+        <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
+          style={{ marginLeft:8, padding:"7px 16px", background:"var(--gold)", color:"var(--primary)",
+            borderRadius:6, fontSize:13, fontWeight:700, fontFamily:"var(--font-b)",
+            display:"inline-flex", alignItems:"center" }}>
+          Live Demo →
+        </a>
+      </nav>
+    </div>
+  </header>;
+}
+
+// ── Home page ─────────────────────────────────────────────────────────────────
+function HomePage({ setPage }) {
+  return <div className="fade-up">
+    {/* Hero */}
+    <section style={{ background:`linear-gradient(135deg, var(--primary2) 0%, var(--primary) 60%, #3a4a30 100%)`,
+      padding:"80px 24px 72px", textAlign:"center", position:"relative", overflow:"hidden" }}>
+      <div style={{ position:"absolute", inset:0, opacity:.04,
+        backgroundImage:"repeating-linear-gradient(45deg, white 0, white 1px, transparent 0, transparent 50%)",
+        backgroundSize:"20px 20px" }}/>
+      <div style={{ position:"relative", maxWidth:760, margin:"0 auto" }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.25em",
+          textTransform:"uppercase", marginBottom:16 }}>Club Management Platform</div>
+        <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(42px,7vw,80px)", fontWeight:900,
+          color:"white", lineHeight:1.05, letterSpacing:"0.02em", marginBottom:20 }}>
+          Everything your club needs.<br/>
+          <span style={{ color:"var(--gold)" }}>In one place.</span>
+        </h1>
+        <p style={{ fontSize:"clamp(15px,2vw,18px)", color:"rgba(255,255,255,.75)", lineHeight:1.7,
+          marginBottom:36, maxWidth:580, margin:"0 auto 36px" }}>
+          TorqueClub is the all-in-one management platform built specifically for Australian vehicle enthusiast clubs —
+          from classic car clubs to motorcycle groups and everything in between.
+        </p>
+        <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
+          <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
+            style={{ padding:"13px 28px", background:"var(--gold)", color:"var(--primary)",
+              borderRadius:8, fontWeight:700, fontSize:15, fontFamily:"var(--font-b)" }}>
+            Try the Live Demo →
+          </a>
+          <button onClick={()=>setPage("clubs")}
+            style={{ padding:"13px 28px", background:"rgba(255,255,255,.1)", color:"white",
+              border:"1px solid rgba(255,255,255,.25)", borderRadius:8, fontWeight:600,
+              fontSize:15, fontFamily:"var(--font-b)", cursor:"pointer" }}>
+            Member Clubs
+          </button>
+        </div>
+      </div>
+    </section>
+
+    {/* Features grid */}
+    <section style={{ maxWidth:1120, margin:"0 auto", padding:"64px 24px" }}>
+      <div style={{ textAlign:"center", marginBottom:48 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
+          textTransform:"uppercase", marginBottom:10 }}>What's included</div>
+        <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,42px)", fontWeight:800,
+          color:"var(--primary)", letterSpacing:"0.02em" }}>A complete toolkit for your club</h2>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))", gap:20 }}>
+        {FEATURES.map(f=>(
+          <div key={f.title} style={{ background:"var(--bg2)", border:"1px solid var(--border)",
+            borderRadius:10, padding:24, transition:"box-shadow .2s",
+            boxShadow:"0 1px 3px rgba(0,0,0,.04)" }}>
+            <div style={{ fontSize:28, marginBottom:12 }}>{f.icon}</div>
+            <div style={{ fontFamily:"var(--font-b)", fontSize:15, fontWeight:700, color:"var(--text)",
+              marginBottom:6 }}>{f.title}</div>
+            <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>{f.desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    {/* Pricing */}
+    <section style={{ background:"var(--primary)", padding:"64px 24px" }}>
+      <div style={{ maxWidth:900, margin:"0 auto" }}>
+        <div style={{ textAlign:"center", marginBottom:48 }}>
+          <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
+            textTransform:"uppercase", marginBottom:10 }}>Pricing</div>
+          <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,42px)", fontWeight:800,
+            color:"white", letterSpacing:"0.02em" }}>Simple, club-friendly pricing</h2>
+          <p style={{ color:"rgba(255,255,255,.6)", fontSize:15, marginTop:10 }}>
+            Flat annual fee per club. No per-member charges.
+          </p>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:20 }}>
+          {PLANS.map(plan=>(
+            <div key={plan.id} style={{ background: plan.highlight ? "var(--gold)" : "rgba(255,255,255,.06)",
+              border: plan.highlight ? "none" : "1px solid rgba(255,255,255,.1)",
+              borderRadius:12, padding:28, position:"relative" }}>
+              {plan.highlight && <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)",
+                background:"var(--primary)", color:"var(--gold)", fontFamily:"var(--font-m)", fontSize:10,
+                fontWeight:700, letterSpacing:"0.15em", padding:"4px 14px", borderRadius:20,
+                border:"1px solid var(--gold)", textTransform:"uppercase" }}>Most Popular</div>}
+              <div style={{ fontFamily:"var(--font-h)", fontSize:22, fontWeight:700,
+                color: plan.highlight ? "var(--primary)" : "white",
+                letterSpacing:"0.1em", marginBottom:4 }}>{plan.name}</div>
+              <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:12 }}>
+                <span style={{ fontFamily:"var(--font-h)", fontSize:42, fontWeight:900,
+                  color: plan.highlight ? "var(--primary)" : "var(--gold)" }}>A${plan.price}</span>
+                <span style={{ fontSize:13, color: plan.highlight ? "rgba(42,58,74,.6)" : "rgba(255,255,255,.5)" }}>/{plan.period}</span>
+              </div>
+              <div style={{ fontSize:13, color: plan.highlight ? "rgba(42,58,74,.75)" : "rgba(255,255,255,.6)",
+                marginBottom:20, lineHeight:1.6 }}>{plan.desc}</div>
+              <ul style={{ listStyle:"none" }}>
+                {plan.features.map(feat=>(
+                  <li key={feat} style={{ display:"flex", gap:8, alignItems:"flex-start",
+                    fontSize:13, color: plan.highlight ? "var(--primary)" : "rgba(255,255,255,.8)",
+                    marginBottom:8, lineHeight:1.5 }}>
+                    <span style={{ color: plan.highlight ? "var(--primary)" : "var(--gold)",
+                      fontWeight:700, flexShrink:0 }}>✓</span>
+                    {feat}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div style={{ textAlign:"center", marginTop:32, fontSize:13, color:"rgba(255,255,255,.4)" }}>
+          All plans include setup support and access to new features as they're released.
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section style={{ maxWidth:720, margin:"0 auto", padding:"72px 24px", textAlign:"center" }}>
+      <h2 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(26px,4vw,40px)", fontWeight:800,
+        color:"var(--primary)", letterSpacing:"0.02em", marginBottom:16 }}>
+        Ready to streamline your club?
+      </h2>
+      <p style={{ fontSize:15, color:"var(--text3)", lineHeight:1.7, marginBottom:32 }}>
+        See TorqueClub in action with our live demo — pre-loaded with sample data so you can explore every feature.
+      </p>
+      <a href="https://demo.torqueclub.com.au" target="_blank" rel="noopener noreferrer"
+        style={{ display:"inline-block", padding:"13px 32px", background:"var(--gold)",
+          color:"var(--primary)", borderRadius:8, fontWeight:700, fontSize:15, fontFamily:"var(--font-b)" }}>
+        Explore the Demo Portal →
+      </a>
+    </section>
+  </div>;
+}
+
+// ── Member Clubs page ─────────────────────────────────────────────────────────
+function ClubsPage() {
+  const [clubs, setClubs]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const snap = await db.collection("clubs").get();
+        const raw  = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        // For each active club, try to fetch accountSettings
+        const withSettings = await Promise.all(raw.map(async club => {
+          if (club.status !== "active") return null;
+          try {
+            const doc = await db.collection("clubs").doc(club.id).collection("data").doc("accountSettings").get();
+            const acct = doc.exists ? JSON.parse(doc.data().value) : {};
+            return { ...club, acct };
+          } catch(e) {
+            return { ...club, acct:{} };
+          }
+        }));
+        setClubs(withSettings.filter(Boolean));
+      } catch(e) { console.error("loadClubs:", e); }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  if (loading) return <LoadingPage/>;
+
+  return <div className="fade-up" style={{ maxWidth:1120, margin:"0 auto", padding:"48px 24px" }}>
+    <div style={{ marginBottom:40 }}>
+      <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
+        textTransform:"uppercase", marginBottom:8 }}>Directory</div>
+      <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,44px)", fontWeight:800,
+        color:"var(--primary)", letterSpacing:"0.02em" }}>Member Clubs</h1>
+      <p style={{ fontSize:15, color:"var(--text3)", marginTop:8 }}>
+        Australian vehicle enthusiast clubs powered by TorqueClub.
+      </p>
+    </div>
+
+    {clubs.length === 0 && (
+      <div style={{ textAlign:"center", padding:"60px 0", color:"var(--text4)", fontSize:14 }}>
+        No clubs listed yet.
+      </div>
+    )}
+
+    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:20 }}>
+      {clubs.map(club=>{
+        const a = club.acct || {};
+        const logo    = a.logo || null;
+        const blurb   = a.blurb || "";
+        const website = a.website || club.netlifyUrl || "";
+        const name    = a.registeredName || a.tradingName || club.name || club.id;
+        return (
+          <div key={club.id} style={{ background:"var(--bg2)", border:"1px solid var(--border)",
+            borderRadius:12, padding:24, display:"flex", flexDirection:"column", gap:12 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:14, minHeight:52 }}>
+              {logo
+                ? <img src={logo} alt={name} style={{ height:52, width:"auto", maxWidth:100,
+                    objectFit:"contain", flexShrink:0 }}/>
+                : <div style={{ width:52, height:52, background:"var(--primary)", borderRadius:8,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    flexShrink:0, fontFamily:"var(--font-h)", fontSize:20, fontWeight:900,
+                    color:"var(--gold)", letterSpacing:"0.08em" }}>
+                    {(name||"?")[0].toUpperCase()}
+                  </div>
+              }
+              <div style={{ fontFamily:"var(--font-b)", fontSize:15, fontWeight:700, color:"var(--text)" }}>
+                {name}
+              </div>
+            </div>
+            {blurb && <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>{blurb}</div>}
+            {website && (
+              <a href={website.startsWith("http")?website:"https://"+website}
+                target="_blank" rel="noopener noreferrer"
+                style={{ fontSize:13, color:"var(--gold)", fontWeight:600,
+                  display:"inline-flex", alignItems:"center", gap:4 }}>
+                Visit Club Portal →
+              </a>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>;
+}
+
+// ── Events page ───────────────────────────────────────────────────────────────
+function EventsPage() {
+  const [events, setEvents]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView]       = useState("list"); // list | calendar
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const snap = await db.collection("platform").doc("events").collection("queue")
+          .where("status","==","approved").get();
+        const items = snap.docs.map(d => ({ docId:d.id, ...d.data() }));
+        items.sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+        setEvents(items);
+      } catch(e) { console.error("loadEvents:", e); }
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const typeIcon = {show:"🏆",drive:"🚗",social:"🥂",charity:"❤️",competition:"🏁"};
+  const typeName = {show:"Show",drive:"Drive",social:"Social",charity:"Charity",competition:"Competition"};
+
+  const upcoming = events.filter(e => e.date >= new Date().toISOString().slice(0,10));
+  const past     = events.filter(e => e.date <  new Date().toISOString().slice(0,10));
+
+  if (loading) return <LoadingPage/>;
+
+  function CalendarView() {
+    const today = new Date();
+    const [month, setMonth] = useState(today.getMonth());
+    const [year,  setYear]  = useState(today.getFullYear());
+
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const firstDay    = new Date(year, month, 1).getDay(); // 0=Sun
+    const monthName   = new Date(year, month, 1).toLocaleDateString("en-AU",{month:"long",year:"numeric"});
+
+    const cells = [];
+    for (let i=0; i<firstDay; i++) cells.push(null);
+    for (let d=1; d<=daysInMonth; d++) cells.push(d);
+
+    function eventsOnDay(d) {
+      const str = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      return events.filter(e => e.date===str);
+    }
+
+    return <div>
+      <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:20 }}>
+        <button onClick={()=>{ const m=month-1<0?11:month-1; setMonth(m); if(m===11)setYear(y=>y-1); }}
+          style={{ background:"none", border:"1px solid var(--border)", borderRadius:6, padding:"6px 12px",
+            cursor:"pointer", fontSize:16, color:"var(--text2)" }}>‹</button>
+        <div style={{ flex:1, textAlign:"center", fontFamily:"var(--font-h)", fontSize:20,
+          fontWeight:700, color:"var(--primary)", letterSpacing:"0.06em" }}>{monthName}</div>
+        <button onClick={()=>{ const m=month+1>11?0:month+1; setMonth(m); if(m===0)setYear(y=>y+1); }}
+          style={{ background:"none", border:"1px solid var(--border)", borderRadius:6, padding:"6px 12px",
+            cursor:"pointer", fontSize:16, color:"var(--text2)" }}>›</button>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+        {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(
+          <div key={d} style={{ textAlign:"center", fontFamily:"var(--font-m)", fontSize:10,
+            color:"var(--text4)", padding:"6px 0", letterSpacing:"0.1em" }}>{d}</div>
+        ))}
+        {cells.map((d,i)=>{
+          const evs = d ? eventsOnDay(d) : [];
+          const isToday = d && today.getDate()===d && today.getMonth()===month && today.getFullYear()===year;
+          return <div key={i} style={{ minHeight:64, border:"1px solid var(--border)", borderRadius:6,
+            background: isToday ? "#fff8ed" : "var(--bg2)", padding:4,
+            borderColor: isToday ? "var(--gold)" : "var(--border)" }}>
+            {d && <div style={{ fontSize:11, fontWeight:isToday?700:400,
+              color:isToday?"var(--gold)":"var(--text3)", marginBottom:3 }}>{d}</div>}
+            {evs.map(ev=>(
+              <div key={ev.docId} title={ev.title}
+                style={{ fontSize:10, background:"var(--gold)", color:"var(--primary)",
+                  borderRadius:3, padding:"1px 5px", marginBottom:2, fontWeight:600,
+                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                  cursor:"pointer" }} onClick={()=>downloadICS(ev)}>
+                {typeIcon[ev.type]||"★"} {ev.title}
+              </div>
+            ))}
+          </div>;
+        })}
+      </div>
+      <div style={{ marginTop:12, fontSize:11, color:"var(--text4)", fontFamily:"var(--font-m)", textAlign:"center" }}>
+        Click an event on the calendar to download .ics
+      </div>
+    </div>;
+  }
+
+  function EventCard({ ev }) {
+    return <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:12,
+      padding:24, display:"flex", gap:16, alignItems:"flex-start", flexWrap:"wrap" }}>
+      <div style={{ fontSize:32, flexShrink:0 }}>{typeIcon[ev.type]||"★"}</div>
+      <div style={{ flex:1, minWidth:200 }}>
+        <div style={{ fontFamily:"var(--font-b)", fontSize:16, fontWeight:700, color:"var(--text)", marginBottom:4 }}>
+          {ev.title}
+        </div>
+        <div style={{ fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", marginBottom:6 }}>
+          {fmtDate(ev.date)}{ev.time?" · "+ev.time:""} · {typeName[ev.type]||ev.type}
+        </div>
+        <div style={{ fontSize:13, color:"var(--text2)", marginBottom:6 }}>📍 {ev.location}</div>
+        {ev.clubName && <div style={{ fontSize:12, color:"var(--text4)", marginBottom:8 }}>
+          Hosted by {ev.clubName}
+        </div>}
+        {ev.description && <div style={{ fontSize:13, color:"var(--text3)", lineHeight:1.6 }}>
+          {ev.description.slice(0,200)}{ev.description.length>200?"…":""}
+        </div>}
+      </div>
+      <button onClick={()=>downloadICS(ev)}
+        style={{ padding:"8px 16px", background:"none", border:"1px solid var(--border)",
+          borderRadius:7, fontSize:12, color:"var(--text2)", cursor:"pointer",
+          fontFamily:"var(--font-b)", fontWeight:600, flexShrink:0,
+          display:"flex", alignItems:"center", gap:6 }}>
+        📅 Add to Calendar
+      </button>
+    </div>;
+  }
+
+  return <div className="fade-up" style={{ maxWidth:1120, margin:"0 auto", padding:"48px 24px" }}>
+    <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between",
+      marginBottom:32, flexWrap:"wrap", gap:16 }}>
+      <div>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--gold)", letterSpacing:"0.2em",
+          textTransform:"uppercase", marginBottom:8 }}>Community Calendar</div>
+        <h1 style={{ fontFamily:"var(--font-h)", fontSize:"clamp(28px,4vw,44px)", fontWeight:800,
+          color:"var(--primary)", letterSpacing:"0.02em" }}>Upcoming Events</h1>
+        <p style={{ fontSize:15, color:"var(--text3)", marginTop:8 }}>
+          Events from TorqueClub member clubs across Australia.
+        </p>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={()=>setView("list")}
+          style={{ padding:"8px 16px", border:"1px solid var(--border)", borderRadius:7, cursor:"pointer",
+            fontSize:13, fontWeight:600, fontFamily:"var(--font-b)",
+            background:view==="list"?"var(--primary)":"var(--bg2)",
+            color:view==="list"?"white":"var(--text2)" }}>
+          List
+        </button>
+        <button onClick={()=>setView("calendar")}
+          style={{ padding:"8px 16px", border:"1px solid var(--border)", borderRadius:7, cursor:"pointer",
+            fontSize:13, fontWeight:600, fontFamily:"var(--font-b)",
+            background:view==="calendar"?"var(--primary)":"var(--bg2)",
+            color:view==="calendar"?"white":"var(--text2)" }}>
+          Calendar
+        </button>
+      </div>
+    </div>
+
+    {view==="calendar" && <CalendarView/>}
+
+    {view==="list" && <>
+      {upcoming.length===0 && past.length===0 && (
+        <div style={{ textAlign:"center", padding:"60px 0", color:"var(--text4)", fontSize:14 }}>
+          No events currently listed.
+        </div>
+      )}
+      {upcoming.length>0 && <>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", letterSpacing:"0.12em",
+          textTransform:"uppercase", marginBottom:12 }}>Upcoming ({upcoming.length})</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:36 }}>
+          {upcoming.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
+        </div>
+      </>}
+      {past.length>0 && <>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", letterSpacing:"0.12em",
+          textTransform:"uppercase", marginBottom:12 }}>Past Events ({past.length})</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:12, opacity:0.6 }}>
+          {past.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
+        </div>
+      </>}
+    </>}
+  </div>;
+}
+
+// ── Loading ───────────────────────────────────────────────────────────────────
+function LoadingPage() {
+  return <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+    minHeight:"40vh", gap:12, color:"var(--text4)", fontSize:14, fontFamily:"var(--font-m)" }}>
+    <div style={{ width:18, height:18, border:"2px solid var(--border)", borderTopColor:"var(--gold)",
+      borderRadius:"50%", animation:"spin .7s linear infinite" }}/>
+    Loading…
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  </div>;
+}
+
+// ── Footer ────────────────────────────────────────────────────────────────────
+function Footer({ setPage }) {
+  return <footer style={{ background:"var(--primary2)", borderTop:"3px solid var(--gold)",
+    padding:"32px 24px", marginTop:64 }}>
+    <div style={{ maxWidth:1120, margin:"0 auto", display:"flex", alignItems:"center",
+      justifyContent:"space-between", flexWrap:"wrap", gap:16 }}>
+      <div>
+        <div style={{ fontFamily:"var(--font-h)", fontSize:18, fontWeight:900, color:"var(--gold)",
+          letterSpacing:"0.18em", marginBottom:4 }}>TORQUECLUB</div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,.3)", fontFamily:"var(--font-m)" }}>
+          Club Management Platform · Australia
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:20 }}>
+        {[["home","Home"],["clubs","Member Clubs"],["events","Events"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setPage(id)} style={{ background:"none", border:"none",
+            cursor:"pointer", fontSize:13, color:"rgba(255,255,255,.45)", fontFamily:"var(--font-b)" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize:12, color:"rgba(255,255,255,.2)", fontFamily:"var(--font-m)" }}>
+        © {new Date().getFullYear()} TorqueClub
+      </div>
+    </div>
+  </footer>;
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [page, setPage] = useState("home");
+
+  // Sync scroll to top on page change
+  useEffect(() => { window.scrollTo(0,0); }, [page]);
+
+  return <>
+    <Nav page={page} setPage={setPage}/>
+    {page==="home"   && <HomePage  setPage={setPage}/>}
+    {page==="clubs"  && <ClubsPage/>}
+    {page==="events" && <EventsPage/>}
+    <Footer setPage={setPage}/>
+  </>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>

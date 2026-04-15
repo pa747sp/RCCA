@@ -641,6 +641,7 @@ function ClubDetail({ club, plans, onSave, onBack, onDelete }) {
   const [invoices, setInvoices]       = useState([]);
   const [invLoading, setInvLoading]   = useState(true);
   const [showInvModal, setShowInvModal] = useState(false);
+  const [acctSettings, setAcctSettings] = useState(null);
 
   useEffect(() => {
     db.collection('clubs').doc(club.id).collection('invoices')
@@ -651,6 +652,15 @@ function ClubDetail({ club, plans, onSave, onBack, onDelete }) {
         setInvLoading(false);
       })
       .catch(() => setInvLoading(false));
+
+    db.collection('clubs').doc(club.id).collection('data').doc('accountSettings')
+      .get()
+      .then(doc => {
+        if (doc.exists) {
+          try { setAcctSettings(JSON.parse(doc.data().value)); } catch(e) {}
+        }
+      })
+      .catch(()=>{});
   }, [club.id]);
 
   function upd(k,v) { setForm(f=>({...f,[k]:v})); setSaved(false); }
@@ -730,6 +740,27 @@ function ClubDetail({ club, plans, onSave, onBack, onDelete }) {
       </Card>
     </div>
 
+    {/* Club Profile (from accountSettings) */}
+    {acctSettings && (acctSettings.logo || acctSettings.blurb || acctSettings.website) && (
+      <Card style={{ padding:20, marginBottom:24 }}>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase",
+          letterSpacing:"0.1em", marginBottom:16 }}>Club Profile (from portal Account settings)</div>
+        <div style={{ display:"flex", alignItems:"flex-start", gap:20, flexWrap:"wrap" }}>
+          {acctSettings.logo && <img src={acctSettings.logo} alt="Club logo"
+            style={{ height:72, width:"auto", maxWidth:160, objectFit:"contain",
+              border:"1px solid var(--border)", borderRadius:8, padding:6, background:"white", flexShrink:0 }}/>}
+          <div style={{ flex:1, minWidth:200 }}>
+            {acctSettings.blurb && <div style={{ fontSize:13, color:"var(--text2)", lineHeight:1.6, marginBottom:8 }}>{acctSettings.blurb}</div>}
+            {acctSettings.website && <a href={acctSettings.website.startsWith("http")?acctSettings.website:"https://"+acctSettings.website}
+              target="_blank" rel="noopener noreferrer"
+              style={{ fontSize:12, color:"var(--accent)", textDecoration:"none", fontFamily:"var(--font-m)" }}>
+              🌐 {acctSettings.website}
+            </a>}
+          </div>
+        </div>
+      </Card>
+    )}
+
     {/* Invoices */}
     <Card style={{ marginBottom:24 }}>
       <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border)",
@@ -798,6 +829,97 @@ function ClubDetail({ club, plans, onSave, onBack, onDelete }) {
         onCreated={inv=>{ setInvoices(is=>[inv,...is]); setShowInvModal(false); }}
       />
     )}
+  </div>;
+}
+
+// ── Events Queue ─────────────────────────────────────────────────────────────
+function EventsQueue() {
+  const [items, setItems]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [acting, setActing]     = useState(null);
+
+  useEffect(() => { loadQueue(); }, []);
+
+  async function loadQueue() {
+    setLoading(true);
+    try {
+      const snap = await db.collection("platform").doc("events").collection("queue").get();
+      setItems(snap.docs.map(d => ({ docId:d.id, ...d.data() })));
+    } catch(e) { console.error("loadQueue:", e); }
+    setLoading(false);
+  }
+
+  async function setStatus(docId, status) {
+    setActing(docId);
+    try {
+      await db.collection("platform").doc("events").collection("queue").doc(docId).update({ status, reviewedAt:new Date().toISOString() });
+      setItems(is => is.map(i => i.docId===docId ? {...i,status} : i));
+    } catch(e) { console.error("setStatus:", e); }
+    setActing(null);
+  }
+
+  const pending   = items.filter(i => i.status==="pending");
+  const reviewed  = items.filter(i => i.status!=="pending");
+
+  const typeIcon = {show:"🏆",drive:"🚗",social:"🥂",charity:"❤️",competition:"🏁"};
+
+  function EventCard({ ev }) {
+    const busy = acting===ev.docId;
+    return <div style={{ background:"var(--bg2)", border:"1px solid var(--border)", borderRadius:10, padding:20, marginBottom:12 }}>
+      <div style={{ display:"flex", alignItems:"flex-start", gap:16, flexWrap:"wrap" }}>
+        {ev.clubLogo && <img src={ev.clubLogo} alt="" style={{ height:48, width:"auto", maxWidth:90, objectFit:"contain", borderRadius:6, border:"1px solid var(--border)", background:"white", padding:4 }}/>}
+        <div style={{ flex:1, minWidth:200 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+            <span style={{ fontSize:18 }}>{typeIcon[ev.type]||"★"}</span>
+            <span style={{ fontFamily:"var(--font-d)", fontSize:16, fontWeight:700 }}>{ev.title}</span>
+            <StatusBadge status={ev.status}/>
+          </div>
+          <div style={{ fontSize:12, color:"var(--text3)", fontFamily:"var(--font-m)", marginBottom:4 }}>
+            {ev.clubName||ev.clubId} · {ev.date} · {ev.time}
+          </div>
+          <div style={{ fontSize:12, color:"var(--text2)", marginBottom:4 }}>📍 {ev.location}</div>
+          {ev.description && <div style={{ fontSize:12, color:"var(--text2)", lineHeight:1.5, marginBottom:8 }}>{ev.description?.slice(0,200)}{ev.description?.length>200?"…":""}</div>}
+          <div style={{ fontSize:11, color:"var(--text4)", fontFamily:"var(--font-m)" }}>
+            Submitted: {ev.submittedAt ? new Date(ev.submittedAt).toLocaleDateString("en-AU") : "—"}
+          </div>
+        </div>
+        {ev.status==="pending" && <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+          <Btn size="sm" onClick={()=>setStatus(ev.docId,"approved")} disabled={busy}>
+            {busy?"…":"✓ Approve"}
+          </Btn>
+          <Btn size="sm" variant="danger" onClick={()=>setStatus(ev.docId,"rejected")} disabled={busy}>
+            {busy?"…":"✗ Reject"}
+          </Btn>
+        </div>}
+        {ev.status!=="pending" && <StatusBadge status={ev.status}/>}
+      </div>
+    </div>;
+  }
+
+  return <div className="fade-up">
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24 }}>
+      <div>
+        <h1 style={{ fontFamily:"var(--font-d)", fontSize:24, fontWeight:700, marginBottom:4 }}>Events Queue</h1>
+        <div style={{ fontSize:13, color:"var(--text3)" }}>Events submitted by clubs for the TC public directory.</div>
+      </div>
+      <Btn variant="ghost" size="sm" onClick={loadQueue}>↻ Refresh</Btn>
+    </div>
+
+    {loading && <Spinner/>}
+    {!loading && <>
+      <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12 }}>
+        Pending Review ({pending.length})
+      </div>
+      {pending.length===0 && <div style={{ padding:"32px 0", textAlign:"center", color:"var(--text4)", fontSize:13, marginBottom:32 }}>No pending events.</div>}
+      {pending.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
+
+      {reviewed.length>0 && <>
+        <div style={{ fontFamily:"var(--font-m)", fontSize:11, color:"var(--text3)", textTransform:"uppercase", letterSpacing:"0.1em", marginBottom:12, marginTop:32 }}>
+          Reviewed ({reviewed.length})
+        </div>
+        {reviewed.map(ev=><EventCard key={ev.docId} ev={ev}/>)}
+      </>}
+    </>}
   </div>;
 }
 
@@ -1245,10 +1367,11 @@ function PlansSection({ plans, features, onPlansChange }) {
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
-  { id:"dashboard", icon:"⊞", label:"Dashboard" },
-  { id:"clubs",     icon:"◉", label:"Clubs"     },
-  { id:"plans",     icon:"◈", label:"Plans"     },
-  { id:"features",  icon:"★", label:"Features"  },
+  { id:"dashboard", icon:"⊞", label:"Dashboard"    },
+  { id:"clubs",     icon:"◉", label:"Clubs"        },
+  { id:"events",    icon:"📅", label:"Events Queue" },
+  { id:"plans",     icon:"◈", label:"Plans"        },
+  { id:"features",  icon:"★", label:"Features"     },
 ];
 
 function Sidebar({ tab, setTab, userEmail, onSignOut }) {
@@ -1413,6 +1536,8 @@ function App() {
           onBack={()=>setClubsView("list")}
         />
       )}
+
+      {!loading && tab==="events" && <EventsQueue/>}
 
       {!loading && tab==="plans" && (
         <PlansSection

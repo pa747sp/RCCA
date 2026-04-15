@@ -3000,6 +3000,22 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
   }
   async function del(id){const u=events.filter(e=>e.id!==id);setEvents(u);await dbSet(SK.events,u);setModal(null);setView(null);}
 
+  const [tcSubmitted,setTcSubmitted]=useState({});
+  async function submitToTC(ev){
+    try{
+      const docId=CLUB_ID+"_"+ev.id;
+      await db.collection("platform").doc("events").collection("queue").doc(docId).set({
+        status:"pending",clubId:CLUB_ID,
+        clubName:(accountSettings&&accountSettings.registeredName)||CLUB_CONFIG.name,
+        clubLogo:(accountSettings&&accountSettings.logo)||null,
+        eventId:ev.id,title:ev.title,date:ev.date,time:ev.time||"",
+        location:ev.location||"",type:ev.type||"",description:ev.description||"",
+        maxAttendees:ev.maxAttendees||0,submittedAt:new Date().toISOString()
+      });
+      setTcSubmitted(p=>({...p,[ev.id]:true}));
+    }catch(e){console.error("submitToTC error",e);}
+  }
+
   const myR=eid=>rsvps.find(r=>r.eventId===eid&&r.memberId===user.id);
 
   function openRsvp(ev){
@@ -3071,9 +3087,12 @@ function EventsSection({ user, members, events, setEvents, rsvps, setRsvps, chec
                 }
               </div>}
               {isAdmin&&ev.status==="upcoming"&&(
-                <div onClick={e=>e.stopPropagation()} style={{padding:"0 0 4px",borderTop:"1px solid var(--border2)",marginTop:8,paddingTop:10}}>
+                <div onClick={e=>e.stopPropagation()} style={{padding:"0 0 4px",borderTop:"1px solid var(--border2)",marginTop:8,paddingTop:10,display:"flex",flexDirection:"column",gap:6}}>
                   <button onClick={()=>setShowWorkflow(ev)} style={{width:"100%",padding:"6px 0",background:"none",border:"1px solid var(--burg)",borderRadius:5,color:"var(--burg)",fontSize:12,fontWeight:700,cursor:"pointer"}}>
                     ⚙ Event Workflow & Risk Plan
+                  </button>
+                  <button onClick={()=>submitToTC(ev)} disabled={!!tcSubmitted[ev.id]} style={{width:"100%",padding:"6px 0",background:tcSubmitted[ev.id]?"#e8f5ee":"none",border:"1px solid "+(tcSubmitted[ev.id]?"var(--green2)":"var(--gold)"),borderRadius:5,color:tcSubmitted[ev.id]?"var(--green)":"var(--gold)",fontSize:12,fontWeight:700,cursor:tcSubmitted[ev.id]?"default":"pointer"}}>
+                    {tcSubmitted[ev.id]?"✓ Submitted to TC Directory":"🌐 Submit to TC Directory"}
                   </button>
                 </div>
               )}
@@ -12426,7 +12445,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
     facebook:"", instagram:"", youtube:"", twitter:"",
     emailMembership:CLUB_CONFIG.emailMembership||"", emailEvents:CLUB_CONFIG.emailEvents||"",
     emailTech:CLUB_CONFIG.emailTech||"", emailMerchandise:CLUB_CONFIG.emailMerchandise||"", emailNewsletter:"",
-    venues:[], storageLocations:[],
+    blurb:"", venues:[], storageLocations:[],
   };
 
   const [tab,setTab]=React.useState("identity");
@@ -12584,6 +12603,12 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
               <SSelect label="Financial Year End" value={form.financialYearEnd} onChange={e=>f("financialYearEnd",e.target.value)} half>
                 {FY_OPTIONS.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
               </SSelect>
+            </div>
+            <div style={{marginBottom:16}}>
+              <SLabel>Club Blurb</SLabel>
+              <textarea value={form.blurb||""} onChange={e=>f("blurb",e.target.value)} placeholder="A short description of your club — shown on the TorqueClub directory and public pages." rows={4}
+                style={{width:"100%",padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:14,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none",resize:"vertical",boxSizing:"border-box"}}/>
+              <div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>Max ~280 characters. Shown on TorqueClub member club directory.</div>
             </div>
             <SaveBar/>
           </div>
