@@ -30,6 +30,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
   var firebaseConfig = {
     apiKey: "AIzaSyBr5izWhkBc2qSsir5dbWXbbkLBMizwYXc",
@@ -5175,17 +5176,18 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
 
 
 const DEFAULT_CATEGORIES = {
-  memberType:   ["City","Country","Associate","Life","Honorary"],
-  eventType:    ["show","drive","social","charity","competition"],
-  meetingType:  ["general","committee","extraordinary","social"],
-  taskPriority: ["high","medium","low"],
-  listingType:  ["sell","wanted","swap"],
-  listingCat:   ["car","parts","memorabilia","manuals","tools","other"],
-  shopCat:      ["apparel","badges","publications","merchandise","tools","other"],
-  expenseCat:   ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
-  dietary:      ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
-  vehicleStatus:["active","sold","destroyed","restoration"],
-  taskTag:      ["admin","legal","events","nationals","design","maintenance","finance"],
+  memberType:      ["City","Country","Associate","Life","Honorary"],
+  eventType:       ["show","drive","social","charity","competition"],
+  meetingType:     ["general","committee","extraordinary","social"],
+  taskPriority:    ["high","medium","low"],
+  listingType:     ["sell","wanted","swap"],
+  listingCat:      ["car","parts","memorabilia","manuals","tools","other"],
+  shopCat:         ["apparel","badges","publications","merchandise","tools","other"],
+  expenseCat:      ["Hall Hire","Printing","Insurance","Trophies & Awards","Catering","Postage","Website","Administration","Equipment","Other"],
+  dietary:         ["None","Vegetarian","Vegan","Gluten free","Halal","Kosher","Nut allergy","Dairy free","Other"],
+  vehicleStatus:   ["active","sold","destroyed","restoration"],
+  taskTag:         ["admin","legal","events","nationals","design","maintenance","finance"],
+  contactCategory: ["Supplier","Sponsor","Media","Government","Venue","Industry","Other"],
 };
 
 function getCats(categories){ return categories ? {...DEFAULT_CATEGORIES,...categories} : DEFAULT_CATEGORIES; }
@@ -5933,7 +5935,7 @@ function GallerySectionPlaceholder({onView}) {
 
 // ── ADMINISTRATION SECTION (consolidated) ───────────────────────────────────
 function AdminHubSection(sp) {
-  const [tab,setTab]=React.useState("contacts");
+  const [tab,setTab]=React.useState("finance");
   const tabBtn=(id,label)=>(
     <button onClick={()=>setTab(id)} style={{padding:"10px 24px",background:tab===id?"white":"transparent",border:"none",
       borderBottom:tab===id?"3px solid var(--burg)":"3px solid transparent",
@@ -5946,14 +5948,12 @@ function AdminHubSection(sp) {
   return(
     <div>
       <div style={{background:"var(--bg2)",borderBottom:"3px solid var(--burg)",padding:"4px 24px 0",display:"flex",gap:0,boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
-        {tabBtn("contacts","Contacts")}
         {tabBtn("finance","Finance")}
         {tabBtn("categories","Categories")}
         {tabBtn("import","Bulk Import")}
         {tabBtn("permissions","Permissions")}
       </div>
       <div style={{paddingTop:8}}>
-        {tab==="contacts"&&<ContactsSection user={sp.user} contacts={sp.contacts} setContacts={sp.setContacts} members={sp.members}/>}
         {tab==="finance"&&<FinanceSection members={sp.members} dues={sp.dues} orders={sp.orders} rsvps={sp.rsvps} events={sp.events} expenses={sp.expenses} setExpenses={sp.setExpenses} finSettings={sp.finSettings} setFinSettings={sp.setFinSettings} cars={sp.cars} contacts={sp.contacts} setContacts={sp.setContacts} partsInventory={sp.partsInventory} shopItems={sp.shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
         {tab==="categories"&&<CategoriesSection categories={sp.categories} setCategories={sp.setCategories}/>}
         {tab==="import"&&<BulkImportSection members={sp.members} setMembers={sp.setMembers} cars={sp.cars} setCars={sp.setCars} dues={sp.dues} setDues={sp.setDues}/>}
@@ -9054,7 +9054,6 @@ function App() {// ════════════════════�
             {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
             {tab==="account"      &&user.role==="admin"&&<AccountSection {...sp}/>}
-            {tab==="contacts"   &&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
@@ -9547,6 +9546,7 @@ const CAT_META = {
   dietary:      {label:"Dietary Requirements",     desc:"Options shown on event registration forms"},
   vehicleStatus:{label:"Vehicle Statuses",         desc:"Status options in the vehicle register"},
   taskTag:      {label:"Task Tags",                desc:"Tags that can be applied to tasks"},
+  contactCategory:{label:"Contact Categories",     desc:"Categories for external contacts in the Communications contact list"},
 };
 
 function CategoriesSection({ categories, setCategories }) {
@@ -13047,7 +13047,6 @@ function AdministrationSection(sp) {
   const [tab,setTab]=React.useState("finance");
   const tabs=[
     {id:"finance",label:"Finance",count:0},
-    {id:"contacts",label:"Contacts",count:0},
     {id:"permissions",label:"Permissions",count:0},
     {id:"categories",label:"Categories",count:0},
     {id:"import",label:"Bulk Import",count:0},
@@ -13057,7 +13056,6 @@ function AdministrationSection(sp) {
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
       {tab==="finance"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={sp.cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
-      {tab==="contacts"&&<ContactsSection user={user} contacts={contacts} setContacts={setContacts} members={members}/>}
       {tab==="permissions"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
       {tab==="categories"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
       {tab==="import"&&<BulkImportSection members={members} setMembers={setMembers} cars={sp.cars} setCars={sp.setCars} dues={dues} setDues={setDues}/>}
@@ -16414,7 +16412,7 @@ function CommunicationsSection(sp) {
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
       {tab==="email"&&<EmailBuilderSection user={user} members={members} contacts={contacts} dues={dues} emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} scheduledEmails={scheduledEmails} setScheduledEmails={setScheduledEmails}/>}
-      {tab==="contacts"&&<CommContactListSection user={user} members={members} contacts={contacts} setContacts={setContacts} dues={dues} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates}/>}
+      {tab==="contacts"&&<CommContactListSection user={user} members={members} contacts={contacts} setContacts={setContacts} dues={dues} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} categories={sp.categories}/>}
       {tab==="website"&&<WebsiteSection user={user} siteContent={siteContent} setSiteContent={setSiteContent} news={news} setNews={setNews} pages={pages} setPages={setPages} gallery={gallery} setGallery={setGallery} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
       {tab==="newsletter"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts} points={points} competitions={competitions} polls={polls}/>}
     </div>
@@ -16423,7 +16421,7 @@ function CommunicationsSection(sp) {
 
 // ── EMAIL BUILDER ─────────────────────────────────────────────────────────────
 function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails}) {
-  const BLANK={fromAddress:(user?.email||""),subject:"",body:"",recipientType:"members",memberFilter:"current",selectedContactIds:[],groupId:"",sendNow:true,scheduledAt:"",scheduledTime:"09:00"};
+  const BLANK={fromAddress:(user?.email||""),subject:"",body:"",recipientType:"members",memberFilter:"current",selectedContactIds:[],groupId:"",sendNow:true,scheduledAt:"",scheduledTime:"09:00",attachments:[]};
   const [mode,setMode]=React.useState("compose"); // compose|log|templates|scheduled
   const [form,setForm]=React.useState(BLANK);
   const [preview,setPreview]=React.useState(false);
@@ -16431,6 +16429,11 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
   const [savingTpl,setSavingTpl]=React.useState(false);
   const [toast,setToast]=React.useState("");
   const [editTpl,setEditTpl]=React.useState(null);
+  const [uploading,setUploading]=React.useState(false);
+  const [mediaModal,setMediaModal]=React.useState(null); // null|"image"|"video"|"link"
+  const [mediaForm,setMediaForm]=React.useState({});
+  const bodyRef=React.useRef(null);
+  const attachInputRef=React.useRef(null);
 
   const groups=(emailTemplates.groups||[]);
   const templates=(emailTemplates.templates||[]);
@@ -16525,6 +16528,94 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
   }
 
   const memberTypes=[...new Set((members||[]).map(m=>m.membershipType).filter(Boolean))];
+
+  function insertAtCursor(html){
+    const ta=bodyRef.current;
+    const start=ta?ta.selectionStart:null;
+    const end=ta?ta.selectionEnd:null;
+    setForm(p=>{
+      const nb=start!==null?p.body.slice(0,start)+html+p.body.slice(end):p.body+html;
+      return {...p,body:nb};
+    });
+    if(ta){requestAnimationFrame(()=>{ta.focus();const pos=(start||0)+html.length;ta.setSelectionRange(pos,pos);});}
+  }
+
+  async function handleAttachFiles(e){
+    const files=Array.from(e.target.files);
+    if(!files.length)return;
+    setUploading(true);
+    const newAtts=[];
+    for(const file of files){
+      const id=uid("ATT");
+      try{
+        const ref=firebase.storage().ref(`clubs/${CLUB_ID}/emailAttachments/${id}/${file.name}`);
+        const snap=await ref.put(file);
+        const url=await snap.ref.getDownloadURL();
+        newAtts.push({id,name:file.name,size:file.size,url,type:file.type});
+      }catch(err){showToast("Upload failed: "+file.name);}
+    }
+    setUploading(false);
+    if(newAtts.length)setForm(p=>({...p,attachments:[...(p.attachments||[]),...newAtts]}));
+    e.target.value="";
+  }
+
+  function removeAttachment(id){setForm(p=>({...p,attachments:(p.attachments||[]).filter(a=>a.id!==id)}));}
+
+  function getVideoInfo(url){
+    if(!url)return null;
+    const yt=url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&?\s/]+)/);
+    if(yt)return{type:"youtube",id:yt[1],thumb:`https://img.youtube.com/vi/${yt[1]}/hqdefault.jpg`,embed:`https://www.youtube.com/embed/${yt[1]}`};
+    const vi=url.match(/vimeo\.com\/(\d+)/);
+    if(vi)return{type:"vimeo",id:vi[1],thumb:null,embed:`https://player.vimeo.com/video/${vi[1]}`};
+    return{type:"other",id:null,thumb:null,embed:null};
+  }
+
+  async function handleImageEmbed(){
+    const {imgFile,imgUrl,imgAlt}=mediaForm;
+    let src=imgUrl||"";
+    if(imgFile){
+      setUploading(true);
+      try{
+        const id=uid("IMG");
+        const ref=firebase.storage().ref(`clubs/${CLUB_ID}/emailAttachments/${id}/${imgFile.name}`);
+        const snap=await ref.put(imgFile);
+        src=await snap.ref.getDownloadURL();
+      }catch(err){showToast("Image upload failed.");setUploading(false);return;}
+      setUploading(false);
+    }
+    if(!src){showToast("Provide an image file or URL.");return;}
+    insertAtCursor(`<img src="${src}" alt="${imgAlt||""}" style="max-width:100%;height:auto;display:block;margin:10px 0;border-radius:4px;"/>`);
+    setMediaModal(null);setMediaForm({});
+  }
+
+  function handleVideoEmbed(){
+    const{videoUrl,videoCaption}=mediaForm;
+    if(!videoUrl){showToast("Enter a video URL.");return;}
+    const info=getVideoInfo(videoUrl);
+    let html="";
+    if(info?.type==="youtube"&&info.id){
+      html=`<div style="margin:12px 0;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="display:block;position:relative;max-width:480px;">`+
+        `<img src="${info.thumb}" alt="${videoCaption||"Watch video"}" style="width:100%;height:auto;display:block;border-radius:6px;"/>`+
+        `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;background:rgba(0,0,0,.65);border-radius:50%;display:flex;align-items:center;justify-content:center;">`+
+        `<span style="color:white;font-size:26px;margin-left:5px;">&#9654;</span></div></a>`+
+        `<p style="margin:6px 0 0;font-size:13px;"><a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="color:#0066cc;">${videoCaption||videoUrl}</a></p></div>`;
+    } else {
+      html=`<div style="margin:12px 0;"><p style="font-size:14px;">&#127909; <a href="${videoUrl}" target="_blank" rel="noopener noreferrer" style="color:#0066cc;">${videoCaption||videoUrl}</a></p></div>`;
+    }
+    insertAtCursor(html);setMediaModal(null);setMediaForm({});
+  }
+
+  function handleLinkInsert(){
+    const{linkUrl,linkText}=mediaForm;
+    if(!linkUrl){showToast("Enter a URL.");return;}
+    const ta=bodyRef.current;
+    const sel=ta?form.body.slice(ta.selectionStart,ta.selectionEnd):"";
+    const label=linkText||sel||linkUrl;
+    insertAtCursor(`<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" style="color:#0066cc;">${label}</a>`);
+    setMediaModal(null);setMediaForm({});
+  }
+
+  function fmtSize(b){if(b<1024)return b+"B";if(b<1048576)return (b/1024).toFixed(1)+"KB";return (b/1048576).toFixed(1)+"MB";}
 
   const modeBtn=(id,label,count)=>(
     <button onClick={()=>setMode(id)} style={{padding:"7px 16px",background:mode===id?"var(--burg)":"none",
@@ -16624,10 +16715,49 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
                 <label style={labelSt}>Body (HTML accepted)</label>
                 <button onClick={()=>setPreview(p=>!p)} style={{fontSize:11,color:"var(--burg)",background:"none",border:"none",cursor:"pointer",fontFamily:"var(--font-m)",fontWeight:600}}>{preview?"Hide Preview":"Show Preview"}</button>
               </div>
-              <textarea value={form.body} onChange={e=>f("body",e.target.value)}
+              {/* Media toolbar */}
+              <div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+                <button onClick={()=>{attachInputRef.current&&attachInputRef.current.click();}}
+                  style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+                  {uploading?"⏳ Uploading…":"📎 Attach File"}
+                </button>
+                <input ref={attachInputRef} type="file" multiple style={{display:"none"}} onChange={handleAttachFiles}/>
+                <button onClick={()=>{setMediaForm({});setMediaModal("image");}}
+                  style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600}}>
+                  🖼 Embed Image
+                </button>
+                <button onClick={()=>{setMediaForm({});setMediaModal("video");}}
+                  style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600}}>
+                  ▶ Embed Video
+                </button>
+                <button onClick={()=>{setMediaForm({});setMediaModal("link");}}
+                  style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600}}>
+                  🔗 Insert Link
+                </button>
+              </div>
+              <textarea ref={bodyRef} value={form.body} onChange={e=>f("body",e.target.value)}
                 style={{...inputSt,height:220,resize:"vertical",lineHeight:1.6}}
                 placeholder={"<p>Dear {name},</p>\n<p>Your message here.</p>"}/>
             </div>
+
+            {/* Attachments list */}
+            {(form.attachments||[]).length>0&&(
+              <div style={{marginBottom:14}}>
+                <label style={labelSt}>Attachments ({(form.attachments||[]).length})</label>
+                <div style={{border:"1px solid var(--border)",borderRadius:"var(--r)",overflow:"hidden"}}>
+                  {(form.attachments||[]).map(a=>(
+                    <div key={a.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderBottom:"1px solid var(--border)",background:"var(--bg2)"}}>
+                      <span style={{fontSize:16}}>{a.type?.startsWith("image/")?"🖼":a.type?.includes("pdf")?"📄":"📎"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <a href={a.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,fontWeight:600,color:"var(--burg)",textDecoration:"none",display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</a>
+                        <span style={{fontSize:10,color:"var(--text4)"}}>{fmtSize(a.size)}</span>
+                      </div>
+                      <button onClick={()=>removeAttachment(a.id)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--red)",fontSize:14,padding:"2px 6px",flexShrink:0}}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Scheduling */}
             <div style={{marginBottom:18,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:"var(--r)",padding:14}}>
@@ -16676,8 +16806,20 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
                 <div style={{fontSize:11,color:"var(--text4)",fontFamily:"var(--font-m)",marginBottom:2}}>FROM: {form.fromAddress||"—"}</div>
                 <div style={{fontSize:14,fontWeight:700,color:"var(--text)"}}>{form.subject||"(no subject)"}</div>
               </div>
-              <div style={{padding:"20px",maxHeight:500,overflowY:"auto",fontSize:14,color:"var(--text)",lineHeight:1.7}}
+              <div style={{padding:"20px",maxHeight:400,overflowY:"auto",fontSize:14,color:"var(--text)",lineHeight:1.7}}
                 dangerouslySetInnerHTML={{__html:form.body||"<p style='color:#aaa'>Body will appear here…</p>"}}/>
+              {(form.attachments||[]).length>0&&(
+                <div style={{padding:"12px 20px",borderTop:"1px solid var(--border)",background:"var(--bg3)"}}>
+                  <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text4)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:6}}>Attachments</div>
+                  {(form.attachments||[]).map(a=>(
+                    <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                      <span style={{fontSize:13}}>{a.type?.startsWith("image/")?"🖼":a.type?.includes("pdf")?"📄":"📎"}</span>
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"var(--burg)",textDecoration:"underline"}}>{a.name}</a>
+                      <span style={{fontSize:10,color:"var(--text4)"}}>({fmtSize(a.size)})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
         </div>
@@ -16751,12 +16893,77 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
           ))}
         </Card>
       )}
+
+      {/* ── MEDIA MODALS ── */}
+      {mediaModal==="image"&&(
+        <Modal title="Embed Image" onClose={()=>{setMediaModal(null);setMediaForm({});}}>
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)",display:"block"}}>Upload Image File</label>
+            <input type="file" accept="image/*" onChange={e=>setMediaForm(p=>({...p,imgFile:e.target.files[0]||null}))}
+              style={{fontSize:12,color:"var(--text)"}}/>
+          </div>
+          <div style={{textAlign:"center",fontSize:12,color:"var(--text4)",margin:"8px 0"}}>— or —</div>
+          <Field label="Image URL">
+            <Input value={mediaForm.imgUrl||""} onChange={e=>setMediaForm(p=>({...p,imgUrl:e.target.value}))} placeholder="https://…"/>
+          </Field>
+          <Field label="Alt Text (optional)">
+            <Input value={mediaForm.imgAlt||""} onChange={e=>setMediaForm(p=>({...p,imgAlt:e.target.value}))} placeholder="Description of the image"/>
+          </Field>
+          {(mediaForm.imgUrl||mediaForm.imgFile)&&!mediaForm.imgFile&&(
+            <div style={{marginBottom:12}}>
+              <img src={mediaForm.imgUrl} alt="preview" style={{maxWidth:"100%",maxHeight:160,borderRadius:6,border:"1px solid var(--border)"}} onError={e=>{e.target.style.display="none";}}/>
+            </div>
+          )}
+          <Row gap={8} style={{marginTop:8}}>
+            <Btn onClick={handleImageEmbed} disabled={uploading}>{uploading?"Uploading…":"Insert Image"}</Btn>
+            <Btn variant="ghost" onClick={()=>{setMediaModal(null);setMediaForm({});}}>Cancel</Btn>
+          </Row>
+        </Modal>
+      )}
+
+      {mediaModal==="video"&&(
+        <Modal title="Embed Video" onClose={()=>{setMediaModal(null);setMediaForm({});}}>
+          <Field label="YouTube or Vimeo URL">
+            <Input value={mediaForm.videoUrl||""} onChange={e=>setMediaForm(p=>({...p,videoUrl:e.target.value}))} placeholder="https://www.youtube.com/watch?v=… or https://vimeo.com/…"/>
+          </Field>
+          <Field label="Link Caption (optional)">
+            <Input value={mediaForm.videoCaption||""} onChange={e=>setMediaForm(p=>({...p,videoCaption:e.target.value}))} placeholder="Watch the video"/>
+          </Field>
+          {mediaForm.videoUrl&&(()=>{const info=getVideoInfo(mediaForm.videoUrl);return info?.thumb?(
+            <div style={{marginBottom:12,position:"relative",display:"inline-block",maxWidth:320}}>
+              <img src={info.thumb} alt="thumbnail" style={{width:"100%",borderRadius:6,border:"1px solid var(--border)"}}/>
+              <div style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",width:48,height:48,background:"rgba(0,0,0,.6)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <span style={{color:"white",fontSize:20,marginLeft:3}}>▶</span>
+              </div>
+            </div>
+          ):null;})()}
+          <Row gap={8} style={{marginTop:8}}>
+            <Btn onClick={handleVideoEmbed}>Insert Video</Btn>
+            <Btn variant="ghost" onClick={()=>{setMediaModal(null);setMediaForm({});}}>Cancel</Btn>
+          </Row>
+        </Modal>
+      )}
+
+      {mediaModal==="link"&&(
+        <Modal title="Insert Link" onClose={()=>{setMediaModal(null);setMediaForm({});}}>
+          <Field label="URL">
+            <Input value={mediaForm.linkUrl||""} onChange={e=>setMediaForm(p=>({...p,linkUrl:e.target.value}))} placeholder="https://…"/>
+          </Field>
+          <Field label="Link Text">
+            <Input value={mediaForm.linkText||""} onChange={e=>setMediaForm(p=>({...p,linkText:e.target.value}))} placeholder="Click here (leave blank to use selected text or URL)"/>
+          </Field>
+          <Row gap={8} style={{marginTop:8}}>
+            <Btn onClick={handleLinkInsert}>Insert Link</Btn>
+            <Btn variant="ghost" onClick={()=>{setMediaModal(null);setMediaForm({});}}>Cancel</Btn>
+          </Row>
+        </Modal>
+      )}
     </div>
   );
 }
 
 // ── COMMUNICATIONS CONTACT LIST ───────────────────────────────────────────────
-function CommContactListSection({user,members,contacts,setContacts,dues,emailTemplates,setEmailTemplates}) {
+function CommContactListSection({user,members,contacts,setContacts,dues,emailTemplates,setEmailTemplates,categories}) {
   const [subTab,setSubTab]=React.useState("all"); // all|members|external|groups
   const [search,setSearch]=React.useState("");
   const [modal,setModal]=React.useState(null);
@@ -16765,17 +16972,20 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
   const [grpForm,setGrpForm]=React.useState({});
   const groups=emailTemplates.groups||[];
 
+  const contactCats=getCats(categories).contactCategory||DEFAULT_CATEGORIES.contactCategory||[];
+
   function memberStatus(m){
     const d=dues?.find(x=>x.memberId===m.id&&x.year===(new Date().getFullYear()));
-    if(m.status==="pending") return "pending";
-    if(d?.paid) return "current";
-    return "expired";
+    if(m.status==="pending") return "Pending Member";
+    if(d?.paid) return "Current Member";
+    return "Expired Member";
   }
 
   const statusBadge=(s)=>{
-    const col={current:"var(--green)",expired:"var(--red)",pending:"var(--gold2)"};
+    const col={"Current Member":"var(--green)","Expired Member":"var(--red)","Pending Member":"var(--gold2)"};
     return <span style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:col[s]||"#888",color:"white",textTransform:"uppercase"}}>{s}</span>;
   };
+  const catBadge=(cat)=>(cat?<span style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",textTransform:"uppercase"}}>{cat}</span>:null);
 
   async function saveContacts(updated){setContacts(updated);await dbSet(SK.contacts,updated);}
   async function saveGroups(updatedGroups){
@@ -16937,6 +17147,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
               <div style={{flex:1}}>
                 <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
                   {c.name}
+                  {c.category&&catBadge(c.category)}
                   {c.unsubscribed&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
                 </div>
                 <div style={{fontSize:12,color:"var(--text3)"}}>{c.email||"— no email —"}{c.phone?" · "+c.phone:""}</div>
@@ -16957,6 +17168,12 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
           <Field label="Name"><Input value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field>
           <Field label="Email"><Input type="email" value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></Field>
           <Field label="Phone"><Input value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></Field>
+          <Field label="Category">
+            <select value={form.category||""} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)"}}>
+              <option value="">— None —</option>
+              {contactCats.map(c=><option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
           <Field label="Notes"><Textarea value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></Field>
           <Row gap={8} style={{marginTop:8}}>
             <Btn onClick={handleSaveContact}>Save</Btn>
