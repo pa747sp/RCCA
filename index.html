@@ -260,6 +260,7 @@ const SK = {
   emailLog:_id+":emailLog",
   emailTemplates:_id+":emailTemplates",
   scheduledEmails:_id+":scheduledEmails",
+  contactGroups:_id+":contactGroups",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -8805,17 +8806,18 @@ function App() {// ════════════════════�
   const [emailLog,setEmailLog]=useState([]);
   const [emailTemplates,setEmailTemplates]=useState({templates:[],groups:[]});
   const [scheduledEmails,setScheduledEmails]=useState([]);
+  const [contactGroups,setContactGroups]=useState([]);
 
   useEffect(()=>{
     (async()=>{
-      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv,accs,el,etpl,se]=await Promise.all([
+      const [m,c,tr,mt,ev,tk,d,r,li,si,or,nw,sc,ap,ex,fs,pm,tl,cat,msg,bk,pt,pi,qd,ad,ed,pts,fr,sup,pgs,gal,ci,ct,comps,pc,inc,pl,pcat,peoi,inv,accs,el,etpl,se,cgrps]=await Promise.all([
         dbGet(SK.members),dbGet(SK.cars),dbGet(SK.transfers),dbGet(SK.meetings),dbGet(SK.events),
         dbGet(SK.tasks),dbGet(SK.dues),dbGet(SK.rsvps),dbGet(SK.listings),dbGet(SK.shopItems),dbGet(SK.orders),dbGet(SK.news),dbGet(SK.siteContent),dbGet(SK.applications),
         dbGet(SK.expenses),dbGet(SK.finSettings),dbGet(SK.permits),dbGet(SK.tripLogs),dbGet(SK.categories),dbGet(SK.messages),dbGet(SK.books),
         dbGet(SK.parts),dbGet(SK.partsInventory),dbGet(SK.qualityDocs),dbGet(SK.archiveDocs),dbGet(SK.emailDrafts),dbGet(SK.points),dbGet(SK.forum),dbGet(SK.suppliers),dbGet(SK.pages),dbGet(SK.gallery),dbGet(SK.checkins),dbGet(SK.contacts),dbGet(SK.competitions),dbGet(SK.pendingCars),dbGet(SK.incidents),dbGet(SK.polls),
         dbGet(SK.partsCatalogue),dbGet(SK.partsEOI),
         dbGet(SK.invoices),dbGet(SK.accountSettings),
-        dbGet(SK.emailLog),dbGet(SK.emailTemplates),dbGet(SK.scheduledEmails)
+        dbGet(SK.emailLog),dbGet(SK.emailTemplates),dbGet(SK.scheduledEmails),dbGet(SK.contactGroups)
       ]);
       const fm=m||SEED_MEMBERS; const toArr = v => Array.isArray(v)?v:[];
       setMembers(Array.isArray(fm)?fm:SEED_MEMBERS);
@@ -8855,6 +8857,7 @@ function App() {// ════════════════════�
       setEmailLog(Array.isArray(el)?el:[]);
       setEmailTemplates((etpl&&typeof etpl==="object"&&!Array.isArray(etpl))?etpl:{templates:[],groups:[]});
       setScheduledEmails(Array.isArray(se)?se:[]);
+      setContactGroups(Array.isArray(cgrps)?cgrps:[]);
       if(!m)await dbSet(SK.members,SEED_MEMBERS);
       if(!c)await dbSet(SK.cars,SEED_CARS);
       if(!d)await dbSet(SK.dues,SEED_DUES);
@@ -8903,7 +8906,7 @@ function App() {// ════════════════════�
     marketplace: user?.role==="admin"?(listings||[]).filter(l=>l.status==="pending").length:0,
   };
 
-  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails};
+  const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,contactGroups,setContactGroups};
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
@@ -16399,7 +16402,7 @@ function MyPlanSection({ user }) {
 
 // ── COMMUNICATIONS SECTION ───────────────────────────────────────────────────
 function CommunicationsSection(sp) {
-  const {user,members,contacts,setContacts,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,dues,siteContent,setSiteContent,news,setNews,pages,setPages,gallery,setGallery,events,books,archiveDocs,listings,parts,points,competitions,polls} = sp;
+  const {user,members,contacts,setContacts,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,dues,siteContent,setSiteContent,news,setNews,pages,setPages,gallery,setGallery,events,books,archiveDocs,listings,parts,points,competitions,polls,contactGroups,setContactGroups} = sp;
   const [tab,setTab]=React.useState("email");
   const tabs=[
     {id:"email",    label:"Email Builder"},
@@ -16411,8 +16414,8 @@ function CommunicationsSection(sp) {
     <div>
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
-      {tab==="email"&&<EmailBuilderSection user={user} members={members} contacts={contacts} dues={dues} emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} scheduledEmails={scheduledEmails} setScheduledEmails={setScheduledEmails}/>}
-      {tab==="contacts"&&<CommContactListSection user={user} members={members} contacts={contacts} setContacts={setContacts} dues={dues} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} categories={sp.categories}/>}
+      {tab==="email"&&<EmailBuilderSection user={user} members={members} contacts={contacts} dues={dues} emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} scheduledEmails={scheduledEmails} setScheduledEmails={setScheduledEmails} contactGroups={contactGroups}/>}
+      {tab==="contacts"&&<CommContactListSection user={user} members={members} contacts={contacts} setContacts={setContacts} dues={dues} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} categories={sp.categories} contactGroups={contactGroups} setContactGroups={setContactGroups}/>}
       {tab==="website"&&<WebsiteSection user={user} siteContent={siteContent} setSiteContent={setSiteContent} news={news} setNews={setNews} pages={pages} setPages={setPages} gallery={gallery} setGallery={setGallery} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts}/>}
       {tab==="newsletter"&&<NewsletterBuilder user={user} members={members} events={events} books={books} archiveDocs={archiveDocs} listings={listings} parts={parts} points={points} competitions={competitions} polls={polls}/>}
     </div>
@@ -16420,7 +16423,7 @@ function CommunicationsSection(sp) {
 }
 
 // ── EMAIL BUILDER ─────────────────────────────────────────────────────────────
-function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails}) {
+function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,contactGroups}) {
   const BLANK={fromAddress:(user?.email||""),subject:"",body:"",recipientType:"members",memberFilter:"current",selectedContactIds:[],groupId:"",sendNow:true,scheduledAt:"",scheduledTime:"09:00",attachments:[]};
   const [mode,setMode]=React.useState("compose"); // compose|log|templates|scheduled
   const [form,setForm]=React.useState(BLANK);
@@ -16436,7 +16439,7 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
   const bodyRef=React.useRef(null);
   const attachInputRef=React.useRef(null);
 
-  const groups=(emailTemplates.groups||[]);
+  const groups=contactGroups||[];
   const templates=(emailTemplates.templates||[]);
 
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
@@ -16984,89 +16987,128 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
 }
 
 // ── COMMUNICATIONS CONTACT LIST ───────────────────────────────────────────────
-function CommContactListSection({user,members,contacts,setContacts,dues,emailTemplates,setEmailTemplates,categories}) {
-  const [subTab,setSubTab]=React.useState("all"); // all|members|external|groups
+function CommContactListSection({user,members,contacts,setContacts,dues,emailTemplates,setEmailTemplates,categories,contactGroups,setContactGroups}) {
+  const [subTab,setSubTab]=React.useState("all");
   const [search,setSearch]=React.useState("");
-  const [modal,setModal]=React.useState(null);
+  const [modal,setModal]=React.useState(null); // null | "add" | {edit:contact}
   const [form,setForm]=React.useState({});
-  const [grpModal,setGrpModal]=React.useState(null);
+  const [formErr,setFormErr]=React.useState("");
+  const [grpModal,setGrpModal]=React.useState(null); // null | "new" | {edit:group}
   const [grpForm,setGrpForm]=React.useState({});
-  const groups=emailTemplates.groups||[];
+  const groups=contactGroups||[];
 
   const contactCats=getCats(categories).contactCategory||DEFAULT_CATEGORIES.contactCategory||[];
 
+  const selSt={width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)"};
+  const rowSt={padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12};
+
   function memberStatus(m){
     const d=dues?.find(x=>x.memberId===m.id&&x.year===(new Date().getFullYear()));
-    if(m.status==="pending") return "Pending Member";
-    if(d?.paid) return "Current Member";
+    if(m.status==="pending")return "Pending Member";
+    if(d?.paid)return "Current Member";
     return "Expired Member";
   }
-
   const statusBadge=(s)=>{
     const col={"Current Member":"var(--green)","Expired Member":"var(--red)","Pending Member":"var(--gold2)"};
     return <span style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:col[s]||"#888",color:"white",textTransform:"uppercase"}}>{s}</span>;
   };
   const catBadge=(cat)=>(cat?<span style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:"var(--bg3)",border:"1px solid var(--border)",color:"var(--text3)",textTransform:"uppercase"}}>{cat}</span>:null);
+  const grpBadge=(name)=><span key={name} style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.1em",padding:"2px 7px",borderRadius:3,background:"var(--burg2)",color:"var(--burg-dk)",border:"1px solid var(--burg3)",textTransform:"uppercase"}}>{name}</span>;
+
+  function contactGroupNames(cid){return groups.filter(g=>(g.contactIds||[]).includes(cid)).map(g=>g.name);}
+  function contactFullName(c){
+    if(c.firstName||c.lastName)return `${c.firstName||""} ${c.lastName||""}`.trim();
+    return c.name||"";
+  }
 
   async function saveContacts(updated){setContacts(updated);await dbSet(SK.contacts,updated);}
-  async function saveGroups(updatedGroups){
-    const updated={...emailTemplates,groups:updatedGroups};
-    setEmailTemplates(updated);await dbSet(SK.emailTemplates,updated);
-  }
+  async function saveGroups(updated){setContactGroups(updated);await dbSet(SK.contactGroups,updated);}
 
   async function toggleUnsub(id,isExternal){
     if(isExternal){
-      const updated=(contacts||[]).map(c=>c.id===id?{...c,unsubscribed:!c.unsubscribed}:c);
-      await saveContacts(updated);
+      await saveContacts((contacts||[]).map(c=>c.id===id?{...c,unsubscribed:!c.unsubscribed}:c));
     } else {
-      // Members — store unsubscribed flag in contacts list as a special override
       const existing=(contacts||[]).find(c=>c._memberId===id);
       if(existing){
-        const updated=(contacts||[]).map(c=>c._memberId===id?{...c,unsubscribed:!c.unsubscribed}:c);
-        await saveContacts(updated);
+        await saveContacts((contacts||[]).map(c=>c._memberId===id?{...c,unsubscribed:!c.unsubscribed}:c));
       } else {
         const member=members.find(m=>m.id===id);
         await saveContacts([...(contacts||[]),{id:uid("MCO"),_memberId:id,name:member?.name||"",email:member?.email||"",unsubscribed:true}]);
       }
     }
   }
-
   function memberUnsubbed(id){return !!(contacts||[]).find(c=>c._memberId===id&&c.unsubscribed);}
 
-  function openAddContact(){setForm({name:"",email:"",phone:"",notes:"",unsubscribed:false});setModal("add");}
-  function openEditContact(c){setForm({...c});setModal({edit:c});}
-  async function handleSaveContact(){
-    if(!form.name?.trim()){return;}
-    if(modal==="add"){await saveContacts([...(contacts||[]),{...form,id:uid("EC"),createdAt:new Date().toISOString()}]);}
-    else{await saveContacts((contacts||[]).map(c=>c.id===form.id?{...form}:c));}
+  function openAdd(){
+    setForm({firstName:"",lastName:"",email:"",phone:"",category:"",notes:"",groupIds:[],unsubscribed:false});
+    setFormErr(""); setModal("add");
+  }
+  function openEdit(c){
+    const fn=c.firstName||(c.name?.split(" ")[0]||"");
+    const ln=c.lastName||(c.name?.split(" ").slice(1).join(" ")||"");
+    const cGrps=groups.filter(g=>(g.contactIds||[]).includes(c.id)).map(g=>g.id);
+    setForm({...c,firstName:fn,lastName:ln,groupIds:cGrps});
+    setFormErr(""); setModal({edit:c});
+  }
+  async function handleSave(){
+    const fn=(form.firstName||"").trim(); const ln=(form.lastName||"").trim();
+    if(!fn&&!ln){setFormErr("First or last name is required.");return;}
+    setFormErr("");
+    const fullName=`${fn} ${ln}`.trim();
+    const saved={...form,firstName:fn,lastName:ln,name:fullName};
+    const gIds=form.groupIds||[];
+    let updated;
+    if(modal==="add"){
+      const newC={...saved,id:uid("EC"),createdAt:new Date().toISOString()};
+      updated=[...(contacts||[]),newC];
+      await saveContacts(updated);
+      // add to selected groups
+      if(gIds.length){
+        await saveGroups(groups.map(g=>gIds.includes(g.id)?{...g,contactIds:[...(g.contactIds||[]),newC.id]}:g));
+      }
+    } else {
+      const cid=form.id;
+      updated=(contacts||[]).map(c=>c.id===cid?{...saved}:c);
+      await saveContacts(updated);
+      // update group membership: add to selected, remove from deselected
+      await saveGroups(groups.map(g=>{
+        const inSelected=gIds.includes(g.id);
+        const wasIn=(g.contactIds||[]).includes(cid);
+        if(inSelected&&!wasIn)return{...g,contactIds:[...(g.contactIds||[]),cid]};
+        if(!inSelected&&wasIn)return{...g,contactIds:(g.contactIds||[]).filter(x=>x!==cid)};
+        return g;
+      }));
+    }
     setModal(null);
   }
-  async function delContact(id){if(!window.confirm("Delete this contact?"))return;await saveContacts((contacts||[]).filter(c=>c.id!==id));}
+  async function delContact(c){
+    if(!window.confirm(`Delete "${contactFullName(c)}"? This cannot be undone.`))return;
+    await saveContacts((contacts||[]).filter(x=>x.id!==c.id));
+    // remove from all groups
+    await saveGroups(groups.map(g=>({...g,contactIds:(g.contactIds||[]).filter(x=>x!==c.id)})));
+  }
 
   function openNewGroup(){setGrpForm({id:uid("GRP"),name:"",contactIds:[]});setGrpModal("new");}
-  function openEditGroup(g){setGrpForm({...g,contactIds:[...(g.contactIds||[])]});setGrpModal("edit");}
-  async function saveGroup(){
+  function openEditGroup(g){setGrpForm({...g,contactIds:[...(g.contactIds||[])]});setGrpModal({edit:g});}
+  async function handleSaveGroup(){
     if(!grpForm.name?.trim())return;
     const updated=grpModal==="new"?[...groups,grpForm]:groups.map(g=>g.id===grpForm.id?grpForm:g);
-    await saveGroups(updated);setGrpModal(null);
+    await saveGroups(updated); setGrpModal(null);
   }
-  async function deleteGroup(id){await saveGroups(groups.filter(g=>g.id!==id));}
+  async function deleteGroup(g){
+    if(!window.confirm(`Delete group "${g.name}"? This cannot be undone.`))return;
+    await saveGroups(groups.filter(x=>x.id!==g.id));
+  }
 
   const externalContacts=(contacts||[]).filter(c=>!c._memberId);
-  const memberOverrides=(contacts||[]).filter(c=>c._memberId);
-
   const filteredMembers=(members||[]).filter(m=>{
     const txt=`${m.name} ${m.email||""}`.toLowerCase();
     return txt.includes(search.toLowerCase());
   });
   const filteredExternal=externalContacts.filter(c=>{
-    const txt=`${c.name} ${c.email||""}`.toLowerCase();
+    const txt=`${contactFullName(c)} ${c.email||""} ${c.phone||""}`.toLowerCase();
     return txt.includes(search.toLowerCase());
   });
-
-  const rowSt={padding:"10px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:12};
-  const labelSt={fontSize:11,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:"var(--text3)",marginBottom:4,fontFamily:"var(--font-m)",display:"block"};
-  const inputSt={width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"};
 
   const tabBtn=(id,label,count)=>(
     <button onClick={()=>setSubTab(id)} style={{padding:"6px 14px",border:"1px solid "+(subTab===id?"var(--burg)":"var(--border)"),
@@ -17075,6 +17117,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
       {label}{count!=null&&<span style={{background:subTab===id?"rgba(255,255,255,.2)":"var(--bg3)",color:subTab===id?"white":"var(--text3)",borderRadius:10,padding:"0 6px",fontSize:10}}>{count}</span>}
     </button>
   );
+  const inputSt={width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)",outline:"none"};
 
   return(
     <div style={{maxWidth:960}}>
@@ -17087,7 +17130,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
         <div style={{flex:1}}/>
         <input placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}
           style={{...inputSt,width:"auto",minWidth:180,flex:"0 0 auto"}}/>
-        {subTab==="external"&&<Btn size="sm" onClick={openAddContact}>+ Add Contact</Btn>}
+        {(subTab==="all"||subTab==="external")&&<Btn size="sm" onClick={openAdd}>+ Add Contact</Btn>}
         {subTab==="groups"&&<Btn size="sm" onClick={openNewGroup}>+ New Group</Btn>}
       </div>
 
@@ -17102,30 +17145,9 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
                 <div style={{fontSize:12,color:"var(--text3)"}}>{(g.contactIds||[]).length} contact{(g.contactIds||[]).length!==1?"s":""}</div>
               </div>
               <Btn size="sm" variant="ghost" onClick={()=>openEditGroup(g)}>Edit</Btn>
-              <Btn size="sm" variant="ghost" onClick={()=>deleteGroup(g.id)} style={{color:"var(--red)"}}>Delete</Btn>
+              <Btn size="sm" variant="ghost" onClick={()=>deleteGroup(g)} style={{color:"var(--red)"}}>Delete</Btn>
             </Card>
           ))}
-          {grpModal&&(
-            <Modal title={grpModal==="new"?"New Group":"Edit Group"} onClose={()=>setGrpModal(null)}>
-              <Field label="Group Name"><Input value={grpForm.name||""} onChange={e=>setGrpForm(p=>({...p,name:e.target.value}))}/></Field>
-              <Field label="Contacts">
-                <div style={{maxHeight:200,overflowY:"auto",border:"1px solid var(--border)",borderRadius:"var(--r)"}}>
-                  {externalContacts.filter(c=>c.email).map(c=>(
-                    <label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderBottom:"1px solid var(--border)",cursor:"pointer",fontSize:13}}>
-                      <input type="checkbox" checked={(grpForm.contactIds||[]).includes(c.id)}
-                        onChange={e=>{const ids=e.target.checked?[...grpForm.contactIds,c.id]:(grpForm.contactIds||[]).filter(x=>x!==c.id);setGrpForm(p=>({...p,contactIds:ids}));}}/>
-                      {c.name} <span style={{color:"var(--text4)",fontSize:12}}>{c.email}</span>
-                    </label>
-                  ))}
-                  {externalContacts.filter(c=>c.email).length===0&&<div style={{padding:12,fontSize:12,color:"var(--text4)"}}>No external contacts with email addresses.</div>}
-                </div>
-              </Field>
-              <Row gap={8} style={{marginTop:8}}>
-                <Btn onClick={saveGroup}>Save Group</Btn>
-                <Btn variant="ghost" onClick={()=>setGrpModal(null)}>Cancel</Btn>
-              </Row>
-            </Modal>
-          )}
         </div>
       )}
 
@@ -17143,13 +17165,13 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
             return(
               <div key={m.id} style={{...rowSt,opacity:unsub?0.5:1}}>
                 <div style={{flex:1}}>
-                  <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                     {m.name} {statusBadge(status)}
                     {unsub&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
                   </div>
                   <div style={{fontSize:12,color:"var(--text3)"}}>{m.email||"— no email —"}</div>
                 </div>
-                {m.email&&<button onClick={()=>toggleUnsub(m.id,false)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:unsub?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600}}>{unsub?"Re-subscribe":"Unsubscribe"}</button>}
+                {m.email&&<button onClick={()=>toggleUnsub(m.id,false)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:unsub?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600,flexShrink:0}}>{unsub?"Re-subscribe":"Unsubscribe"}</button>}
               </div>
             );
           })}
@@ -17162,43 +17184,87 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
           <div style={{padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.12em"}}>
             External Contacts
           </div>
-          {filteredExternal.length===0&&<div style={{padding:"24px",fontSize:13,color:"var(--text4)",textAlign:"center"}}>No external contacts.{subTab==="external"&&" Click + Add Contact to add one."}</div>}
-          {filteredExternal.map(c=>(
-            <div key={c.id} style={{...rowSt,opacity:c.unsubscribed?0.5:1}}>
-              <div style={{flex:1}}>
-                <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:8}}>
-                  {c.name}
-                  {c.category&&catBadge(c.category)}
-                  {c.unsubscribed&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
+          {filteredExternal.length===0&&<div style={{padding:"24px",fontSize:13,color:"var(--text4)",textAlign:"center"}}>No external contacts. Click + Add Contact to add one.</div>}
+          {filteredExternal.map(c=>{
+            const cName=contactFullName(c);
+            const cGrpNames=contactGroupNames(c.id);
+            return(
+              <div key={c.id} style={{...rowSt,opacity:c.unsubscribed?0.5:1}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:13,color:"var(--text)",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    {cName}
+                    {c.category&&catBadge(c.category)}
+                    {cGrpNames.map(n=>grpBadge(n))}
+                    {c.unsubscribed&&<span style={{fontSize:9,fontFamily:"var(--font-m)",color:"var(--red)",fontWeight:700}}>UNSUBSCRIBED</span>}
+                  </div>
+                  <div style={{fontSize:12,color:"var(--text3)"}}>{c.email||"— no email —"}{c.phone?" · "+c.phone:""}</div>
                 </div>
-                <div style={{fontSize:12,color:"var(--text3)"}}>{c.email||"— no email —"}{c.phone?" · "+c.phone:""}</div>
+                <div style={{display:"flex",gap:6,flexShrink:0}}>
+                  {c.email&&<button onClick={()=>toggleUnsub(c.id,true)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:c.unsubscribed?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600}}>{c.unsubscribed?"Re-subscribe":"Unsubscribe"}</button>}
+                  <Btn size="sm" variant="ghost" onClick={()=>openEdit(c)}>Edit</Btn>
+                  <Btn size="sm" variant="ghost" onClick={()=>delContact(c)} style={{color:"var(--red)"}}>Delete</Btn>
+                </div>
               </div>
-              <div style={{display:"flex",gap:6,flexShrink:0}}>
-                {c.email&&<button onClick={()=>toggleUnsub(c.id,true)} style={{fontSize:11,background:"none",border:"1px solid var(--border)",borderRadius:5,padding:"4px 10px",cursor:"pointer",color:c.unsubscribed?"var(--green)":"var(--red)",fontFamily:"var(--font-b)",fontWeight:600}}>{c.unsubscribed?"Re-subscribe":"Unsubscribe"}</button>}
-                <Btn size="sm" variant="ghost" onClick={()=>openEditContact(c)}>Edit</Btn>
-                <Btn size="sm" variant="ghost" onClick={()=>delContact(c.id)} style={{color:"var(--red)"}}>Del</Btn>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </Card>
       )}
 
-      {/* Contact add/edit modal */}
+      {/* Add/Edit contact modal */}
       {modal&&(
         <Modal title={modal==="add"?"Add Contact":"Edit Contact"} onClose={()=>setModal(null)}>
-          <Field label="Name"><Input value={form.name||""} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></Field>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}}>
+            <Field label="First Name"><Input value={form.firstName||""} onChange={e=>setForm(p=>({...p,firstName:e.target.value}))}/></Field>
+            <Field label="Last Name"><Input value={form.lastName||""} onChange={e=>setForm(p=>({...p,lastName:e.target.value}))}/></Field>
+          </div>
           <Field label="Email"><Input type="email" value={form.email||""} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></Field>
           <Field label="Phone"><Input value={form.phone||""} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></Field>
           <Field label="Category">
-            <select value={form.category||""} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={{width:"100%",padding:"8px 11px",border:"1px solid var(--border)",borderRadius:"var(--r)",fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-b)"}}>
+            <select value={form.category||""} onChange={e=>setForm(p=>({...p,category:e.target.value}))} style={selSt}>
               <option value="">— None —</option>
               {contactCats.map(c=><option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
+          <Field label="Groups">
+            <div style={{border:"1px solid var(--border)",borderRadius:"var(--r)",maxHeight:140,overflowY:"auto",background:"var(--bg2)"}}>
+              {groups.length===0&&<div style={{padding:"10px 12px",fontSize:12,color:"var(--text4)"}}>No groups yet — create one in the Groups tab.</div>}
+              {groups.map(g=>(
+                <label key={g.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderBottom:"1px solid var(--border)",cursor:"pointer",fontSize:13}}>
+                  <input type="checkbox" checked={(form.groupIds||[]).includes(g.id)}
+                    onChange={e=>{const ids=e.target.checked?[...(form.groupIds||[]),g.id]:(form.groupIds||[]).filter(x=>x!==g.id);setForm(p=>({...p,groupIds:ids}));}}/>
+                  {g.name} <span style={{fontSize:11,color:"var(--text4)"}}>({(g.contactIds||[]).length})</span>
+                </label>
+              ))}
+            </div>
+          </Field>
           <Field label="Notes"><Textarea value={form.notes||""} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></Field>
+          {formErr&&<div style={{color:"var(--red)",fontSize:12,marginBottom:8}}>{formErr}</div>}
           <Row gap={8} style={{marginTop:8}}>
-            <Btn onClick={handleSaveContact}>Save</Btn>
+            <Btn onClick={handleSave}>Save Contact</Btn>
             <Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn>
+          </Row>
+        </Modal>
+      )}
+
+      {/* Add/Edit group modal */}
+      {grpModal&&(
+        <Modal title={grpModal==="new"?"New Group":"Edit Group"} onClose={()=>setGrpModal(null)}>
+          <Field label="Group Name"><Input value={grpForm.name||""} onChange={e=>setGrpForm(p=>({...p,name:e.target.value}))}/></Field>
+          <Field label="Contacts">
+            <div style={{maxHeight:200,overflowY:"auto",border:"1px solid var(--border)",borderRadius:"var(--r)"}}>
+              {externalContacts.filter(c=>c.email).map(c=>(
+                <label key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderBottom:"1px solid var(--border)",cursor:"pointer",fontSize:13}}>
+                  <input type="checkbox" checked={(grpForm.contactIds||[]).includes(c.id)}
+                    onChange={e=>{const ids=e.target.checked?[...(grpForm.contactIds||[]),c.id]:(grpForm.contactIds||[]).filter(x=>x!==c.id);setGrpForm(p=>({...p,contactIds:ids}));}}/>
+                  {contactFullName(c)} <span style={{color:"var(--text4)",fontSize:12}}>{c.email}</span>
+                </label>
+              ))}
+              {externalContacts.filter(c=>c.email).length===0&&<div style={{padding:12,fontSize:12,color:"var(--text4)"}}>No external contacts with email addresses.</div>}
+            </div>
+          </Field>
+          <Row gap={8} style={{marginTop:8}}>
+            <Btn onClick={handleSaveGroup}>Save Group</Btn>
+            <Btn variant="ghost" onClick={()=>setGrpModal(null)}>Cancel</Btn>
           </Row>
         </Modal>
       )}
