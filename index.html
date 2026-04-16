@@ -17121,7 +17121,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
 
   return(
     <div style={{maxWidth:960}}>
-      <SectionHeader title="Contact List" subtitle="Manage recipients for club emails"/>
+      <SectionHeader title="Contact List" subtitle="Manage recipients for club emails" action={<Btn onClick={openAdd}>+ Add Contact</Btn>}/>
       <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap",alignItems:"center"}}>
         {tabBtn("all","All",(members||[]).length+externalContacts.length)}
         {tabBtn("members","Members",(members||[]).length)}
@@ -17130,7 +17130,6 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
         <div style={{flex:1}}/>
         <input placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)}
           style={{...inputSt,width:"auto",minWidth:180,flex:"0 0 auto"}}/>
-        {(subTab==="all"||subTab==="external")&&<Btn size="sm" onClick={openAdd}>+ Add Contact</Btn>}
         {subTab==="groups"&&<Btn size="sm" onClick={openNewGroup}>+ New Group</Btn>}
       </div>
 
