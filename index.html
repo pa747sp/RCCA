@@ -16995,6 +16995,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
   const [formErr,setFormErr]=React.useState("");
   const [grpModal,setGrpModal]=React.useState(null); // null | "new" | {edit:group}
   const [grpForm,setGrpForm]=React.useState({});
+  const [viewGrp,setViewGrp]=React.useState(null);
   const groups=contactGroups||[];
 
   const contactCats=getCats(categories).contactCategory||DEFAULT_CATEGORIES.contactCategory||[];
@@ -17143,6 +17144,7 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
                 <div style={{fontWeight:700,fontSize:14,fontFamily:"var(--font-d)",marginBottom:2}}>{g.name}</div>
                 <div style={{fontSize:12,color:"var(--text3)"}}>{(g.contactIds||[]).length} contact{(g.contactIds||[]).length!==1?"s":""}</div>
               </div>
+              <Btn size="sm" variant="ghost" onClick={()=>setViewGrp(g)}>View Members</Btn>
               <Btn size="sm" variant="ghost" onClick={()=>openEditGroup(g)}>Edit</Btn>
               <Btn size="sm" variant="ghost" onClick={()=>deleteGroup(g)} style={{color:"var(--red)"}}>Delete</Btn>
             </Card>
@@ -17207,6 +17209,36 @@ function CommContactListSection({user,members,contacts,setContacts,dues,emailTem
             );
           })}
         </Card>
+      )}
+
+      {/* View group members modal */}
+      {viewGrp&&(
+        <Modal title={`${viewGrp.name} — Members`} onClose={()=>setViewGrp(null)}>
+          {(viewGrp.contactIds||[]).length===0&&(
+            <div style={{padding:"20px 0",textAlign:"center",color:"var(--text4)",fontSize:13}}>No contacts in this group.</div>
+          )}
+          {(viewGrp.contactIds||[]).length>0&&(
+            <div style={{border:"1px solid var(--border)",borderRadius:"var(--r)",overflow:"hidden",marginBottom:12}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",padding:"8px 12px",background:"var(--bg3)",borderBottom:"1px solid var(--border)",fontSize:10,fontFamily:"var(--font-m)",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"var(--text3)"}}>
+                <span>Name</span><span>Email</span><span>Phone</span>
+              </div>
+              {(viewGrp.contactIds||[]).map(cid=>{
+                const c=externalContacts.find(x=>x.id===cid);
+                if(!c)return null;
+                return(
+                  <div key={cid} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",padding:"10px 12px",borderBottom:"1px solid var(--border)",fontSize:13,alignItems:"center"}}>
+                    <span style={{fontWeight:600,color:"var(--text)"}}>{contactFullName(c)}</span>
+                    <span style={{color:"var(--text3)"}}>{c.email||"—"}</span>
+                    <span style={{color:"var(--text3)"}}>{c.phone||"—"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <Row gap={8} style={{marginTop:4}}>
+            <Btn variant="ghost" onClick={()=>setViewGrp(null)}>Close</Btn>
+          </Row>
+        </Modal>
       )}
 
       {/* Add/Edit contact modal */}
