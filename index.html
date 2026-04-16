@@ -16540,19 +16540,20 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
     if(ta){requestAnimationFrame(()=>{ta.focus();const pos=(start||0)+html.length;ta.setSelectionRange(pos,pos);});}
   }
 
+  function readFileAsDataURL(file){
+    return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=e=>resolve(e.target.result);r.onerror=reject;r.readAsDataURL(file);});
+  }
+
   async function handleAttachFiles(e){
     const files=Array.from(e.target.files);
     if(!files.length)return;
     setUploading(true);
     const newAtts=[];
     for(const file of files){
-      const id=uid("ATT");
       try{
-        const ref=firebase.storage().ref(`clubs/${CLUB_ID}/emailAttachments/${id}/${file.name}`);
-        const snap=await ref.put(imgFile);
-        const url=await snap.ref.getDownloadURL();
-        newAtts.push({id,name:file.name,size:file.size,url,type:file.type});
-      }catch(err){showToast("Upload failed: "+file.name);}
+        const url=await readFileAsDataURL(file);
+        newAtts.push({id:uid("ATT"),name:file.name,size:file.size,url,type:file.type});
+      }catch(err){showToast("Could not read: "+file.name);}
     }
     setUploading(false);
     if(newAtts.length)setForm(p=>({...p,attachments:[...(p.attachments||[]),...newAtts]}));
@@ -16572,16 +16573,10 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
 
   async function handleImageEmbed(){
     const {imgFile,imgUrl,imgAlt}=mediaForm;
-    let src=imgUrl||"";
+    let src=imgUrl?.trim()||"";
     if(imgFile){
-      setUploading(true);
-      try{
-        const id=uid("IMG");
-        const ref=firebase.storage().ref(`clubs/${CLUB_ID}/emailAttachments/${id}/${imgFile.name}`);
-        const snap=await ref.put(imgFile);
-        src=await snap.ref.getDownloadURL();
-      }catch(err){showToast("Image upload failed.");setUploading(false);return;}
-      setUploading(false);
+      try{ src=await readFileAsDataURL(imgFile); }
+      catch(err){ showToast("Could not read image file."); return; }
     }
     if(!src){showToast("Provide an image file or URL.");return;}
     insertAtCursor(`<img src="${src}" alt="${imgAlt||""}" style="max-width:100%;height:auto;display:block;margin:10px 0;border-radius:4px;"/>`);
