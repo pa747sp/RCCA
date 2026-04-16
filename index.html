@@ -16549,7 +16549,7 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
       const id=uid("ATT");
       try{
         const ref=firebase.storage().ref(`clubs/${CLUB_ID}/emailAttachments/${id}/${file.name}`);
-        const snap=await ref.put(file);
+        const snap=await ref.put(imgFile);
         const url=await snap.ref.getDownloadURL();
         newAtts.push({id,name:file.name,size:file.size,url,type:file.type});
       }catch(err){showToast("Upload failed: "+file.name);}
