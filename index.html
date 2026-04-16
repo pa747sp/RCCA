@@ -16430,6 +16430,7 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
   const [toast,setToast]=React.useState("");
   const [editTpl,setEditTpl]=React.useState(null);
   const [uploading,setUploading]=React.useState(false);
+  const [imgUploadProgress,setImgUploadProgress]=React.useState(null); // null or 0-100
   const [mediaModal,setMediaModal]=React.useState(null); // null|"image"|"video"|"link"
   const [mediaForm,setMediaForm]=React.useState({});
   const bodyRef=React.useRef(null);
@@ -16577,8 +16578,23 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
     const {imgFile,imgUrl,imgAlt}=mediaForm;
     let src=imgUrl?.trim()||"";
     if(imgFile){
-      try{ src=await readFileAsDataURL(imgFile); }
-      catch(err){ showToast("Could not read image file."); return; }
+      try{
+        setImgUploadProgress(0);
+        const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/emailMedia/${Date.now()}_${imgFile.name}`);
+        const task=storageRef.put(imgFile);
+        src=await new Promise((resolve,reject)=>{
+          task.on("state_changed",
+            snap=>setImgUploadProgress(Math.round((snap.bytesTransferred/snap.totalBytes)*100)),
+            err=>reject(err),
+            async ()=>{ try{ resolve(await task.snapshot.ref.getDownloadURL()); }catch(e){ reject(e); } }
+          );
+        });
+        setImgUploadProgress(null);
+      }catch(err){
+        setImgUploadProgress(null);
+        showToast("Upload failed: "+(err.message||"Storage error"));
+        return;
+      }
     }
     if(!src){showToast("Provide an image file or URL.");return;}
     insertAtCursor(`<img src="${src}" alt="${imgAlt||""}" style="max-width:100%;height:auto;display:block;margin:10px 0;border-radius:4px;"/>`);
@@ -16911,9 +16927,17 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
               <img src={mediaForm.imgUrl} alt="preview" style={{maxWidth:"100%",maxHeight:160,borderRadius:6,border:"1px solid var(--border)"}} onError={e=>{e.target.style.display="none";}}/>
             </div>
           )}
+          {imgUploadProgress!==null&&(
+            <div style={{marginBottom:10}}>
+              <div style={{height:6,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)"}}>
+                <div style={{height:"100%",background:"var(--burg)",borderRadius:3,transition:"width .2s",width:imgUploadProgress+"%"}}/>
+              </div>
+              <div style={{fontSize:11,color:"var(--text4)",marginTop:3,fontFamily:"var(--font-m)"}}>Uploading… {imgUploadProgress}%</div>
+            </div>
+          )}
           <Row gap={8} style={{marginTop:8}}>
-            <Btn onClick={handleImageEmbed} disabled={uploading}>{uploading?"Uploading…":"Insert Image"}</Btn>
-            <Btn variant="ghost" onClick={()=>{setMediaModal(null);setMediaForm({});}}>Cancel</Btn>
+            <Btn onClick={handleImageEmbed} disabled={imgUploadProgress!==null}>{imgUploadProgress!==null?"Uploading…":"Insert Image"}</Btn>
+            <Btn variant="ghost" onClick={()=>{setMediaModal(null);setMediaForm({});setImgUploadProgress(null);}}>Cancel</Btn>
           </Row>
         </Modal>
       )}
