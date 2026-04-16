@@ -7399,6 +7399,7 @@ function SiteContentSection({ siteContent, setSiteContent }) {
   const [editingCommitteeIdx, setEditingCommitteeIdx] = useState(null);
   const [heroImage, setHeroImage] = useState(null);
   const [heroSaved, setHeroSaved] = useState(false);
+  const [heroProgress, setHeroProgress] = useState(null);
   const heroImgRef = React.useRef(null);
   useEffect(() => {
     dbGet(CLUB_CONFIG.clubId + ":heroImage").then(v => { if (v) setHeroImage(v); });
@@ -7638,8 +7639,9 @@ function SiteContentSection({ siteContent, setSiteContent }) {
               {heroImage ? (
                 <div>
                   <img src={heroImage} alt="Hero preview" style={{width:"100%",maxHeight:280,objectFit:"cover",borderRadius:8,marginBottom:14,border:"1px solid var(--border)"}}/>
-                  <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                    <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()}>Replace Image</Btn>
+                  <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                    <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()} disabled={heroProgress!==null}>{heroProgress!==null?`Uploading ${heroProgress}%…`:"Replace Image"}</Btn>
+                    {heroProgress!==null&&<div style={{flex:1,minWidth:120,height:6,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)"}}><div style={{height:"100%",background:"var(--burg)",width:heroProgress+"%",transition:"width .2s"}}/></div>}
                     <Btn variant="ghost" onClick={async()=>{
                       await dbSet(CLUB_CONFIG.clubId+":heroImage","");
                       setHeroImage(null);
@@ -7656,26 +7658,38 @@ function SiteContentSection({ siteContent, setSiteContent }) {
                     <div style={{fontSize:14,fontWeight:600,color:"var(--text2)",marginBottom:4}}>No hero image uploaded</div>
                     <div style={{fontSize:12,color:"var(--text3)"}}>JPG, PNG or WebP · Max 5 MB</div>
                   </div>
-                  <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                    <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()}>Upload Image</Btn>
+                  <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                    <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()} disabled={heroProgress!==null}>{heroProgress!==null?`Uploading ${heroProgress}%…`:"Upload Image"}</Btn>
+                    {heroProgress!==null&&<div style={{flex:1,minWidth:120,height:6,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)"}}><div style={{height:"100%",background:"var(--burg)",width:heroProgress+"%",transition:"width .2s"}}/></div>}
                     {heroSaved&&<span style={{fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Saved</span>}
                   </div>
                 </div>
               )}
               <input type="file" accept="image/*" ref={heroImgRef} style={{display:"none"}}
-                onChange={e=>{
+                onChange={async e=>{
                   const file=e.target.files[0];
                   if(!file) return;
                   if(file.size>5*1024*1024){alert("Image must be under 5 MB");return;}
-                  const reader=new FileReader();
-                  reader.onload=async ev=>{
-                    const data=ev.target.result;
-                    setHeroImage(data);
-                    await dbSet(CLUB_CONFIG.clubId+":heroImage",data);
-                    setHeroSaved(true); setTimeout(()=>setHeroSaved(false),2200);
-                  };
-                  reader.readAsDataURL(file);
                   e.target.value="";
+                  setHeroProgress(0);
+                  try{
+                    const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/hero`);
+                    const task=storageRef.put(file);
+                    const url=await new Promise((resolve,reject)=>{
+                      task.on("state_changed",
+                        snap=>setHeroProgress(Math.round((snap.bytesTransferred/snap.totalBytes)*100)),
+                        reject,
+                        async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
+                      );
+                    });
+                    setHeroProgress(null);
+                    setHeroImage(url);
+                    await dbSet(CLUB_CONFIG.clubId+":heroImage",url);
+                    setHeroSaved(true); setTimeout(()=>setHeroSaved(false),2200);
+                  }catch(err){
+                    setHeroProgress(null);
+                    alert("Upload failed: "+(err.message||"Storage error"));
+                  }
                 }}/>
             </div>
           )}
@@ -12710,6 +12724,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const [venueForm,setVenueForm]=React.useState({});
   const [storageModal,setStorageModal]=React.useState(null);
   const [storageForm,setStorageForm]=React.useState({});
+  const [logoProgress,setLogoProgress]=React.useState(null);
 
   React.useEffect(()=>{setForm(accountSettings||DEFAULT_ACCT);},[accountSettings]);
 
@@ -12851,12 +12866,33 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
             <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:20}}>
               {form.logo&&<img src={form.logo} alt="Club logo" style={{height:72,width:"auto",maxWidth:200,objectFit:"contain",border:"1px solid var(--border)",borderRadius:8,padding:6,background:"white"}}/>}
               <div>
-                <label style={{display:"inline-block",padding:"8px 18px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",fontSize:13,fontWeight:600,color:"var(--text2)",fontFamily:"var(--font-b)"}}>
-                  {form.logo?"Change Logo":"Upload Logo"}
-                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>f("logo",ev.target.result);r.readAsDataURL(file);}}/>
+                <label style={{display:"inline-block",padding:"8px 18px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:7,cursor:logoProgress!==null?"not-allowed":"pointer",fontSize:13,fontWeight:600,color:"var(--text2)",fontFamily:"var(--font-b)",opacity:logoProgress!==null?0.6:1}}>
+                  {logoProgress!==null?`Uploading ${logoProgress}%…`:form.logo?"Change Logo":"Upload Logo"}
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+                    const file=e.target.files[0];if(!file)return;
+                    e.target.value="";
+                    setLogoProgress(0);
+                    try{
+                      const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/logo`);
+                      const task=storageRef.put(file);
+                      const url=await new Promise((resolve,reject)=>{
+                        task.on("state_changed",
+                          snap=>setLogoProgress(Math.round((snap.bytesTransferred/snap.totalBytes)*100)),
+                          reject,
+                          async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
+                        );
+                      });
+                      setLogoProgress(null);
+                      f("logo",url);
+                    }catch(err){
+                      setLogoProgress(null);
+                      alert("Logo upload failed: "+(err.message||"Storage error"));
+                    }
+                  }}/>
                 </label>
+                {logoProgress!==null&&<div style={{marginTop:6,height:5,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)",minWidth:120}}><div style={{height:"100%",background:"var(--burg)",width:logoProgress+"%",transition:"width .2s"}}/></div>}
                 {form.logo&&<button onClick={()=>f("logo",null)} style={{marginLeft:10,padding:"8px 14px",background:"none",border:"1px solid var(--border2)",borderRadius:7,fontSize:13,color:"var(--text3)",cursor:"pointer"}}>Remove</button>}
-                <div style={{fontSize:11,color:"var(--text4)",marginTop:5}}>PNG or SVG recommended. Stored as base64.</div>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:5}}>PNG or SVG recommended. Uploaded to Firebase Storage.</div>
               </div>
             </div>
             <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Brand Colours</div>
@@ -16583,7 +16619,7 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
     if(imgFile){
       try{
         setImgUploadProgress(0);
-        const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/emailMedia/${Date.now()}_${imgFile.name}`);
+        const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/email-images/${Date.now()}_${imgFile.name}`);
         const task=storageRef.put(imgFile);
         src=await new Promise((resolve,reject)=>{
           task.on("state_changed",
