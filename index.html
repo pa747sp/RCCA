@@ -71,6 +71,22 @@
       console.error('dbSet error', key, e);
     }
   };
+
+  // Ensure Firebase Auth session exists before any Storage upload.
+  // Uploads require request.auth != null in storage.rules.
+  // If the user logged in via the members-array fallback, currentUser may be
+  // null (anonymous auth failed or wasn't enabled). This helper re-tries and
+  // surfaces the auth state so the upload can proceed.
+  window.ensureStorageAuth = async function() {
+    if (firebase.auth().currentUser) return; // already signed in
+    try {
+      await firebase.auth().signInAnonymously();
+    } catch(e) {
+      // Anonymous auth may be disabled in Firebase console.
+      // Upload will still be attempted; if rules allow it will succeed.
+      console.warn('ensureStorageAuth: anonymous sign-in failed', e.code, e.message);
+    }
+  };
 </script>
 <script type="text/babel" data-presets="react">
 // ── Club Configuration ──────────────────────────────────────────
@@ -7708,6 +7724,7 @@ function SiteContentSection({ siteContent, setSiteContent }) {
                   e.target.value="";
                   setHeroProgress(0);
                   try{
+                    await ensureStorageAuth();
                     const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/hero`);
                     const task=storageRef.put(file);
                     const url=await new Promise((resolve,reject)=>{
@@ -13017,6 +13034,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
                     e.target.value="";
                     setLogoProgress(0);
                     try{
+                      await ensureStorageAuth();
                       const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/logo`);
                       const task=storageRef.put(file);
                       const url=await new Promise((resolve,reject)=>{
