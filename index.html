@@ -12894,9 +12894,11 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   async function handleSave(){
     const updated={...form};
     await dbSet(SK.accountSettings,updated);
-    // Keep top-level clubs/{clubId} doc in sync so tc-home collection query finds this club
+    // Keep top-level clubs/{clubId} doc in sync so tc-home collection query finds this club.
+    // status:"active" is required — tc-home filters out any club without this field.
     await db.collection("clubs").doc(CLUB_ID).set({
       name: updated.registeredName||updated.tradingName||CLUB_CONFIG.name,
+      status: "active",
       updated: new Date().toISOString()
     },{merge:true});
     setAccountSettings(updated);
@@ -13052,9 +13054,11 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
                       // Persist logo URL immediately — update accountSettings so it survives page reload
                       const newAcct={...form, logo:url};
                       await dbSet(SK.accountSettings, newAcct);
-                      // Ensure top-level clubs/{clubId} doc exists so tc-home collection query returns this club
+                      // Ensure top-level clubs/{clubId} doc exists so tc-home collection query returns this club.
+                      // status:"active" is required — tc-home filters out clubs without this field.
                       await db.collection("clubs").doc(CLUB_ID).set({
                         name: newAcct.registeredName||newAcct.tradingName||CLUB_CONFIG.name,
+                        status: "active",
                         updated: new Date().toISOString()
                       },{merge:true});
                       setAccountSettings(newAcct);

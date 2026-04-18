@@ -411,13 +411,18 @@ function ClubsPage() {
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
         {clubs.map(club=>{
           const a = club.acct || {};
-          const logo    = a.logo || null;
-          const blurb   = a.blurb || "";
-          const extSite = a.website || "";
-          const name    = a.registeredName || a.tradingName || club.name || club.id;
-          const portalUrl = club.netlifyUrl || ("https://" + club.id + ".torqueclub.com.au");
+          const logo         = a.logo || null;
+          const blurb        = a.blurb || "";
+          const extSite      = a.website || "";
+          const name         = a.registeredName || a.tradingName || club.name || club.id;
+          const portalUrl    = club.netlifyUrl || ("https://" + club.id + ".torqueclub.com.au");
+          const primaryCol   = a.primaryColour || null;
+          const secondaryCol = a.secondaryColour || null;
           return (
-            <Card key={club.id} className="hover-lift" style={{padding:22,display:"flex",flexDirection:"column",gap:14}}>
+            <Card key={club.id} className="hover-lift" style={{padding:0,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              {/* Brand colour bar */}
+              <div style={{height:4,background:primaryCol||"var(--burg)",flexShrink:0}}/>
+              <div style={{padding:22,display:"flex",flexDirection:"column",gap:14}}>
               <div style={{display:"flex",alignItems:"center",gap:14}}>
                 {logo
                   ? <img src={logo} alt={name} style={{height:48,width:"auto",maxWidth:100,
@@ -451,6 +456,7 @@ function ClubsPage() {
                   </a>
                 )}
               </div>
+              </div>{/* end padding wrapper */}
             </Card>
           );
         })}
