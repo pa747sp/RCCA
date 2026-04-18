@@ -8794,6 +8794,32 @@ function MembershipTypesSection({ user, members, dues }) {
     </div>
   );
 }
+// ── CLUB ACTIVITY SECTION — tabbed wrapper ───────────────────────────────────
+function ClubActivitySection(sp) {
+  const {user,members,events,cars,incidents,setIncidents,messages,setMessages,polls,setPolls,categories} = sp;
+  const pendingIncidents=(incidents||[]).filter(i=>i.status==="open"||i.status==="pending").length;
+  const pendingPolls=(polls||[]).filter(p=>p.status==="active").length;
+  const [aTab,setATab]=React.useState("meetings");
+  const tabs=[
+    {id:"meetings",  label:"Meetings"},
+    {id:"events",    label:"Events & Shows"},
+    {id:"tasks",     label:"Tasks"},
+    {id:"incidents", label:"Incident Reports", count:pendingIncidents},
+    {id:"polls",     label:"Polls & Surveys",  count:pendingPolls},
+  ];
+  return(
+    <div>
+      <SectionTabBar tabs={tabs} active={aTab} onChange={setATab}/>
+      <div style={{height:20}}/>
+      {aTab==="meetings"  &&<MeetingsSection {...sp}/>}
+      {aTab==="events"    &&<EventsSection {...sp} cars={cars} cats={categories}/>}
+      {aTab==="tasks"     &&<TasksSection {...sp}/>}
+      {aTab==="incidents" &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
+      {aTab==="polls"     &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
+    </div>
+  );
+}
+
 // ── MY VEHICLES SECTION (member) — tabbed wrapper ────────────────────────────
 function MyVehiclesSection({user,cars,setCars,members,transfers,setTransfers,pendingCars,setPendingCars,permits,setPermits,tripLogs,setTripLogs}) {
   const [vTab,setVTab]=useState("cars");
@@ -8998,11 +9024,7 @@ function App() {// ════════════════════�
     { divider: true, label: "Vehicles" },
     { id:"vehicles",     label:"Vehicles",         icon:"◎" },
     { divider: true, label: "Club Activity" },
-    { id:"meetings",     label:"Meetings",         icon:"◆" },
-    { id:"events",       label:"Events & Shows",   icon:"★" },
-    { id:"tasks",        label:"Tasks",            icon:"☑" },
-    { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
-    { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
+    { id:"clubactivity", label:"Club Activity",    icon:"◆" },
     { divider: true, label: "Commerce" },
     { id:"commerce",     label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Communications" },
@@ -9024,11 +9046,7 @@ function App() {// ════════════════════�
     { divider: true, label: "Vehicles" },
     { id:"myvehicles",   label:"My Vehicles",      icon:"◎" },
     { divider: true, label: "Club Activity" },
-    { id:"meetings",     label:"Meetings",         icon:"◆" },
-    { id:"events",       label:"Events & Shows",   icon:"★" },
-    { id:"tasks",        label:"Tasks",            icon:"☑" },
-    { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
-    { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
+    { id:"clubactivity", label:"Club Activity",    icon:"◆" },
     { divider: true, label: "Commerce" },
     { id:"mcommerce",    label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Club Records" },
@@ -9105,11 +9123,7 @@ function App() {// ════════════════════�
             {/* Admin sections */}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
             {tab==="vehicles"   &&user.role==="admin"&&<VehiclesSection {...sp}/>}
-            {tab==="meetings"   &&<MeetingsSection {...sp}/>}
-            {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
-            {tab==="tasks"      &&<TasksSection {...sp}/>}
-            {tab==="incidents"  &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
-            {tab==="polls"      &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
+            {tab==="clubactivity"&&<ClubActivitySection {...sp}/>}
             {tab==="commerce"   &&user.role==="admin"&&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {tab==="records"    &&user.role==="admin"&&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
@@ -9125,6 +9139,11 @@ function App() {// ════════════════════�
             {/* Shared */}
             {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
             {/* Legacy deep-link fallbacks */}
+            {tab==="meetings"   &&<MeetingsSection {...sp}/>}
+            {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
+            {tab==="tasks"      &&<TasksSection {...sp}/>}
+            {tab==="incidents"  &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
+            {tab==="polls"      &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
             {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
             {tab==="membershipTypes"&&user.role==="admin"&&<MembershipTypesSection user={user} members={members} dues={dues}/>}
             {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
