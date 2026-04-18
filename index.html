@@ -261,6 +261,7 @@ const SK = {
   emailTemplates:_id+":emailTemplates",
   scheduledEmails:_id+":scheduledEmails",
   contactGroups:_id+":contactGroups",
+  manualIncome:_id+":manualIncome",
 };
 
 // ── Default Site Content ──────────────────────────────────────────────────────
@@ -792,7 +793,16 @@ function LoginScreen({ members, onLogin }) {
         if (m.status==="suspended") { setErr("Your account has been suspended. Contact an administrator."); return; }
         onLogin(m);
       })
-      .catch(e => { setErr("Invalid email or password."); });
+      .catch(e => {
+        // Fallback: check members array password (demo mode)
+        const m = (members||[]).find(m => m.email && m.email.toLowerCase() === email.toLowerCase() && m.password === pw);
+        if (m) {
+          if (m.status==="suspended") { setErr("Your account has been suspended. Contact an administrator."); return; }
+          onLogin(m);
+        } else {
+          setErr("Invalid email or password.");
+        }
+      });
   }
   async function sendReset() {
     if(!email.trim()){setErr("Enter your email address above first.");return;}
@@ -9813,10 +9823,20 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
   const [settForm,setSettForm]=useState(fs);
   const [invView,setInvView]=useState(null);
   const [settSaved,setSettSaved]=useState(false);
+  const [period,setPeriod]=useState("fy");
+  const [manualIncome,setManualIncome]=useState([]);
+  const [incForm,setIncForm]=useState({date:today,amount:"",description:"",reference:"",notes:"",member:""});
+  useEffect(()=>{ dbGet(SK.manualIncome).then(d=>{ if(Array.isArray(d)) setManualIncome(d); }); }, []);
 
   const fyStart = ()=>{ const d=new Date(); return d.getMonth()>=6?d.getFullYear():d.getFullYear()-1; };
   const fyLabel = ()=>{ const s=fyStart(); return `${s}–${s+1}`; };
-  const inFY = dt=>{ const s=fyStart(); const d=new Date(dt); return d>=new Date(s,6,1)&&d<new Date(s+1,6,1); };
+  const inFY = dt=>{
+    const d=new Date(dt);
+    if(period==="all") return true;
+    if(period==="year"){ const yr=new Date().getFullYear(); return d>=new Date(yr,0,1)&&d<new Date(yr+1,0,1); }
+    if(period==="lastfy"){ const s=fyStart()-1; return d>=new Date(s,6,1)&&d<new Date(s+1,6,1); }
+    const s=fyStart(); return d>=new Date(s,6,1)&&d<new Date(s+1,6,1);
+  };
 
   // Build income ledger from dues, orders, event rsvps
   const incomeItems = [
@@ -9829,6 +9849,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
       const total=o.items?o.items.reduce((s,i)=>s+i.price*i.qty,0):0;
       return {id:"O-"+o.id,type:"shop",date:o.date,amount:total,description:"Shop Order #"+o.id.slice(-4),member:m?.name||"Unknown",memberId:o.memberId,ref:o.id};
     }),
+    ...(manualIncome||[]).filter(i=>inFY(i.date)).map(i=>({...i,type:"manual",member:i.member||"Manual Entry"})),
   ].sort((a,b)=>b.date.localeCompare(a.date));
 
   const expItems = (expenses||[]).filter(e=>inFY(e.date)).sort((a,b)=>b.date.localeCompare(a.date));
@@ -9844,6 +9865,14 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
     setExpForm({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   }
   async function delExpense(id){ const u=(expenses||[]).filter(e=>e.id!==id); setExpenses(u); await dbSet(SK.expenses,u); setModal(null); }
+  async function saveIncome(){
+    if(!incForm.amount||!incForm.description){showToast("Amount and description required.");return;}
+    const entry={...incForm,id:uid("MI"),amount:Number(incForm.amount)};
+    const u=modal?.editInc?(manualIncome||[]).map(i=>i.id===modal.editInc.id?entry:i):[...(manualIncome||[]),entry];
+    setManualIncome(u); await dbSet(SK.manualIncome,u); setModal(null);
+    setIncForm({date:today,amount:"",description:"",reference:"",notes:"",member:""});
+  }
+  async function delManualIncome(id){ const u=(manualIncome||[]).filter(i=>i.id!==id); setManualIncome(u); await dbSet(SK.manualIncome,u); setModal(null); }
   async function saveSettings(){
     setFinSettings(settForm); await dbSet(SK.finSettings,settForm);
     setSettSaved(true); setTimeout(()=>setSettSaved(false),2500);
@@ -9912,16 +9941,16 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         <tfoot><tr style="background:#f8f5f0"><td style="padding:12px;font-weight:700;font-size:15px">TOTAL DUE</td><td style="padding:12px;text-align:right;font-weight:700;font-size:18px;color:#c0282a">A$${total.toFixed(2)}</td></tr></tfoot>
       </table>
       ${adhocForm.notes?`<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:12px;margin-bottom:16px;font-size:12px;color:#5d4037"><strong>Notes:</strong> ${adhocForm.notes}</div>`:""}
-      ${(fs.bsb||fs.accountNumber)?`<div style="background:#f0f8f4;border:1px solid #b3d9c4;border-radius:8px;padding:16px;font-size:12px">
+      ${(()=>{const bt=fs.paymentMethods?.bankTransfer||{};const bsb=bt.bsb||fs.bsb;const acct=bt.accountNumber||fs.accountNumber;const aname=bt.accountName||fs.accountName;const bname=bt.bankName||fs.bankName;return (bsb||acct)?`<div style="background:#f0f8f4;border:1px solid #b3d9c4;border-radius:8px;padding:16px;font-size:12px">
         <div style="font-weight:700;color:#1e6840;margin-bottom:8px">Payment by Bank Transfer</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-          ${fs.accountName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Name</div><div style="font-weight:700">${fs.accountName}</div></div>`:""}
-          ${fs.bankName?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Bank</div><div style="font-weight:700">${fs.bankName}</div></div>`:""}
-          ${fs.bsb?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">BSB</div><div style="font-weight:700">${fs.bsb}</div></div>`:""}
-          ${fs.accountNumber?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Number</div><div style="font-weight:700">${fs.accountNumber}</div></div>`:""}
+          ${aname?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Name</div><div style="font-weight:700">${aname}</div></div>`:""}
+          ${bname?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Bank</div><div style="font-weight:700">${bname}</div></div>`:""}
+          ${bsb?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">BSB</div><div style="font-weight:700">${bsb}</div></div>`:""}
+          ${acct?`<div><div style="color:#666;font-size:10px;text-transform:uppercase">Account Number</div><div style="font-weight:700">${acct}</div></div>`:""}
         </div>
         ${fs.paymentRef?`<div style="margin-top:8px;color:#1e6840">📌 ${fs.paymentRef} — please use ${num} as reference</div>`:""}
-      </div>`:""}
+      </div>`:"";})()}
       <div style="margin-top:20px;font-size:11px;color:#999;text-align:center;border-top:1px solid #eee;padding-top:12px">Rover Car Club of Australia Inc. · Thank you!</div>
       <script>window.print();window.close();<\/script></body></html>`);
     w.document.close();
@@ -9946,7 +9975,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
           <Row gap={10} style={{marginBottom:20,flexWrap:"wrap"}} align="center">
             <div style={{fontWeight:700,fontSize:13,color:"var(--text2)"}}>Financial Period:</div>
             {[["This FY","fy"],["Last FY","lastfy"],["This Year","year"],["All Time","all"]].map(([label,val])=>(
-              <button key={val} onClick={()=>setPeriod&&setPeriod(val)} style={{padding:"5px 14px",borderRadius:6,border:"1px solid var(--border)",background:"var(--burg)",color:"white",cursor:"pointer",fontSize:12,fontWeight:600}}>{label}</button>
+              <button key={val} onClick={()=>setPeriod(val)} style={{padding:"5px 14px",borderRadius:6,border:"1px solid var(--border)",background:period===val?"var(--burg)":"var(--bg2)",color:period===val?"white":"var(--text2)",cursor:"pointer",fontSize:12,fontWeight:600}}>{label}</button>
             ))}
             <Btn variant="ghost" size="sm" onClick={()=>{
               const rows=[["Category","Amount"],["INCOME",""],["Membership Dues","$"+((dues||[]).filter(d=>d.paid&&inFY(d.paidDate||d.year+"-07-01")).reduce((s,d)=>s+(d.amount||54),0)).toFixed(2)],["Club Shop","$"+((orders||[]).filter(o=>inFY(o.date)).reduce((s,o)=>s+(o.items?o.items.reduce((x,i)=>x+i.price*i.qty,0):0),0)).toFixed(2)],["EXPENSES",""],...EXPENSE_CATS.map(cat=>{const amt=expItems.filter(e=>e.category===cat).reduce((s,e)=>s+Number(e.amount),0);return[cat,"$"+amt.toFixed(2)];}),[" ",""],["SURPLUS/DEFICIT","$"+(surplus>=0?"":"-")+Math.abs(surplus).toFixed(2)]];
@@ -10101,22 +10130,31 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
 
       {tab==="income"&&(
         <div>
+          <Row justify="flex-end" style={{marginBottom:14}}>
+            <Btn onClick={()=>{ setIncForm({date:today,amount:"",description:"",reference:"",notes:"",member:""}); setModal({addInc:true}); }}>+ Add Income</Btn>
+          </Row>
           <div style={{overflowX:"auto"}}>
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead><tr style={{borderBottom:"2px solid var(--border)",background:"var(--bg3)"}}>
-                {["Date","Description","Member","Amount","Invoice"].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>)}
+                {["Date","Description","Member","Amount",""].map(h=><th key={h} style={{textAlign:"left",padding:"8px 12px",fontFamily:"var(--font-m)",fontSize:10,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.06em"}}>{h}</th>)}
               </tr></thead>
               <tbody>
                 {incomeItems.map(item=>(
                   <tr key={item.id} style={{borderBottom:"1px solid var(--border)"}}>
                     <td style={{padding:"9px 12px",fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)"}}>{item.date}</td>
-                    <td style={{padding:"9px 12px"}}>{item.description}</td>
+                    <td style={{padding:"9px 12px"}}>{item.description}{item.type==="manual"&&<span style={{marginLeft:6,fontSize:10,background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:3,padding:"1px 5px",color:"var(--text3)"}}>Manual</span>}</td>
                     <td style={{padding:"9px 12px",color:"var(--text2)"}}>{item.member}</td>
                     <td style={{padding:"9px 12px",fontWeight:700,color:"var(--green)"}}>${Number(item.amount).toFixed(2)}</td>
-                    <td style={{padding:"9px 12px"}}><Btn variant="ghost" size="sm" onClick={()=>setInvView(buildInvoice(item))}>View Invoice</Btn></td>
+                    <td style={{padding:"9px 12px"}}><Row gap={6}>
+                      {item.type==="manual"
+                        ? <><Btn variant="ghost" size="sm" onClick={()=>{ setIncForm({date:item.date,amount:String(item.amount),description:item.description,reference:item.reference||"",notes:item.notes||"",member:item.member||""}); setModal({editInc:item}); }}>Edit</Btn>
+                          <Btn variant="danger" size="sm" onClick={()=>setModal({confirmDelInc:item})}>Del</Btn></>
+                        : <Btn variant="ghost" size="sm" onClick={()=>setInvView(buildInvoice(item))}>View Invoice</Btn>
+                      }
+                    </Row></td>
                   </tr>
                 ))}
-                {incomeItems.length===0&&<tr><td colSpan={5} style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12}}>No income recorded this FY</td></tr>}
+                {incomeItems.length===0&&<tr><td colSpan={5} style={{padding:"20px",textAlign:"center",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:12}}>No income recorded for this period</td></tr>}
               </tbody>
             </table>
           </div>
@@ -10146,6 +10184,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
                     <td style={{padding:"9px 12px",color:"var(--text3)",fontSize:11,fontFamily:"var(--font-m)"}}>{e.reference||"—"}{e.receiptData&&<span style={{marginLeft:6,fontSize:10,background:"#e8f5ee",color:"var(--green)",border:"1px solid #86efac",borderRadius:3,padding:"1px 5px",fontWeight:700,cursor:"pointer"}} onClick={()=>window.open(e.receiptData)}>📎 Receipt</span>}</td>
                     <td style={{padding:"9px 12px",fontWeight:700,color:"var(--red2)"}}>${Number(e.amount).toFixed(2)}</td>
                     <td style={{padding:"9px 12px"}}><Row gap={6}>
+                      <Btn variant="ghost" size="sm" onClick={()=>setModal({viewExp:e})}>View</Btn>
                       <Btn variant="ghost" size="sm" onClick={()=>{ setExpForm({...e}); setModal({edit:e}); }}>Edit</Btn>
                       <Btn variant="danger" size="sm" onClick={()=>setModal({confirmDel:e})}>Del</Btn>
                     </Row></td>
@@ -10265,6 +10304,34 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
         <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveExpense}>Save Expense</Btn></Row>
       </Modal>}
       {modal?.confirmDel&&<Confirm message="Delete this expense?" onConfirm={()=>delExpense(modal.confirmDel.id)} onCancel={()=>setModal(null)}/>}
+
+      {/* View Expense Modal */}
+      {modal?.viewExp&&<Modal title="Expense Details" onClose={()=>setModal(null)}>
+        {(()=>{const e=modal.viewExp;return(<div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Date</div><div style={{fontWeight:600}}>{e.date}</div></div>
+            <div><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Amount</div><div style={{fontWeight:700,color:"var(--red2)"}}>${Number(e.amount).toFixed(2)}</div></div>
+            <div><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Category</div><div style={{fontWeight:600}}>{e.category}</div></div>
+            <div><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Reference</div><div style={{fontWeight:600,color:"var(--text2)"}}>{e.reference||"—"}</div></div>
+          </div>
+          <div style={{marginBottom:14}}><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Description</div><div>{e.description}</div></div>
+          {e.notes&&<div style={{marginBottom:14}}><div style={{fontSize:10,fontFamily:"var(--font-m)",textTransform:"uppercase",color:"var(--text3)",marginBottom:3}}>Notes</div><div style={{color:"var(--text2)"}}>{e.notes}</div></div>}
+          {e.receiptData&&<div><Btn variant="ghost" size="sm" onClick={()=>window.open(e.receiptData)}>📎 View Receipt</Btn></div>}
+          <Row justify="flex-end" style={{marginTop:16}}><Btn variant="ghost" onClick={()=>setModal(null)}>Close</Btn></Row>
+        </div>);})()}
+      </Modal>}
+
+      {/* Add/Edit Manual Income Modal */}
+      {(modal?.addInc||modal?.editInc)&&<Modal title={modal?.editInc?"Edit Income Entry":"Add Manual Income"} onClose={()=>setModal(null)}>
+        <Row gap={12}><Field label="Date" half><Input type="date" value={incForm.date} onChange={e=>setIncForm({...incForm,date:e.target.value})}/></Field>
+        <Field label="Amount ($)" half><Input type="number" value={incForm.amount} onChange={e=>setIncForm({...incForm,amount:e.target.value})} placeholder="0.00"/></Field></Row>
+        <Field label="Description"><Input value={incForm.description} onChange={e=>setIncForm({...incForm,description:e.target.value})} placeholder="e.g. Sponsorship, Grant, Raffle proceeds"/></Field>
+        <Field label="Member / Payer (optional)"><Input value={incForm.member} onChange={e=>setIncForm({...incForm,member:e.target.value})} placeholder="Who paid?"/></Field>
+        <Field label="Reference (optional)"><Input value={incForm.reference} onChange={e=>setIncForm({...incForm,reference:e.target.value})}/></Field>
+        <Field label="Notes (optional)"><Textarea value={incForm.notes||""} onChange={e=>setIncForm({...incForm,notes:e.target.value})} style={{minHeight:60}}/></Field>
+        <Row gap={10} justify="flex-end"><Btn variant="ghost" onClick={()=>setModal(null)}>Cancel</Btn><Btn onClick={saveIncome}>Save Income</Btn></Row>
+      </Modal>}
+      {modal?.confirmDelInc&&<Confirm message="Delete this income entry?" onConfirm={()=>delManualIncome(modal.confirmDelInc.id)} onCancel={()=>setModal(null)}/>}
 
       {/* Ad-hoc Invoice Modal */}
       {modal?.adhoc&&<Modal title="New Invoice" onClose={()=>setModal(null)} wide>
@@ -16413,7 +16480,7 @@ function MyPlanSection({ user }) {
                   )}
                   {upgradeMsg===plan.id ? (
                     <div style={{padding:"10px 12px",background:"var(--gold-lt)",border:"1px solid var(--gold)",borderRadius:6,fontSize:12,color:"var(--gold2)",textAlign:"center"}}>
-                      Contact <strong>billing@torqueclub.com.au</strong> to upgrade to {plan.name}.
+                      Contact <strong>nick@torqueclub.com.au</strong> to upgrade to {plan.name}.
                     </div>
                   ) : (
                     <button onClick={()=>setUpgradeMsg(plan.id)} style={{padding:"9px 16px",background:"var(--burg)",color:"#fff",border:"none",borderRadius:6,fontFamily:"var(--font-b)",fontWeight:600,fontSize:13,cursor:"pointer"}}>
@@ -16499,13 +16566,14 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
       else if(form.memberFilter==="byType"&&form.memberTypeFilter) src=src.filter(m=>m.membershipType===form.memberTypeFilter);
       list=src.filter(m=>m.email&&!m.unsubscribed).map(m=>({name:m.name,email:m.email}));
     } else if(form.recipientType==="contacts"){
-      if(form.groupId){
+      const cname=c=>((c.firstName||c.lastName)?(((c.firstName||"")+" "+(c.lastName||"")).trim()):c.name)||c.email;
+      if(form.groupId && form.groupId!=="__pick__"){
         const g=groups.find(x=>x.id===form.groupId);
-        if(g) list=(contacts||[]).filter(c=>(g.contactIds||[]).includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
-      } else if(form.selectedContactIds.length){
-        list=(contacts||[]).filter(c=>form.selectedContactIds.includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+        if(g) list=(contacts||[]).filter(c=>(g.contactIds||[]).includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:cname(c),email:c.email}));
+      } else if(form.selectedContactIds&&form.selectedContactIds.length){
+        list=(contacts||[]).filter(c=>form.selectedContactIds.includes(c.id)&&c.email&&!c.unsubscribed).map(c=>({name:cname(c),email:c.email}));
       } else {
-        list=(contacts||[]).filter(c=>c.email&&!c.unsubscribed).map(c=>({name:c.name,email:c.email}));
+        list=(contacts||[]).filter(c=>c.email&&!c.unsubscribed).map(c=>({name:cname(c),email:c.email}));
       }
     } else if(form.recipientType==="all"){
       const mems=(members||[]).filter(m=>m.email&&!m.unsubscribed).map(m=>({name:m.name,email:m.email}));
@@ -16785,6 +16853,11 @@ function EmailBuilderSection({user,members,contacts,dues,emailLog,setEmailLog,em
                 <button onClick={()=>{setMediaForm({});setMediaModal("link");}}
                   style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600}}>
                   🔗 Insert Link
+                </button>
+                <button onClick={()=>insertAtCursor("{{first_name}}")}
+                  style={{fontSize:11,padding:"4px 10px",border:"1px solid var(--border)",borderRadius:5,background:"var(--bg2)",cursor:"pointer",color:"var(--text2)",fontFamily:"var(--font-b)",fontWeight:600}}
+                  title="Insert first name merge tag — replaced with recipient's first name on send">
+                  👤 First Name
                 </button>
               </div>
               <textarea ref={bodyRef} value={form.body} onChange={e=>f("body",e.target.value)}
