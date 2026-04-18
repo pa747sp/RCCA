@@ -12894,6 +12894,11 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   async function handleSave(){
     const updated={...form};
     await dbSet(SK.accountSettings,updated);
+    // Keep top-level clubs/{clubId} doc in sync so tc-home collection query finds this club
+    await db.collection("clubs").doc(CLUB_ID).set({
+      name: updated.registeredName||updated.tradingName||CLUB_CONFIG.name,
+      updated: new Date().toISOString()
+    },{merge:true});
     setAccountSettings(updated);
     // Apply live CLUB_CONFIG updates
     if(updated.registeredName) CLUB_CONFIG.name=updated.registeredName;
@@ -13047,6 +13052,11 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
                       // Persist logo URL immediately — update accountSettings so it survives page reload
                       const newAcct={...form, logo:url};
                       await dbSet(SK.accountSettings, newAcct);
+                      // Ensure top-level clubs/{clubId} doc exists so tc-home collection query returns this club
+                      await db.collection("clubs").doc(CLUB_ID).set({
+                        name: newAcct.registeredName||newAcct.tradingName||CLUB_CONFIG.name,
+                        updated: new Date().toISOString()
+                      },{merge:true});
                       setAccountSettings(newAcct);
                       setLogoProgress(null);
                       f("logo",url);
