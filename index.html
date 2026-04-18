@@ -798,7 +798,8 @@ function LoginScreen({ members, onLogin }) {
         const m = (members||[]).find(m => m.email && m.email.toLowerCase() === email.toLowerCase() && m.password === pw);
         if (m) {
           if (m.status==="suspended") { setErr("Your account has been suspended. Contact an administrator."); return; }
-          onLogin(m);
+          // Sign in anonymously so Firebase Storage rules can pass
+          firebase.auth().signInAnonymously().catch(()=>{}).finally(()=>onLogin(m));
         } else {
           setErr("Invalid email or password.");
         }
@@ -7432,6 +7433,7 @@ function SiteContentSection({ siteContent, setSiteContent }) {
   const [heroImage, setHeroImage] = useState(null);
   const [heroSaved, setHeroSaved] = useState(false);
   const [heroProgress, setHeroProgress] = useState(null);
+  const [heroErr, setHeroErr] = useState("");
   const heroImgRef = React.useRef(null);
   useEffect(() => {
     dbGet(CLUB_CONFIG.clubId + ":heroImage").then(v => { if (v) setHeroImage(v); });
@@ -7694,6 +7696,7 @@ function SiteContentSection({ siteContent, setSiteContent }) {
                     <Btn onClick={()=>heroImgRef.current&&heroImgRef.current.click()} disabled={heroProgress!==null}>{heroProgress!==null?`Uploading ${heroProgress}%…`:"Upload Image"}</Btn>
                     {heroProgress!==null&&<div style={{flex:1,minWidth:120,height:6,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)"}}><div style={{height:"100%",background:"var(--burg)",width:heroProgress+"%",transition:"width .2s"}}/></div>}
                     {heroSaved&&<span style={{fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Saved</span>}
+                    {heroErr&&<span style={{fontSize:13,color:"#e55",fontFamily:"var(--font-m)"}}>{heroErr}</span>}
                   </div>
                 </div>
               )}
@@ -7714,13 +7717,16 @@ function SiteContentSection({ siteContent, setSiteContent }) {
                         async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
                       );
                     });
+                    // Save URL to Firestore clubs/{CLUB_ID} and legacy key
+                    await db.collection("clubs").doc(CLUB_ID).set({heroUrl:url},{merge:true});
+                    await dbSet(CLUB_CONFIG.clubId+":heroImage",url);
                     setHeroProgress(null);
                     setHeroImage(url);
-                    await dbSet(CLUB_CONFIG.clubId+":heroImage",url);
                     setHeroSaved(true); setTimeout(()=>setHeroSaved(false),2200);
                   }catch(err){
                     setHeroProgress(null);
-                    alert("Upload failed: "+(err.message||"Storage error"));
+                    setHeroErr("Upload failed: "+(err.message||"Storage error"));
+                    setTimeout(()=>setHeroErr(""),4000);
                   }
                 }}/>
             </div>
@@ -9018,40 +9024,33 @@ function App() {// ════════════════════�
 
   // Portal nav items — add News for admins
   const PORTAL_NAV_ADMIN = [
-    { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
-    { divider: true, label: "Membership" },
-    { id:"members",      label:"Members",          icon:"◉" },
-    { divider: true, label: "Vehicles" },
-    { id:"vehicles",     label:"Vehicles",         icon:"◎" },
-    { divider: true, label: "Club Activity" },
-    { id:"clubactivity", label:"Club Activity",    icon:"◆" },
-    { divider: true, label: "Commerce" },
-    { id:"commerce",     label:"Commerce",         icon:"⊕" },
-    { divider: true, label: "Communications" },
-    { id:"communications", label:"Communications", icon:"✉" },
-    { divider: true, label: "Club Records" },
-    { id:"records",      label:"Club Records",     icon:"📚" },
-    { divider: true, label: "Recognition" },
-    { id:"recognition",  label:"Recognition",      icon:"🏆" },
-    { divider: true, label: "Administration" },
-    { id:"administration",label:"Administration",  icon:"⚙" },
-    { id:"account",       label:"Account",         icon:"🏛" },
+    { id:"dashboard",      label:"Dashboard",        icon:"⊞" },
     { divider: true },
-    { id:"profile",      label:"My Profile",       icon:"◑" },
+    { id:"members",        label:"Members",          icon:"◉" },
+    { id:"vehicles",       label:"Vehicles",         icon:"◎" },
+    { id:"clubactivity",   label:"Club Activity",    icon:"◆" },
+    { divider: true },
+    { id:"commerce",       label:"Commerce",         icon:"⊕" },
+    { id:"communications", label:"Communications",   icon:"✉" },
+    { divider: true },
+    { id:"records",        label:"Club Records",     icon:"📚" },
+    { id:"recognition",    label:"Recognition",      icon:"🏆" },
+    { divider: true },
+    { id:"administration", label:"Administration",   icon:"⚙" },
+    { id:"account",        label:"Account",          icon:"🏛" },
+    { divider: true },
+    { id:"profile",        label:"My Profile",       icon:"◑" },
   ];
   const PORTAL_NAV_MEMBER = [
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
-    { divider: true, label: "Membership" },
+    { divider: true },
     { id:"membership",   label:"My Membership",    icon:"◉" },
-    { divider: true, label: "Vehicles" },
     { id:"myvehicles",   label:"My Vehicles",      icon:"◎" },
-    { divider: true, label: "Club Activity" },
     { id:"clubactivity", label:"Club Activity",    icon:"◆" },
-    { divider: true, label: "Commerce" },
+    { divider: true },
     { id:"mcommerce",    label:"Commerce",         icon:"⊕" },
-    { divider: true, label: "Club Records" },
+    { divider: true },
     { id:"archive",      label:"Club Archive",     icon:"📚" },
-    { divider: true, label: "Recognition" },
     { id:"points",       label:"Points & Awards",  icon:"🏆" },
     { divider: true },
     { id:"profile",      label:"My Profile",       icon:"◑" },
@@ -9096,16 +9095,13 @@ function App() {// ════════════════════�
           <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
             {navItems.map((item,i)=>{
               if(item.divider) return (
-                <div key={"div"+i} style={{margin:"6px 0 2px",padding:"0 16px"}}>
-                  {item.label&&<div style={{fontSize:9,fontFamily:"var(--font-m)",fontWeight:700,letterSpacing:"0.12em",textTransform:"uppercase",color:"var(--text3)",opacity:.6,paddingTop:4,borderTop:"1px solid rgba(255,255,255,.07)"}}>{item.label}</div>}
-                  {!item.label&&<div style={{borderTop:"1px solid rgba(255,255,255,.1)",margin:"4px 0"}}/>}
-                </div>
+                <div key={"div"+i} style={{margin:"5px 16px",borderTop:"1px solid rgba(42,58,74,.1)"}}/>
               );
               const active=tab===item.id;
               const n=notifs[item.id]||0;
               return (
-                <button key={item.id} onClick={()=>setTab(item.id)} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"7px 16px",background:active?"rgba(107,26,42,.4)":"none",border:"none",borderLeft:active?"3px solid var(--gold)":"3px solid transparent",color:active?"var(--gold2)":"var(--text3)",fontSize:12.5,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:400}}>
-                  <span style={{fontSize:12,opacity:.75,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center"}}>{item.icon==="P6"?<RoverP6Icon size={18} color={active?"var(--gold2)":"var(--text3)"}/>:item.icon}</span>
+                <button key={item.id} onClick={()=>setTab(item.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",background:active?"rgba(201,146,42,.12)":"none",border:"none",borderLeft:active?"3px solid #C9922A":"3px solid transparent",color:active?"#C9922A":"#2A3A4A",fontSize:13,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:500,letterSpacing:"0.01em"}}>
+                  <span style={{fontSize:13,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",color:active?"#C9922A":"rgba(42,58,74,.55)"}}>{item.icon==="P6"?<RoverP6Icon size={18} color={active?"#C9922A":"rgba(42,58,74,.55)"}/>:item.icon}</span>
                   <span style={{flex:1,textAlign:"left"}}>{item.label}</span>
                   {n>0&&<span style={{background:"var(--burg)",color:"#ffffff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{n}</span>}
                 </button>
@@ -12871,6 +12867,8 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const [storageModal,setStorageModal]=React.useState(null);
   const [storageForm,setStorageForm]=React.useState({});
   const [logoProgress,setLogoProgress]=React.useState(null);
+  const [logoSaved,setLogoSaved]=React.useState(false);
+  const [logoErr,setLogoErr]=React.useState("");
 
   React.useEffect(()=>{setForm(accountSettings||DEFAULT_ACCT);},[accountSettings]);
 
@@ -13028,15 +13026,21 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
                           async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
                         );
                       });
+                      // Save URL to Firestore clubs/{CLUB_ID} and form state
+                      await db.collection("clubs").doc(CLUB_ID).set({logoUrl:url},{merge:true});
                       setLogoProgress(null);
                       f("logo",url);
+                      setLogoSaved(true); setTimeout(()=>setLogoSaved(false),2500);
                     }catch(err){
                       setLogoProgress(null);
-                      alert("Logo upload failed: "+(err.message||"Storage error"));
+                      setLogoErr("Logo upload failed: "+(err.message||"Storage error"));
+                      setTimeout(()=>setLogoErr(""),4000);
                     }
                   }}/>
                 </label>
                 {logoProgress!==null&&<div style={{marginTop:6,height:5,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)",minWidth:120}}><div style={{height:"100%",background:"var(--burg)",width:logoProgress+"%",transition:"width .2s"}}/></div>}
+                {logoSaved&&<span style={{marginLeft:10,fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Logo uploaded</span>}
+                {logoErr&&<span style={{marginLeft:10,fontSize:13,color:"#e55",fontFamily:"var(--font-m)"}}>{logoErr}</span>}
                 {form.logo&&<button onClick={()=>f("logo",null)} style={{marginLeft:10,padding:"8px 14px",background:"none",border:"1px solid var(--border2)",borderRadius:7,fontSize:13,color:"var(--text3)",cursor:"pointer"}}>Remove</button>}
                 <div style={{fontSize:11,color:"var(--text4)",marginTop:5}}>PNG or SVG recommended. Uploaded to Firebase Storage.</div>
               </div>
