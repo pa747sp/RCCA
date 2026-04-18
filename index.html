@@ -1363,6 +1363,8 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues, applic
         {tabBtn("members","Members",0)}
         {tabBtn("applications","Applications",pending)}
         {tabBtn("dues","Dues & Renewals",overdueDues)}
+        {tabBtn("membershipTypes","Membership Types",0)}
+        {tabBtn("committee","Committee",0)}
       </div>
       {mTab==="members"&&(
         <div>
@@ -1389,8 +1391,10 @@ function MembersSection({ user, members, setMembers, cars, dues, setDues, applic
           <MembersSectionInner user={user} members={members} setMembers={setMembers} cars={cars} dues={dues} setDues={setDues} statusFilter={memberStatusTab}/>
         </div>
       )}
-      {mTab==="applications"&&<ApplicationsSectionPlaceholder pending={pending} onView={()=>setTab&&setTab("applications")}/>}
+      {mTab==="applications"&&<ApplicationsSection {...{user,members,setMembers,applications,setApplications,dues,cars}}/>}
       {mTab==="dues"&&<DuesSection members={members} dues={dues} setDues={setDues}/>}
+      {mTab==="membershipTypes"&&<MembershipTypesSection user={user} members={members} dues={dues}/>}
+      {mTab==="committee"&&<CommitteeSection members={members} user={user}/>}
     </div>
   );
 }
@@ -4945,8 +4949,26 @@ function TransfersSection({ transfers }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PROFILE
 // ══════════════════════════════════════════════════════════════════════════════
-// ── MEMBERSHIP SECTION (member view) ─────────────────────────────────────────
+// ── MEMBERSHIP SECTION (member view) — tabbed wrapper ─────────────────────────
 function MembershipSection({user,members,dues}) {
+  const [mTab,setMTab]=useState("overview");
+  const tabs=[
+    {id:"overview",label:"My Membership"},
+    {id:"myplan",label:"My Plan"},
+    {id:"committee",label:"Committee"},
+  ];
+  return(
+    <div>
+      <SectionTabBar tabs={tabs} active={mTab} onChange={setMTab}/>
+      <div style={{height:20}}/>
+      {mTab==="overview"&&<MembershipOverview user={user} members={members} dues={dues}/>}
+      {mTab==="myplan"&&<MyPlanSection user={user}/>}
+      {mTab==="committee"&&<CommitteeSection members={members} user={user}/>}
+    </div>
+  );
+}
+
+function MembershipOverview({user,members,dues}) {
   const myDues=(dues||[]).filter(d=>d.memberId===user.id).sort((a,b)=>b.year-a.year);
   const currentDue=myDues.find(d=>d.year===yr);
   const member=members.find(m=>m.id===user.id)||user;
@@ -8772,6 +8794,42 @@ function MembershipTypesSection({ user, members, dues }) {
     </div>
   );
 }
+// ── MY VEHICLES SECTION (member) — tabbed wrapper ────────────────────────────
+function MyVehiclesSection({user,cars,setCars,members,transfers,setTransfers,pendingCars,setPendingCars,permits,setPermits,tripLogs,setTripLogs}) {
+  const [vTab,setVTab]=useState("cars");
+  const tabs=[
+    {id:"cars",label:"My Vehicles"},
+    {id:"permits",label:"Club Permits"},
+  ];
+  return(
+    <div>
+      <SectionTabBar tabs={tabs} active={vTab} onChange={setVTab}/>
+      <div style={{height:20}}/>
+      {vTab==="cars"&&<CarsSection user={user} cars={cars} setCars={setCars} members={members} setTransfers={setTransfers} pendingCars={pendingCars} setPendingCars={setPendingCars}/>}
+      {vTab==="permits"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+    </div>
+  );
+}
+
+// ── MEMBER COMMERCE SECTION — tabbed wrapper ──────────────────────────────────
+function MemberCommerceSection(sp) {
+  const [cTab,setCTab]=useState("shop");
+  const tabs=[
+    {id:"shop",label:"Club Shop"},
+    {id:"marketplace",label:"Marketplace"},
+    {id:"library",label:"Library"},
+  ];
+  return(
+    <div>
+      <SectionTabBar tabs={tabs} active={cTab} onChange={setCTab}/>
+      <div style={{height:20}}/>
+      {cTab==="shop"&&<ShopSection {...sp} cats={sp.categories}/>}
+      {cTab==="marketplace"&&<MarketplaceSection {...sp} cats={sp.categories}/>}
+      {cTab==="library"&&<LibrarySection {...sp}/>}
+    </div>
+  );
+}
+
 function App() {// ══════════════════════════════════════════════════════════════════════════════
 // MEMBERSHIP TYPES SECTION
 // ══════════════════════════════════════════════════════════════════════════════
@@ -8937,8 +8995,6 @@ function App() {// ════════════════════�
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"members",      label:"Members",          icon:"◉" },
-    { id:"membershipTypes", label:"Membership Types", icon:"◈" },
-    { id:"committee",    label:"Committee",         icon:"👥" },
     { divider: true, label: "Vehicles" },
     { id:"vehicles",     label:"Vehicles",         icon:"◎" },
     { divider: true, label: "Club Activity" },
@@ -8965,10 +9021,8 @@ function App() {// ════════════════════�
     { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
     { divider: true, label: "Membership" },
     { id:"membership",   label:"My Membership",    icon:"◉" },
-    { id:"myplan",       label:"My Plan",          icon:"◈" },
-    { id:"committee",    label:"Committee",         icon:"👥" },
-    { id:"cars",         label:"My Vehicles",      icon:"◎" },
-    { id:"permits",      label:"Club Permits",     icon:"P6" },
+    { divider: true, label: "Vehicles" },
+    { id:"myvehicles",   label:"My Vehicles",      icon:"◎" },
     { divider: true, label: "Club Activity" },
     { id:"meetings",     label:"Meetings",         icon:"◆" },
     { id:"events",       label:"Events & Shows",   icon:"★" },
@@ -8976,9 +9030,7 @@ function App() {// ════════════════════�
     { id:"incidents",    label:"Incident Reports",  icon:"⚠" },
     { id:"polls",        label:"Polls & Surveys",   icon:"📊" },
     { divider: true, label: "Commerce" },
-    { id:"shop",         label:"Club Shop",        icon:"⊕" },
-    { id:"marketplace",  label:"Marketplace",      icon:"⟳" },
-    { id:"library",      label:"Library",          icon:"📚" },
+    { id:"mcommerce",    label:"Commerce",         icon:"⊕" },
     { divider: true, label: "Club Records" },
     { id:"archive",      label:"Club Archive",     icon:"📚" },
     { divider: true, label: "Recognition" },
@@ -9050,46 +9102,54 @@ function App() {// ════════════════════�
         <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
           <div className="slide-r" key={tab}>
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
+            {/* Admin sections */}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
- {tab==="membershipTypes"&&user.role==="admin"&&<MembershipTypesSection user={user} members={members} dues={dues}/>}
-            {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
-            {tab==="vehicles"   &&<VehiclesSection {...sp}/>}
-            {tab==="membership" &&<MembershipSection user={user} members={members} dues={dues}/>}
-            {tab==="cars"       &&<CarsSection {...sp}/>}
-            {tab==="dues"       &&user.role==="admin"&&<DuesSection {...sp}/>}
+            {tab==="vehicles"   &&user.role==="admin"&&<VehiclesSection {...sp}/>}
             {tab==="meetings"   &&<MeetingsSection {...sp}/>}
             {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
             {tab==="tasks"      &&<TasksSection {...sp}/>}
-            {tab==="incidents"   &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
-            {tab==="polls"       &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
-            {tab==="commerce"   &&<CommerceSection {...sp} setTab={setTab}/>}
+            {tab==="incidents"  &&<IncidentsSection user={user} members={members} events={events} cars={cars} incidents={incidents} setIncidents={setIncidents} messages={messages} setMessages={setMessages}/>}
+            {tab==="polls"      &&<PollsSection user={user} members={members} polls={polls} setPolls={setPolls}/>}
+            {tab==="commerce"   &&user.role==="admin"&&<CommerceSection {...sp} setTab={setTab}/>}
+            {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
+            {tab==="records"    &&user.role==="admin"&&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
+            {tab==="recognition"&&user.role==="admin"&&<RecognitionSection {...sp}/>}
+            {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
+            {tab==="account"    &&user.role==="admin"&&<AccountSection {...sp}/>}
+            {/* Member sections */}
+            {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
+            {tab==="myvehicles" &&user.role!=="admin"&&<MyVehiclesSection user={user} cars={cars} setCars={setCars} members={members} transfers={transfers} setTransfers={setTransfers} pendingCars={pendingCars} setPendingCars={setPendingCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="mcommerce"  &&user.role!=="admin"&&<MemberCommerceSection {...sp}/>}
+            {tab==="archive"    &&user.role!=="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
+            {tab==="points"     &&user.role!=="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
+            {/* Shared */}
+            {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
+            {/* Legacy deep-link fallbacks */}
+            {tab==="applications"&&user.role==="admin"&&<ApplicationsSection {...sp}/>}
+            {tab==="membershipTypes"&&user.role==="admin"&&<MembershipTypesSection user={user} members={members} dues={dues}/>}
+            {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
+            {tab==="dues"       &&user.role==="admin"&&<DuesSection {...sp}/>}
+            {tab==="cars"       &&<CarsSection {...sp}/>}
+            {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
-            {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
-            {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
-            {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
+            {tab==="myplan"     &&<MyPlanSection user={user}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
-            {tab==="records"    &&<RecordsSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
-            {tab==="archive"    &&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
-            {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
-            {tab==="recognition"&&<RecognitionSection {...sp}/>}
-            {tab==="points"     &&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
-            {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
-            {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
-            {tab==="account"      &&user.role==="admin"&&<AccountSection {...sp}/>}
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="transfers"  &&user.role==="admin"&&<TransfersSection transfers={transfers}/>}
-            {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
-            {tab==="myplan"     &&<MyPlanSection user={user}/>}
-            {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
             {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
+            {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
+            {tab==="archive"    &&user.role==="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
+            {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
+            {tab==="points"     &&user.role==="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
+            {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
           </div>
         </main>
       </div>
