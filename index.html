@@ -12886,47 +12886,62 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const [logoProgress,setLogoProgress]=React.useState(null);
   const [logoSaved,setLogoSaved]=React.useState(false);
   const [logoErr,setLogoErr]=React.useState("");
+  const [saveErr,setSaveErr]=React.useState("");
 
   React.useEffect(()=>{setForm(accountSettings||DEFAULT_ACCT);},[accountSettings]);
 
   const f=(k,v)=>setForm(p=>({...p,[k]:v}));
 
   async function handleSave(){
-    const updated={...form};
-    await dbSet(SK.accountSettings,updated);
-    // Keep top-level clubs/{clubId} doc in sync so tc-home collection query finds this club.
-    // status:"active" is required — tc-home filters out any club without this field.
-    await db.collection("clubs").doc(CLUB_ID).set({
-      name: updated.registeredName||updated.tradingName||CLUB_CONFIG.name,
-      status: "active",
-      updated: new Date().toISOString()
-    },{merge:true});
-    setAccountSettings(updated);
-    // Apply live CLUB_CONFIG updates
-    if(updated.registeredName) CLUB_CONFIG.name=updated.registeredName;
-    if(updated.abn) CLUB_CONFIG.abn=updated.abn;
-    if(updated.foundedYear) CLUB_CONFIG.foundedYear=Number(updated.foundedYear)||CLUB_CONFIG.foundedYear;
-    if(updated.stateOfIncorporation) CLUB_CONFIG.state=updated.stateOfIncorporation;
-    if(updated.phone) CLUB_CONFIG.phone=updated.phone;
-    if(updated.emailGeneral) CLUB_CONFIG.emailGeneral=updated.emailGeneral;
-    if(updated.website) CLUB_CONFIG.website=updated.website;
-    if(updated.emailMembership) CLUB_CONFIG.emailMembership=updated.emailMembership;
-    if(updated.emailEvents) CLUB_CONFIG.emailEvents=updated.emailEvents;
-    if(updated.emailTech) CLUB_CONFIG.emailTech=updated.emailTech;
-    if(updated.emailMerchandise) CLUB_CONFIG.emailMerchandise=updated.emailMerchandise;
-    // Apply CSS variable colours
-    if(updated.primaryColour){
-      document.documentElement.style.setProperty("--burg",updated.primaryColour);
-      document.documentElement.style.setProperty("--burg2",updated.primaryColour+"cc");
+    setSaveErr("");
+    try {
+      // Ensure Firebase Auth session exists before writing (auth required by Firestore rules)
+      await ensureStorageAuth();
+      const updated={...form};
+      // Write accountSettings directly to Firestore so errors are not swallowed.
+      // (dbSet routes through fireSet which catches errors silently — we need to know if this fails.)
+      const cleanKey=SK.accountSettings.replace(CLUB_ID+":","");
+      await db.collection("clubs").doc(CLUB_ID).collection("data").doc(cleanKey).set({
+        value: JSON.stringify(updated),
+        updated: new Date().toISOString()
+      });
+      // Keep top-level clubs/{clubId} doc in sync so tc-home collection query finds this club.
+      // status:"active" is required — tc-home filters out any club without this field.
+      await db.collection("clubs").doc(CLUB_ID).set({
+        name: updated.registeredName||updated.tradingName||CLUB_CONFIG.name,
+        status: "active",
+        updated: new Date().toISOString()
+      },{merge:true});
+      setAccountSettings(updated);
+      // Apply live CLUB_CONFIG updates
+      if(updated.registeredName) CLUB_CONFIG.name=updated.registeredName;
+      if(updated.abn) CLUB_CONFIG.abn=updated.abn;
+      if(updated.foundedYear) CLUB_CONFIG.foundedYear=Number(updated.foundedYear)||CLUB_CONFIG.foundedYear;
+      if(updated.stateOfIncorporation) CLUB_CONFIG.state=updated.stateOfIncorporation;
+      if(updated.phone) CLUB_CONFIG.phone=updated.phone;
+      if(updated.emailGeneral) CLUB_CONFIG.emailGeneral=updated.emailGeneral;
+      if(updated.website) CLUB_CONFIG.website=updated.website;
+      if(updated.emailMembership) CLUB_CONFIG.emailMembership=updated.emailMembership;
+      if(updated.emailEvents) CLUB_CONFIG.emailEvents=updated.emailEvents;
+      if(updated.emailTech) CLUB_CONFIG.emailTech=updated.emailTech;
+      if(updated.emailMerchandise) CLUB_CONFIG.emailMerchandise=updated.emailMerchandise;
+      // Apply CSS variable colours
+      if(updated.primaryColour){
+        document.documentElement.style.setProperty("--burg",updated.primaryColour);
+        document.documentElement.style.setProperty("--burg2",updated.primaryColour+"cc");
+      }
+      if(updated.secondaryColour){
+        document.documentElement.style.setProperty("--gold",updated.secondaryColour);
+        document.documentElement.style.setProperty("--gold2",updated.secondaryColour);
+      }
+      if(updated.accentColour){
+        document.documentElement.style.setProperty("--burg-dk",updated.accentColour);
+      }
+      setSaved(true); setTimeout(()=>setSaved(false),2500);
+    } catch(err) {
+      setSaveErr("Save failed: "+(err.message||"Firestore write error — check auth and rules"));
+      setTimeout(()=>setSaveErr(""),6000);
     }
-    if(updated.secondaryColour){
-      document.documentElement.style.setProperty("--gold",updated.secondaryColour);
-      document.documentElement.style.setProperty("--gold2",updated.secondaryColour);
-    }
-    if(updated.accentColour){
-      document.documentElement.style.setProperty("--burg-dk",updated.accentColour);
-    }
-    setSaved(true); setTimeout(()=>setSaved(false),2500);
   }
 
   // Venue helpers
@@ -12980,9 +12995,10 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const SSelect=AcctSSelect;
   const SColor=AcctSColor;
   const SaveBar=()=>(
-    <div style={{marginTop:28,paddingTop:20,borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:14}}>
+    <div style={{marginTop:28,paddingTop:20,borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
       <button onClick={handleSave} style={{padding:"10px 28px",background:"var(--burg)",color:"white",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)"}}>Save Changes</button>
       {saved&&<span style={{color:"#2a7a2a",fontWeight:600,fontSize:13}}>✓ Saved</span>}
+      {saveErr&&<span style={{color:"#c0282a",fontWeight:600,fontSize:13}}>{saveErr}</span>}
     </div>
   );
 
