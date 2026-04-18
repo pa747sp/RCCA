@@ -13044,8 +13044,10 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
                           async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
                         );
                       });
-                      // Save URL to Firestore clubs/{CLUB_ID} and form state
-                      await db.collection("clubs").doc(CLUB_ID).set({logoUrl:url},{merge:true});
+                      // Persist logo URL immediately — update accountSettings so it survives page reload
+                      const newAcct={...form, logo:url};
+                      await dbSet(SK.accountSettings, newAcct);
+                      setAccountSettings(newAcct);
                       setLogoProgress(null);
                       f("logo",url);
                       setLogoSaved(true); setTimeout(()=>setLogoSaved(false),2500);
