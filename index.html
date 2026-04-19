@@ -61,15 +61,12 @@
   };
 
   window.fireSet = async function(key, value) {
-    try {
-      var cleanKey = key.replace(CLUB_ID + ':', '');
-      await db.collection('clubs').doc(CLUB_ID).collection('data').doc(cleanKey).set({
-        value: JSON.stringify(value),
-        updated: new Date().toISOString()
-      });
-    } catch(e) {
-      console.error('dbSet error', key, e);
-    }
+    var cleanKey = key.replace(CLUB_ID + ':', '');
+    await db.collection('clubs').doc(CLUB_ID).collection('data').doc(cleanKey).set({
+      value: JSON.stringify(value),
+      updated: new Date().toISOString()
+    });
+    // Errors propagate to caller — no silent swallowing.
   };
 
   // Ensure Firebase Auth session exists before any Storage upload.
@@ -6641,6 +6638,7 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
   const [submitted, setSubmitted] = useState(false);
   const [refNum, setRefNum] = useState("");
   const [submittedInvoice, setSubmittedInvoice] = useState(null);
+  const [submitErr, setSubmitErr] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -6723,6 +6721,7 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
 
   async function handleSubmit() {
     if (!validateStep()) return;
+    setSubmitErr("");
     const ref = "APP-" + Date.now().toString(36).toUpperCase();
     const vehicleSummary = form.addVehicle
       ? form.vehicles.map(v=>`${v.year} ${v.make} ${v.model}`.trim()).filter(Boolean).join("; ")
@@ -6755,43 +6754,47 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
         agreeOwner:form.agreeOwner,
       },
     };
-    const existing = await dbGet(SK.applications) || [];
-    await dbSet(SK.applications, [...existing, app]);
+    try {
+      const existing = await dbGet(SK.applications) || [];
+      await dbSet(SK.applications, [...existing, app]);
 
-    // Generate invoice
-    const existingInv = await dbGet(SK.invoices) || [];
-    const invNum = genInvoiceNumber(existingInv);
-    const issueDate = today;
-    const fs = finSettings || DEFAULT_FIN_SETTINGS;
-    const invItems = [];
-    if (sel?.pricingNew) invItems.push({ description: "New Member Fee — " + (sel.label||form.memberTypeId), amount: sel.pricingNew });
-    if (!invItems.length) invItems.push({ description: "Membership Application — " + (sel?.label||""), amount: 0 });
-    const total = invItems.reduce((s,i)=>s+Number(i.amount||0), 0);
-    const invoice = {
-      invoiceNumber: invNum,
-      applicationId: ref,
-      memberId: null,
-      applicantName: `${form.firstName} ${form.lastName}`,
-      applicantEmail: form.email,
-      memberType: sel?.label||"",
-      memberTypeId: form.memberTypeId,
-      items: invItems,
-      total,
-      paymentRef: CLUB_CONFIG.shortName + "-" + invNum,
-      issued: issueDate,
-      due: calcDueDate(issueDate, fs.paymentDays),
-      status: "unpaid",
-      paidDate: null,
-      notes: "",
-      createdAt: new Date().toISOString(),
-    };
-    const updatedInv = [...existingInv, invoice];
-    await dbSet(SK.invoices, updatedInv);
-    if (typeof setInvoices === "function") setInvoices(updatedInv);
+      // Generate invoice
+      const existingInv = await dbGet(SK.invoices) || [];
+      const invNum = genInvoiceNumber(existingInv);
+      const issueDate = today;
+      const fs = finSettings || DEFAULT_FIN_SETTINGS;
+      const invItems = [];
+      if (sel?.pricingNew) invItems.push({ description: "New Member Fee — " + (sel.label||form.memberTypeId), amount: sel.pricingNew });
+      if (!invItems.length) invItems.push({ description: "Membership Application — " + (sel?.label||""), amount: 0 });
+      const total = invItems.reduce((s,i)=>s+Number(i.amount||0), 0);
+      const invoice = {
+        invoiceNumber: invNum,
+        applicationId: ref,
+        memberId: null,
+        applicantName: `${form.firstName} ${form.lastName}`,
+        applicantEmail: form.email,
+        memberType: sel?.label||"",
+        memberTypeId: form.memberTypeId,
+        items: invItems,
+        total,
+        paymentRef: CLUB_CONFIG.shortName + "-" + invNum,
+        issued: issueDate,
+        due: calcDueDate(issueDate, fs.paymentDays),
+        status: "unpaid",
+        paidDate: null,
+        notes: "",
+        createdAt: new Date().toISOString(),
+      };
+      const updatedInv = [...existingInv, invoice];
+      await dbSet(SK.invoices, updatedInv);
+      if (typeof setInvoices === "function") setInvoices(updatedInv);
 
-    setRefNum(ref);
-    setSubmittedInvoice(invoice);
-    setSubmitted(true);
+      setRefNum(ref);
+      setSubmittedInvoice(invoice);
+      setSubmitted(true);
+    } catch(e) {
+      setSubmitErr("Submission failed — " + (e.message || "please try again"));
+    }
   }
 
   const inputSt = (k) => ({
@@ -7209,6 +7212,7 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
         </div>
       )}
 
+      {submitErr&&<div style={{color:"#c0282a",fontSize:13,fontWeight:600,marginBottom:8,padding:"8px 12px",background:"#ffeaea",borderRadius:6,border:"1px solid #f5c0c0"}}>{submitErr}</div>}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
         {!isFirst
           ? <button onClick={prevStep} style={{background:"none",border:"1px solid var(--border2)",borderRadius:8,padding:"11px 24px",color:"var(--text3)",fontFamily:"var(--font-b)",fontSize:14,cursor:"pointer"}}>← Back</button>
@@ -12952,19 +12956,25 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   // Venue helpers
   function openNewVenue(){ setVenueForm({id:uid("VN"),name:"",address:"",suburb:"",state:"VIC",postcode:"",notes:"",mapsUrl:""}); setVenueModal("new"); }
   function openEditVenue(v){ setVenueForm({...v}); setVenueModal("edit"); }
+  async function _acctWrite(patch){
+    const merged={...form,...patch};
+    const cleanKey=SK.accountSettings.replace(CLUB_ID+":","");
+    await db.collection("clubs").doc(CLUB_ID).collection("data").doc(cleanKey).set({
+      value:JSON.stringify(merged), updated:new Date().toISOString()
+    });
+    setAccountSettings(merged);
+  }
   async function saveVenue(){
     const venues=Array.isArray(form.venues)?form.venues:[];
     const updated=venueModal==="edit"?venues.map(v=>v.id===venueForm.id?venueForm:v):[...venues,venueForm];
     setForm(p=>({...p,venues:updated}));
-    await dbSet(SK.accountSettings,{...form,venues:updated});
-    setAccountSettings({...form,venues:updated});
+    try{ await _acctWrite({venues:updated}); }catch(e){ setSaveErr("Venue save failed: "+e.message); setTimeout(()=>setSaveErr(""),6000); return; }
     setVenueModal(null);
   }
   async function deleteVenue(id){
     const updated=(form.venues||[]).filter(v=>v.id!==id);
     setForm(p=>({...p,venues:updated}));
-    await dbSet(SK.accountSettings,{...form,venues:updated});
-    setAccountSettings({...form,venues:updated});
+    try{ await _acctWrite({venues:updated}); }catch(e){ setSaveErr("Venue delete failed: "+e.message); setTimeout(()=>setSaveErr(""),6000); }
   }
 
   // Storage helpers
@@ -12974,15 +12984,13 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
     const locs=Array.isArray(form.storageLocations)?form.storageLocations:[];
     const updated=storageModal==="edit"?locs.map(s=>s.id===storageForm.id?storageForm:s):[...locs,storageForm];
     setForm(p=>({...p,storageLocations:updated}));
-    await dbSet(SK.accountSettings,{...form,storageLocations:updated});
-    setAccountSettings({...form,storageLocations:updated});
+    try{ await _acctWrite({storageLocations:updated}); }catch(e){ setSaveErr("Storage save failed: "+e.message); setTimeout(()=>setSaveErr(""),6000); return; }
     setStorageModal(null);
   }
   async function deleteStorage(id){
     const updated=(form.storageLocations||[]).filter(s=>s.id!==id);
     setForm(p=>({...p,storageLocations:updated}));
-    await dbSet(SK.accountSettings,{...form,storageLocations:updated});
-    setAccountSettings({...form,storageLocations:updated});
+    try{ await _acctWrite({storageLocations:updated}); }catch(e){ setSaveErr("Storage delete failed: "+e.message); setTimeout(()=>setSaveErr(""),6000); }
   }
 
   const tabs=[
