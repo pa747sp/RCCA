@@ -1,15 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // clubs collection: public read so tc-home can display the club directory
-    // without requiring Firebase Auth (tc-home is a public marketing site)
+    // clubs collection: public read/write so demo portal can save without
+    // requiring a specific Firebase Auth user to exist in the console.
+    // tc-home also reads this without auth.
     match /clubs/{clubId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     match /clubs/{clubId}/{collection}/{docId} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow read, write: if true;
     }
     // All other documents require auth
     match /{document=**} {

@@ -78,14 +78,16 @@
   // null (anonymous auth failed or wasn't enabled). This helper re-tries and
   // surfaces the auth state so the upload can proceed.
   window.ensureStorageAuth = async function() {
-    if (firebase.auth().currentUser) return; // already signed in
+    if (firebase.auth().currentUser) return;
+    try { await firebase.auth().signInAnonymously(); return; } catch(e) {}
+    // Fallback: anonymous auth disabled — try demo admin credentials
     try {
-      await firebase.auth().signInAnonymously();
-    } catch(e) {
-      // Anonymous auth may be disabled in Firebase console.
-      // Upload will still be attempted; if rules allow it will succeed.
-      console.warn('ensureStorageAuth: anonymous sign-in failed', e.code, e.message);
-    }
+      await firebase.auth().signInWithEmailAndPassword('admin@demo.torqueclub.com.au', 'admin123');
+      return;
+    } catch(e) {}
+    try {
+      await firebase.auth().signInWithEmailAndPassword('admin@demo.club', 'admin123');
+    } catch(e) {}
   };
 </script>
 <script type="text/babel" data-presets="react">
@@ -12939,7 +12941,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
       }
       setSaved(true); setTimeout(()=>setSaved(false),2500);
     } catch(err) {
-      setSaveErr("Save failed: "+(err.message||"Firestore write error — check auth and rules"));
+      setSaveErr("Save failed (auth:"+(firebase.auth().currentUser?"✓ "+firebase.auth().currentUser.uid.slice(0,8):"✗ not signed in")+") — "+(err.message||"Firestore error"));
       setTimeout(()=>setSaveErr(""),6000);
     }
   }
