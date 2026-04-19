@@ -813,8 +813,13 @@ function LoginScreen({ members, onLogin }) {
         const m = (members||[]).find(m => m.email && m.email.toLowerCase() === email.toLowerCase() && m.password === pw);
         if (m) {
           if (m.status==="suspended") { setErr("Your account has been suspended. Contact an administrator."); return; }
-          // Sign in anonymously so Firebase Storage rules can pass
-          firebase.auth().signInAnonymously().catch(()=>{}).finally(()=>onLogin(m));
+          // Sign in anonymously so Firebase Storage rules can pass.
+          // Also save member ID to localStorage so the session can be restored
+          // in new tabs (anonymous Firebase users have no email to match against).
+          firebase.auth().signInAnonymously().catch(()=>{}).finally(()=>{
+            try { localStorage.setItem('tc_member_id', m.id); } catch(e) {}
+            onLogin(m);
+          });
         } else {
           setErr("Invalid email or password.");
         }
@@ -9012,7 +9017,17 @@ function App() {// ════════════════════�
         const unsub=firebase.auth().onAuthStateChanged(u=>{unsub();resolve(u);});
       });
       if(authUser){
-        const restored=loadedMembers.find(mem=>mem.email&&mem.email.toLowerCase()===authUser.email.toLowerCase());
+        let restored=null;
+        if(authUser.email){
+          // Firebase Auth email/password login — match by email
+          restored=loadedMembers.find(mem=>mem.email&&mem.email.toLowerCase()===authUser.email.toLowerCase())||null;
+        } else {
+          // Anonymous auth fallback — restore from localStorage member ID
+          try {
+            const savedId=localStorage.getItem('tc_member_id');
+            if(savedId) restored=loadedMembers.find(mem=>mem.id===savedId)||null;
+          } catch(e) {}
+        }
         if(restored&&restored.status!=="suspended"){setUser(restored);}
       }
       setLoading(false);
@@ -9132,8 +9147,8 @@ function App() {// ════════════════════�
             })}
           </nav>
           <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)"}}>
-            <Btn variant="ghost" onClick={()=>{setUser(null);setTab("dashboard");setShowLogin(true);firebase.auth().signOut().catch(()=>{});}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
-            <button onClick={()=>{setUser(null);setTab("dashboard");setPublicPage("home");firebase.auth().signOut().catch(()=>{});}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
+            <Btn variant="ghost" onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setShowLogin(true);firebase.auth().signOut().catch(()=>{});}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
+            <button onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setPublicPage("home");firebase.auth().signOut().catch(()=>{});}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
           </div>
         </div>
         <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
@@ -12847,20 +12862,6 @@ function AcctSSelect({label,value,onChange,children,half}){
     </div>
   );
 }
-function AcctSColor({label,value,onChange,hint}){
-  return(
-    <div style={{flex:"1 1 calc(33% - 8px)",minWidth:140,marginBottom:16}}>
-      <AcctSLabel>{label}</AcctSLabel>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <input type="color" value={value||"#000000"} onChange={onChange}
-          style={{width:42,height:38,padding:2,border:"1px solid var(--border)",borderRadius:7,cursor:"pointer",background:"none"}}/>
-        <input type="text" value={value||""} onChange={onChange}
-          style={{flex:1,padding:"9px 12px",border:"1px solid var(--border)",borderRadius:7,fontSize:13,color:"var(--text)",background:"var(--bg2)",fontFamily:"var(--font-m)"}}/>
-      </div>
-      {hint&&<div style={{fontSize:11,color:"var(--text4)",marginTop:3}}>{hint}</div>}
-    </div>
-  );
-}
 
 function AccountSection({accountSettings,setAccountSettings,partsInventory,setPartsInventory}) {
   const AUS_STATES=["ACT","NSW","NT","QLD","SA","TAS","VIC","WA"];
@@ -12869,10 +12870,6 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const DEFAULT_ACCT={
     registeredName:CLUB_CONFIG.name, tradingName:"", abn:CLUB_CONFIG.abn||"", acn:"",
     incorporationNumber:"", stateOfIncorporation:CLUB_CONFIG.state||"VIC", foundedYear:String(CLUB_CONFIG.foundedYear||""), financialYearEnd:"06-30",
-    logo:null,
-    primaryColour:getComputedStyle(document.documentElement).getPropertyValue("--burg").trim()||"#c0282a",
-    secondaryColour:getComputedStyle(document.documentElement).getPropertyValue("--gold").trim()||"#8f1a1c",
-    accentColour:getComputedStyle(document.documentElement).getPropertyValue("--burg-dk").trim()||"#8f1a1c",
     postalStreet:CLUB_CONFIG.address||"", postalSuburb:"", postalState:CLUB_CONFIG.state||"VIC", postalPostcode:"",
     physicalStreet:"", physicalSuburb:"", physicalState:"VIC", physicalPostcode:"",
     phone:CLUB_CONFIG.phone||"", emailGeneral:CLUB_CONFIG.emailGeneral||"", website:CLUB_CONFIG.website||"",
@@ -12889,9 +12886,6 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const [venueForm,setVenueForm]=React.useState({});
   const [storageModal,setStorageModal]=React.useState(null);
   const [storageForm,setStorageForm]=React.useState({});
-  const [logoProgress,setLogoProgress]=React.useState(null);
-  const [logoSaved,setLogoSaved]=React.useState(false);
-  const [logoErr,setLogoErr]=React.useState("");
   const [saveErr,setSaveErr]=React.useState("");
 
   React.useEffect(()=>{setForm(accountSettings||DEFAULT_ACCT);},[accountSettings]);
@@ -12911,13 +12905,10 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
         value: JSON.stringify(updated),
         updated: new Date().toISOString()
       });
-      // Keep top-level clubs/{clubId} doc in sync so tc-home can read display fields
-      // without fetching the subcollection. status:"active" is required by tc-home filter.
+      // Keep top-level clubs/{clubId} doc in sync so tc-home can find this club.
+      // status:"active" is required by tc-home filter.
       await db.collection("clubs").doc(CLUB_ID).set({
         name: updated.registeredName||updated.tradingName||CLUB_CONFIG.name,
-        logoUrl: updated.logo||"",
-        primaryColour: updated.primaryColour||"",
-        secondaryColour: updated.secondaryColour||"",
         status: "active",
         updated: new Date().toISOString()
       },{merge:true});
@@ -12934,18 +12925,6 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
       if(updated.emailEvents) CLUB_CONFIG.emailEvents=updated.emailEvents;
       if(updated.emailTech) CLUB_CONFIG.emailTech=updated.emailTech;
       if(updated.emailMerchandise) CLUB_CONFIG.emailMerchandise=updated.emailMerchandise;
-      // Apply CSS variable colours
-      if(updated.primaryColour){
-        document.documentElement.style.setProperty("--burg",updated.primaryColour);
-        document.documentElement.style.setProperty("--burg2",updated.primaryColour+"cc");
-      }
-      if(updated.secondaryColour){
-        document.documentElement.style.setProperty("--gold",updated.secondaryColour);
-        document.documentElement.style.setProperty("--gold2",updated.secondaryColour);
-      }
-      if(updated.accentColour){
-        document.documentElement.style.setProperty("--burg-dk",updated.accentColour);
-      }
       setSaved(true); setTimeout(()=>setSaved(false),2500);
     } catch(err) {
       setSaveErr("Save failed (auth:"+(firebase.auth().currentUser?"✓ "+firebase.auth().currentUser.uid.slice(0,8):"✗ not signed in")+") — "+(err.message||"Firestore error"));
@@ -12995,7 +12974,6 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
 
   const tabs=[
     {id:"identity",  label:"Club Identity"},
-    {id:"branding",  label:"Branding"},
     {id:"contact",   label:"Contact Details"},
     {id:"emails",    label:"Departmental Emails"},
     {id:"venues",    label:"Venues"},
@@ -13006,7 +12984,6 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
   const SLabel=AcctSLabel;
   const SInput=AcctSInput;
   const SSelect=AcctSSelect;
-  const SColor=AcctSColor;
   const SaveBar=()=>(
     <div style={{marginTop:28,paddingTop:20,borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
       <button onClick={handleSave} style={{padding:"10px 28px",background:"var(--burg)",color:"white",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"var(--font-b)"}}>Save Changes</button>
@@ -13055,82 +13032,7 @@ function AccountSection({accountSettings,setAccountSettings,partsInventory,setPa
           </div>
         )}
 
-        {/* TAB 2 — BRANDING */}
-        {tab==="branding"&&(
-          <div>
-            <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Club logo and colour scheme. Colours update the portal theme immediately on save.</div>
-            <SLabel>Club Logo</SLabel>
-            <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:20}}>
-              {form.logo&&<img src={form.logo} alt="Club logo" style={{height:72,width:"auto",maxWidth:200,objectFit:"contain",border:"1px solid var(--border)",borderRadius:8,padding:6,background:"white"}}/>}
-              <div>
-                <label style={{display:"inline-block",padding:"8px 18px",background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:7,cursor:logoProgress!==null?"not-allowed":"pointer",fontSize:13,fontWeight:600,color:"var(--text2)",fontFamily:"var(--font-b)",opacity:logoProgress!==null?0.6:1}}>
-                  {logoProgress!==null?`Uploading ${logoProgress}%…`:form.logo?"Change Logo":"Upload Logo"}
-                  <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
-                    const file=e.target.files[0];if(!file)return;
-                    e.target.value="";
-                    setLogoProgress(0);
-                    try{
-                      await ensureStorageAuth();
-                      const storageRef=firebase.storage().ref(`clubs/${CLUB_ID}/logo`);
-                      const task=storageRef.put(file);
-                      const url=await new Promise((resolve,reject)=>{
-                        task.on("state_changed",
-                          snap=>setLogoProgress(Math.round((snap.bytesTransferred/snap.totalBytes)*100)),
-                          reject,
-                          async()=>{try{resolve(await task.snapshot.ref.getDownloadURL());}catch(err){reject(err);}}
-                        );
-                      });
-                      // Persist logo URL — direct Firestore write (dbSet swallows errors silently)
-                      const newAcct={...form, logo:url};
-                      const cleanKey=SK.accountSettings.replace(CLUB_ID+":","");
-                      await db.collection("clubs").doc(CLUB_ID).collection("data").doc(cleanKey).set({
-                        value: JSON.stringify(newAcct),
-                        updated: new Date().toISOString()
-                      });
-                      // Write display fields to top-level doc so tc-home can read without subcollection fetch
-                      await db.collection("clubs").doc(CLUB_ID).set({
-                        name: newAcct.registeredName||newAcct.tradingName||CLUB_CONFIG.name,
-                        logoUrl: url,
-                        primaryColour: newAcct.primaryColour||"",
-                        secondaryColour: newAcct.secondaryColour||"",
-                        status: "active",
-                        updated: new Date().toISOString()
-                      },{merge:true});
-                      setAccountSettings(newAcct);
-                      setLogoProgress(null);
-                      f("logo",url);
-                      setLogoSaved(true); setTimeout(()=>setLogoSaved(false),2500);
-                    }catch(err){
-                      setLogoProgress(null);
-                      setLogoErr("Logo upload failed: "+(err.message||"Storage error"));
-                      setTimeout(()=>setLogoErr(""),4000);
-                    }
-                  }}/>
-                </label>
-                {logoProgress!==null&&<div style={{marginTop:6,height:5,background:"var(--bg3)",borderRadius:3,overflow:"hidden",border:"1px solid var(--border)",minWidth:120}}><div style={{height:"100%",background:"var(--burg)",width:logoProgress+"%",transition:"width .2s"}}/></div>}
-                {logoSaved&&<span style={{marginLeft:10,fontSize:13,color:"var(--green2)",fontFamily:"var(--font-m)"}}>✓ Logo uploaded</span>}
-                {logoErr&&<span style={{marginLeft:10,fontSize:13,color:"#e55",fontFamily:"var(--font-m)"}}>{logoErr}</span>}
-                {form.logo&&<button onClick={()=>f("logo",null)} style={{marginLeft:10,padding:"8px 14px",background:"none",border:"1px solid var(--border2)",borderRadius:7,fontSize:13,color:"var(--text3)",cursor:"pointer"}}>Remove</button>}
-                <div style={{fontSize:11,color:"var(--text4)",marginTop:5}}>PNG or SVG recommended. Uploaded to Firebase Storage.</div>
-              </div>
-            </div>
-            <div style={{fontWeight:700,fontSize:13,color:"var(--text2)",marginBottom:12,fontFamily:"var(--font-b)"}}>Brand Colours</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:"0 16px"}}>
-              <SColor label="Primary Colour" value={form.primaryColour} onChange={e=>f("primaryColour",e.target.value)} hint="Main accent — buttons, active nav, highlights"/>
-              <SColor label="Secondary Colour" value={form.secondaryColour} onChange={e=>f("secondaryColour",e.target.value)} hint="Secondary accent — headings, decorative elements"/>
-              <SColor label="Accent / Dark Colour" value={form.accentColour} onChange={e=>f("accentColour",e.target.value)} hint="Darker variant — hover states, borders"/>
-            </div>
-            <div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 16px",fontSize:12,color:"var(--text3)",marginBottom:8}}>
-              <strong>Preview:</strong> Changes apply to the portal immediately when you click Save Changes.
-              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.primaryColour||"var(--burg)",verticalAlign:"middle",margin:"0 6px"}}></span>
-              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.secondaryColour||"var(--gold)",verticalAlign:"middle",margin:"0 6px"}}></span>
-              <span style={{display:"inline-block",width:18,height:18,borderRadius:"50%",background:form.accentColour||"var(--burg-dk)",verticalAlign:"middle",margin:"0 6px"}}></span>
-            </div>
-            <SaveBar/>
-          </div>
-        )}
-
-        {/* TAB 3 — CONTACT DETAILS */}
+        {/* TAB 2 — CONTACT DETAILS */}
         {tab==="contact"&&(
           <div>
             <div style={{fontSize:13,color:"var(--text3)",marginBottom:20}}>Public contact information for your club.</div>
