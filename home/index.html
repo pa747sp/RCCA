@@ -375,11 +375,18 @@ function ClubsPage() {
         const raw  = snap.docs.map(d => ({ id:d.id, ...d.data() }));
         const withSettings = await Promise.all(raw.map(async club => {
           if (club.status !== "active") return null;
+          // Try subcollection for full account settings (blurb, website etc.)
+          let acct = {};
           try {
             const doc = await db.collection("clubs").doc(club.id).collection("data").doc("accountSettings").get();
-            const acct = doc.exists ? JSON.parse(doc.data().value) : {};
-            return { ...club, acct };
-          } catch(e) { return { ...club, acct:{} }; }
+            if (doc.exists) acct = JSON.parse(doc.data().value);
+          } catch(e) {}
+          // Top-level doc fields override subcollection — these are kept in sync by the portal
+          // and are more reliably written (direct Firestore set, not via dbSet wrapper)
+          if (club.logoUrl) acct.logo = club.logoUrl;
+          if (club.primaryColour) acct.primaryColour = club.primaryColour;
+          if (club.secondaryColour) acct.secondaryColour = club.secondaryColour;
+          return { ...club, acct };
         }));
         setClubs(withSettings.filter(Boolean));
       } catch(e) { console.error("loadClubs:", e); }
