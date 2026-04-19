@@ -9132,8 +9132,8 @@ function App() {// ════════════════════�
             })}
           </nav>
           <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)"}}>
-            <Btn variant="ghost" onClick={()=>{firebase.auth().signOut();setUser(null);}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
-            <button onClick={()=>{firebase.auth().signOut();setUser(null);setPublicPage("home");}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
+            <Btn variant="ghost" onClick={async()=>{await firebase.auth().signOut().catch(()=>{});setUser(null);setTab("dashboard");setShowLogin(true);}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
+            <button onClick={async()=>{await firebase.auth().signOut().catch(()=>{});setUser(null);setTab("dashboard");setPublicPage("home");}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
           </div>
         </div>
         <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
