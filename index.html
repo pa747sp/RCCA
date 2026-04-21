@@ -8949,6 +8949,9 @@ function App() {// ════════════════════�
   const [emailTemplates,setEmailTemplates]=useState({templates:[],groups:[]});
   const [scheduledEmails,setScheduledEmails]=useState([]);
   const [contactGroups,setContactGroups]=useState([]);
+  const [openSection,setOpenSection]=useState(null);
+  const [drawerOpen,setDrawerOpen]=useState(false);
+  const [isMobile,setIsMobile]=useState(window.innerWidth<768);
 
   useEffect(()=>{
     (async()=>{
@@ -9039,6 +9042,24 @@ function App() {// ════════════════════�
   },[members]);
 
   useEffect(()=>{ if(tab) window.location.hash=tab; },[tab]);
+  useEffect(()=>{
+    const handler=()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener('resize',handler);
+    return ()=>window.removeEventListener('resize',handler);
+  },[]);
+  useEffect(()=>{
+    const tabToSection={
+      members:"grp_people",vehicles:"grp_people",clubactivity:"grp_people",
+      commerce:"grp_commerce",communications:"grp_commerce",
+      records:"grp_records",recognition:"grp_records",
+      administration:"grp_admin",account:"grp_admin",
+      membership:"grp_membership",myvehicles:"grp_membership",
+      mcommerce:"grp_mcommerce",
+      archive:"grp_mrecords",points:"grp_mrecords",
+    };
+    const secId=tabToSection[tab];
+    if(secId)setOpenSection(secId);
+  },[tab]);
 
   const notifs={
     library: user?(books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length:0,
@@ -9060,38 +9081,50 @@ function App() {// ════════════════════�
 
   const sp={user,members,setMembers,cars,setCars,transfers,setTransfers,meetings,setMeetings,events,setEvents,tasks,setTasks,dues,setDues,rsvps,setRsvps,listings,setListings,shopItems,setShopItems,orders,setOrders,news,setNews,applications,setApplications,messages,setMessages,books,setBooks,parts,setParts,partsInventory,setPartsInventory,qualityDocs,setQualityDocs,archiveDocs,setArchiveDocs,emailDrafts,setEmailDrafts,points,setPoints,forum,setForum,suppliers,setSuppliers,pages,setPages,gallery,setGallery,checkins,setCheckins,tripLogs,setTripLogs,contacts,setContacts,competitions,setCompetitions,pendingCars,setPendingCars,incidents,setIncidents,polls,setPolls,expenses,setExpenses,finSettings,setFinSettings,categories,setCategories,permits,setPermits,partsCatalogue,setPartsCatalogue,partsEOI,setPartsEOI,invoices,setInvoices,accountSettings,setAccountSettings,emailLog,setEmailLog,emailTemplates,setEmailTemplates,scheduledEmails,setScheduledEmails,contactGroups,setContactGroups};
 
-  // Portal nav items — add News for admins
+  // Portal nav items — accordion groups
   const PORTAL_NAV_ADMIN = [
-    { id:"dashboard",      label:"Dashboard",        icon:"⊞" },
-    { divider: true },
-    { id:"members",        label:"Members",          icon:"◉" },
-    { id:"vehicles",       label:"Vehicles",         icon:"◎" },
-    { id:"clubactivity",   label:"Club Activity",    icon:"◆" },
-    { divider: true },
-    { id:"commerce",       label:"Commerce",         icon:"⊕" },
-    { id:"communications", label:"Communications",   icon:"✉" },
-    { divider: true },
-    { id:"records",        label:"Club Records",     icon:"📚" },
-    { id:"recognition",    label:"Recognition",      icon:"🏆" },
-    { divider: true },
-    { id:"administration", label:"Administration",   icon:"⚙" },
-    { id:"account",        label:"Account",          icon:"🏛" },
-    { divider: true },
-    { id:"profile",        label:"My Profile",       icon:"◑" },
+    { id:"dashboard",     label:"Dashboard",          icon:"⊞", direct:true },
+    { id:"grp_people",    label:"People & Vehicles",  icon:"◉",
+      items:[
+        {id:"members",        label:"Members"},
+        {id:"vehicles",       label:"Vehicles"},
+        {id:"clubactivity",   label:"Club Activity"},
+      ]},
+    { id:"grp_commerce",  label:"Commerce",            icon:"⊕",
+      items:[
+        {id:"commerce",       label:"Commerce"},
+        {id:"communications", label:"Communications"},
+      ]},
+    { id:"grp_records",   label:"Records",             icon:"📚",
+      items:[
+        {id:"records",     label:"Club Records"},
+        {id:"recognition", label:"Recognition"},
+      ]},
+    { id:"grp_admin",     label:"Administration",      icon:"⚙",
+      items:[
+        {id:"administration", label:"Administration"},
+        {id:"account",        label:"Account"},
+      ]},
+    { id:"profile",       label:"My Profile",          icon:"◑", direct:true },
   ];
   const PORTAL_NAV_MEMBER = [
-    { id:"dashboard",    label:"Dashboard",        icon:"⊞" },
-    { divider: true },
-    { id:"membership",   label:"My Membership",    icon:"◉" },
-    { id:"myvehicles",   label:"My Vehicles",      icon:"◎" },
-    { id:"clubactivity", label:"Club Activity",    icon:"◆" },
-    { divider: true },
-    { id:"mcommerce",    label:"Commerce",         icon:"⊕" },
-    { divider: true },
-    { id:"archive",      label:"Club Archive",     icon:"📚" },
-    { id:"points",       label:"Points & Awards",  icon:"🏆" },
-    { divider: true },
-    { id:"profile",      label:"My Profile",       icon:"◑" },
+    { id:"dashboard",       label:"Dashboard",    icon:"⊞", direct:true },
+    { id:"grp_membership",  label:"Membership",   icon:"◉",
+      items:[
+        {id:"membership",   label:"My Membership"},
+        {id:"myvehicles",   label:"My Vehicles"},
+        {id:"clubactivity", label:"Club Activity"},
+      ]},
+    { id:"grp_mcommerce",   label:"Commerce",     icon:"⊕",
+      items:[
+        {id:"mcommerce", label:"Commerce"},
+      ]},
+    { id:"grp_mrecords",    label:"Club Records", icon:"📚",
+      items:[
+        {id:"archive", label:"Club Archive"},
+        {id:"points",  label:"Points & Awards"},
+      ]},
+    { id:"profile",         label:"My Profile",   icon:"◑", direct:true },
   ];
 
   if(loading) return (
@@ -9106,52 +9139,115 @@ function App() {// ════════════════════�
 
   // ── MEMBERS PORTAL (logged in) ─────────────────────────────────────────────
   if(user) {
-    const navItems = user.role==="admin" ? PORTAL_NAV_ADMIN : PORTAL_NAV_MEMBER;
-    return (
-      <div style={{display:"flex",height:"100vh",overflow:"hidden"}}>
-        {/* Custom sidebar with nav items */}
-        <div style={{width:228,flexShrink:0,background:"#ffffff",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,backgroundImage:"linear-gradient(180deg,#f8f0ee 0%,#ffffff 100px)"}}>
-          <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)"}}>
-            <Row gap={10} align="center">
-              <div style={{width:38,height:38,flexShrink:0}}>
-                <RccaLogo size={38} style={{width:"auto",height:38}}/>
-              </div>
-              <div>
-                <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--text)",lineHeight:1.15}}>{CLUB_CONFIG.name}</div>
-              </div>
-            </Row>
-          </div>
-          <div style={{padding:"11px 14px",borderBottom:"1px solid var(--border)",background:"rgba(107,26,42,.15)"}}>
-            <Row gap={9} align="center">
-              <Avatar name={user.name} size={30}/>
-              <div style={{overflow:"hidden",flex:1}}>
-                <div style={{fontSize:12,color:"var(--text)",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div>
-                <Row gap={4} style={{marginTop:2}}><Badge status={user.role}/></Row>
-              </div>
-            </Row>
-          </div>
-          <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
-            {navItems.map((item,i)=>{
-              if(item.divider) return (
-                <div key={"div"+i} style={{margin:"5px 16px",borderTop:"1px solid rgba(42,58,74,.1)"}}/>
-              );
-              const active=tab===item.id;
-              const n=notifs[item.id]||0;
+    const navGroups = user.role==="admin" ? PORTAL_NAV_ADMIN : PORTAL_NAV_MEMBER;
+    const grpNotif = (grp) => grp.direct ? (notifs[grp.id]||0) : (grp.items||[]).reduce((s,item)=>s+(notifs[item.id]||0),0);
+
+    const navBtn = (id,label,active,n,onClick,extraStyle)=>(
+      <button key={id} onClick={onClick} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",background:active?"rgba(201,146,42,.12)":"none",border:"none",borderLeft:active?"3px solid #C9922A":"3px solid transparent",color:active?"#C9922A":"#2A3A4A",fontSize:13,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:500,letterSpacing:"0.01em",...extraStyle}}>
+        {label}
+        {n>0&&<span style={{background:"var(--burg)",color:"#fff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center",marginLeft:"auto"}}>{n}</span>}
+      </button>
+    );
+
+    const sidebarInner = (
+      <>
+        <div style={{padding:"18px 16px 14px",borderBottom:"1px solid var(--border)",flexShrink:0}}>
+          <Row gap={10} align="center">
+            <div style={{width:38,height:38,flexShrink:0}}><RccaLogo size={38} style={{width:"auto",height:38}}/></div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:12.5,fontWeight:700,color:"var(--text)",lineHeight:1.15}}>{CLUB_CONFIG.name}</div>
+          </Row>
+        </div>
+        <div style={{padding:"11px 14px",borderBottom:"1px solid var(--border)",background:"rgba(107,26,42,.15)",flexShrink:0}}>
+          <Row gap={9} align="center">
+            <Avatar name={user.name} size={30}/>
+            <div style={{overflow:"hidden",flex:1}}>
+              <div style={{fontSize:12,color:"var(--text)",fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div>
+              <Row gap={4} style={{marginTop:2}}><Badge status={user.role}/></Row>
+            </div>
+          </Row>
+        </div>
+        <nav style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
+          {navGroups.map((grp)=>{
+            if(grp.direct){
+              const active=tab===grp.id;
+              const n=notifs[grp.id]||0;
               return (
-                <button key={item.id} onClick={()=>setTab(item.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",background:active?"rgba(201,146,42,.12)":"none",border:"none",borderLeft:active?"3px solid #C9922A":"3px solid transparent",color:active?"#C9922A":"#2A3A4A",fontSize:13,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:500,letterSpacing:"0.01em"}}>
-                  <span style={{fontSize:13,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",color:active?"#C9922A":"rgba(42,58,74,.55)"}}>{item.icon==="P6"?<RoverP6Icon size={18} color={active?"#C9922A":"rgba(42,58,74,.55)"}/>:item.icon}</span>
-                  <span style={{flex:1,textAlign:"left"}}>{item.label}</span>
-                  {n>0&&<span style={{background:"var(--burg)",color:"#ffffff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{n}</span>}
+                <button key={grp.id} onClick={()=>{setTab(grp.id);setDrawerOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",background:active?"rgba(201,146,42,.12)":"none",border:"none",borderLeft:active?"3px solid #C9922A":"3px solid transparent",color:active?"#C9922A":"#2A3A4A",fontSize:13,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:500,letterSpacing:"0.01em"}}>
+                  <span style={{fontSize:13,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",color:active?"#C9922A":"rgba(42,58,74,.55)"}}>{grp.icon}</span>
+                  <span style={{flex:1,textAlign:"left"}}>{grp.label}</span>
+                  {n>0&&<span style={{background:"var(--burg)",color:"#fff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{n}</span>}
                 </button>
               );
-            })}
-          </nav>
-          <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)"}}>
-            <Btn variant="ghost" onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setShowLogin(true);firebase.auth().signOut().catch(()=>{});}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
-            <button onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setPublicPage("home");firebase.auth().signOut().catch(()=>{});}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
-          </div>
+            }
+            const isOpen=openSection===grp.id;
+            const hasActive=(grp.items||[]).some(item=>item.id===tab);
+            const gn=grpNotif(grp);
+            return (
+              <div key={grp.id}>
+                <button onClick={()=>{
+                  if(isOpen){setOpenSection(null);}
+                  else{setOpenSection(grp.id);setTab(grp.items[0].id);setDrawerOpen(false);}
+                }} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"9px 16px",background:hasActive&&!isOpen?"rgba(201,146,42,.06)":"none",border:"none",borderLeft:hasActive?"3px solid rgba(201,146,42,.4)":"3px solid transparent",color:"#2A3A4A",fontSize:13,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:hasActive?600:500,letterSpacing:"0.01em"}}>
+                  <span style={{fontSize:13,fontFamily:"var(--font-m)",minWidth:16,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",color:hasActive?"#C9922A":"rgba(42,58,74,.55)"}}>{grp.icon}</span>
+                  <span style={{flex:1,textAlign:"left"}}>{grp.label}</span>
+                  {gn>0&&!isOpen&&<span style={{background:"var(--burg)",color:"#fff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{gn}</span>}
+                  <span style={{fontSize:9,color:"rgba(42,58,74,.4)",marginLeft:2,display:"inline-block",transition:"transform .2s",transform:isOpen?"rotate(90deg)":"none"}}>▶</span>
+                </button>
+                {isOpen&&(
+                  <div style={{background:"rgba(42,58,74,.03)"}}>
+                    {(grp.items||[]).map(item=>{
+                      const active=tab===item.id;
+                      const n=notifs[item.id]||0;
+                      return (
+                        <button key={item.id} onClick={()=>{setTab(item.id);setDrawerOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"7px 16px 7px 44px",background:active?"rgba(201,146,42,.12)":"none",border:"none",borderLeft:active?"3px solid #C9922A":"3px solid transparent",color:active?"#C9922A":"#2A3A4A",fontSize:12.5,fontFamily:"var(--font-b)",cursor:"pointer",transition:"all .15s",fontWeight:active?700:400,letterSpacing:"0.01em"}}>
+                          <span style={{flex:1,textAlign:"left"}}>{item.label}</span>
+                          {n>0&&<span style={{background:"var(--burg)",color:"#fff",fontSize:9,fontFamily:"var(--font-m)",borderRadius:10,padding:"1px 5px",minWidth:16,textAlign:"center"}}>{n}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+        <div style={{padding:"8px 14px",borderTop:"1px solid var(--border)",flexShrink:0}}>
+          <Btn variant="ghost" onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setShowLogin(true);firebase.auth().signOut().catch(()=>{});}} style={{width:"100%",fontSize:11,color:"var(--text3)",marginBottom:6}}>↩ Sign Out</Btn>
+          <button onClick={()=>{try{localStorage.removeItem('tc_member_id');}catch(e){}setUser(null);setTab("dashboard");setPublicPage("home");firebase.auth().signOut().catch(()=>{});}} style={{display:"block",width:"100%",background:"none",border:"none",color:"var(--text4)",fontFamily:"var(--font-b)",fontSize:10.5,cursor:"pointer",padding:"4px 0",textAlign:"center"}}>← Back to Public Site</button>
         </div>
-        <main style={{flex:1,overflowY:"auto",minHeight:0,padding:"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
+      </>
+    );
+
+    return (
+      <div style={{display:"flex",height:"100vh",overflow:"hidden"}}>
+        {/* Desktop sidebar */}
+        {!isMobile&&(
+          <div style={{width:228,flexShrink:0,background:"#ffffff",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",height:"100vh",position:"sticky",top:0,backgroundImage:"linear-gradient(180deg,#f8f0ee 0%,#ffffff 100px)"}}>
+            {sidebarInner}
+          </div>
+        )}
+        {/* Mobile top bar */}
+        {isMobile&&(
+          <div style={{position:"fixed",top:0,left:0,right:0,height:52,background:"#ffffff",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",padding:"0 16px",gap:12,zIndex:100,backgroundImage:"linear-gradient(90deg,#f8f0ee 0%,#ffffff 60%)"}}>
+            <button onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:"#2A3A4A",padding:"2px 6px",lineHeight:1}}>☰</button>
+            <div style={{fontFamily:"var(--font-d)",fontSize:13,fontWeight:700,color:"var(--text)",flex:1}}>{CLUB_CONFIG.name}</div>
+            <Avatar name={user.name} size={28}/>
+          </div>
+        )}
+        {/* Mobile drawer */}
+        {isMobile&&drawerOpen&&(
+          <>
+            <div onClick={()=>setDrawerOpen(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:200}}/>
+            <div style={{position:"fixed",top:0,left:0,bottom:0,width:"80%",maxWidth:300,background:"#ffffff",zIndex:300,display:"flex",flexDirection:"column",backgroundImage:"linear-gradient(180deg,#f8f0ee 0%,#ffffff 100px)"}}>
+              <div style={{display:"flex",justifyContent:"flex-end",padding:"12px 14px 0",flexShrink:0}}>
+                <button onClick={()=>setDrawerOpen(false)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"var(--text3)",padding:"4px",lineHeight:1}}>✕</button>
+              </div>
+              {sidebarInner}
+            </div>
+          </>
+        )}
+        {/* Main content */}
+        <main style={{flex:1,overflowY:"auto",minHeight:0,padding:isMobile?"72px 16px 28px":"28px 32px",background:"var(--bg)",backgroundImage:"radial-gradient(ellipse at 85% 5%, rgba(192,40,42,.05) 0%, transparent 45%)"}}>
           <div className="slide-r" key={tab}>
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {/* Admin sections */}
