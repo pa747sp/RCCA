@@ -9048,18 +9048,24 @@ function App() {// ════════════════════�
     return ()=>window.removeEventListener('resize',handler);
   },[]);
   useEffect(()=>{
-    const tabToSection={
-      members:"grp_people",vehicles:"grp_people",clubactivity:"grp_people",
-      commerce:"grp_commerce",communications:"grp_commerce",
-      records:"grp_records",recognition:"grp_records",
-      administration:"grp_admin",account:"grp_admin",
-      membership:"grp_membership",myvehicles:"grp_membership",
+    const adminMap={
+      members:"grp_members",applications:"grp_members",dues:"grp_members",membershipTypes:"grp_members",committee:"grp_members",
+      vehicles:"grp_vehicles",triplogsadmin:"grp_vehicles",permits:"grp_vehicles",
+      events:"grp_activity",meetings:"grp_activity",
+      communications:"grp_comms",contacts:"grp_comms",polls:"grp_comms",
+      finance:"grp_finance",finance_income:"grp_finance",finance_expenses:"grp_finance",finance_invoices:"grp_finance",
+      marketplace:"grp_commerce",shop:"grp_commerce",parts:"grp_commerce",
+      archive:"grp_records",library:"grp_records",qualitysystem:"grp_records",gallery:"grp_records",
+      account:"grp_account",account_contact:"grp_account",account_emails:"grp_account",account_venues:"grp_account",account_storage:"grp_account",myplan:"grp_account",
+    };
+    const memberMap={
+      membership:"grp_membership",myvehicles:"grp_membership",clubactivity:"grp_membership",
       mcommerce:"grp_mcommerce",
       archive:"grp_mrecords",points:"grp_mrecords",
     };
-    const secId=tabToSection[tab];
+    const secId=(user?.role==="admin"?adminMap:memberMap)[tab];
     if(secId)setOpenSection(secId);
-  },[tab]);
+  },[tab,user]);
 
   const notifs={
     library: user?(books||[]).filter(b=>b.status==="overdue"&&(user.role==="admin"||(b.borrowedBy===user.id))).length:0,
@@ -9083,29 +9089,54 @@ function App() {// ════════════════════�
 
   // Portal nav items — accordion groups
   const PORTAL_NAV_ADMIN = [
-    { id:"dashboard",     label:"Dashboard",          icon:"⊞", direct:true },
-    { id:"grp_people",    label:"People & Vehicles",  icon:"◉",
-      items:[
-        {id:"members",        label:"Members"},
-        {id:"vehicles",       label:"Vehicles"},
-        {id:"clubactivity",   label:"Club Activity"},
-      ]},
-    { id:"grp_commerce",  label:"Commerce",            icon:"⊕",
-      items:[
-        {id:"commerce",       label:"Commerce"},
-        {id:"communications", label:"Communications"},
-      ]},
-    { id:"grp_records",   label:"Records",             icon:"📚",
-      items:[
-        {id:"records",     label:"Club Records"},
-        {id:"recognition", label:"Recognition"},
-      ]},
-    { id:"grp_admin",     label:"Administration",      icon:"⚙",
-      items:[
-        {id:"administration", label:"Administration"},
-        {id:"account",        label:"Account"},
-      ]},
-    { id:"profile",       label:"My Profile",          icon:"◑", direct:true },
+    { id:"dashboard", label:"Dashboard", icon:"⊞", direct:true },
+    { id:"grp_members", label:"Members", icon:"◉", items:[
+      {id:"members",         label:"All Members"},
+      {id:"applications",    label:"Applications"},
+      {id:"dues",            label:"Dues & Renewals"},
+      {id:"membershipTypes", label:"Membership Types"},
+      {id:"committee",       label:"Committee"},
+    ]},
+    { id:"grp_vehicles", label:"Vehicles", icon:"◎", items:[
+      {id:"vehicles",      label:"All Vehicles"},
+      {id:"triplogsadmin", label:"Trip Logs"},
+      {id:"permits",       label:"Permits"},
+    ]},
+    { id:"grp_activity", label:"Club Activity", icon:"◆", items:[
+      {id:"events",   label:"Events"},
+      {id:"meetings", label:"Meetings"},
+    ]},
+    { id:"grp_comms", label:"Communications", icon:"✉", items:[
+      {id:"communications", label:"Email Builder"},
+      {id:"contacts",       label:"Contact List"},
+      {id:"polls",          label:"Polls"},
+    ]},
+    { id:"grp_finance", label:"Finance", icon:"◈", items:[
+      {id:"finance",          label:"Dashboard"},
+      {id:"finance_income",   label:"Income"},
+      {id:"finance_expenses", label:"Expenses"},
+      {id:"finance_invoices", label:"Invoices"},
+    ]},
+    { id:"grp_commerce", label:"Commerce", icon:"⊕", items:[
+      {id:"marketplace", label:"Marketplace"},
+      {id:"shop",        label:"Shop"},
+      {id:"parts",       label:"Parts"},
+    ]},
+    { id:"grp_records", label:"Club Records", icon:"📚", items:[
+      {id:"archive",       label:"Archive"},
+      {id:"library",       label:"Library"},
+      {id:"qualitysystem", label:"Quality System"},
+      {id:"gallery",       label:"Gallery"},
+    ]},
+    { id:"grp_account", label:"Account", icon:"🏛", items:[
+      {id:"account",         label:"Club Identity"},
+      {id:"account_contact", label:"Contact Details"},
+      {id:"account_emails",  label:"Departmental Emails"},
+      {id:"account_venues",  label:"Venues"},
+      {id:"account_storage", label:"Storage Locations"},
+      {id:"myplan",          label:"My Plan"},
+    ]},
+    { id:"profile", label:"My Profile", icon:"◑", direct:true },
   ];
   const PORTAL_NAV_MEMBER = [
     { id:"dashboard",       label:"Dashboard",    icon:"⊞", direct:true },
@@ -9260,6 +9291,9 @@ function App() {// ════════════════════�
             {tab==="recognition"&&user.role==="admin"&&<RecognitionSection {...sp}/>}
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
             {tab==="account"    &&user.role==="admin"&&<AccountSection {...sp}/>}
+            {(tab==="account_contact"||tab==="account_emails"||tab==="account_venues"||tab==="account_storage")&&user.role==="admin"&&<AccountSection {...sp}/>}
+            {tab==="triplogsadmin"&&user.role==="admin"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="contacts"   &&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {/* Member sections */}
             {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
             {tab==="myvehicles" &&user.role!=="admin"&&<MyVehiclesSection user={user} cars={cars} setCars={setCars} members={members} transfers={transfers} setTransfers={setTransfers} pendingCars={pendingCars} setPendingCars={setPendingCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
@@ -9289,6 +9323,7 @@ function App() {// ════════════════════�
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
+            {(tab==="finance_income"||tab==="finance_expenses"||tab==="finance_invoices")&&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
