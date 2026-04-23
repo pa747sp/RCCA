@@ -1484,45 +1484,22 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
     const max=nums.length?Math.max(...nums):0;
     return String(max+1).padStart(3,"0");
   }
-  function openAdd(){setForm({name:"",email:"",password:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:nextMemberNumber(),paymentStatus:"unpaid"});setFormErr("");setModal("add");}
+  function openAdd(){setForm({name:"",email:"",phone:"",memberType:"Full",status:"active",role:"member",joined:today,bio:"",state:"VIC",memberNumber:nextMemberNumber(),paymentStatus:"unpaid"});setFormErr("");setModal("add");}
   function openEdit(m){setForm({...m});setFormErr("");setModal({edit:m});}
   async function handleSave(){
     if(!form.name||!form.email){setFormErr("Full name and email are required.");return;}
-    if(modal==="add"&&!form.password){setFormErr("Password is required for new member login.");return;}
     setFormErr(""); setSaving(true);
     try {
       let updated;
       if(modal==="add"){
-        // Create Firebase Auth account via secondary app instance (avoids signing out admin)
-        try {
-          const appName="addMember_"+Date.now();
-          const secondaryApp=firebase.initializeApp(firebaseConfig,appName);
-          try {
-            await secondaryApp.auth().createUserWithEmailAndPassword(form.email,form.password);
-            await secondaryApp.auth().signOut();
-          } finally {
-            try{await secondaryApp.delete();}catch(e){}
-          }
-        } catch(authErr) {
-          if(authErr.code==="auth/email-already-in-use"){
-            setFormErr("That email address already has a login account. Use a different email or edit the existing member.");
-            setSaving(false); return;
-          }
-          if(authErr.code==="auth/weak-password"){
-            setFormErr("Password must be at least 6 characters.");
-            setSaving(false); return;
-          }
-          // Other auth errors: proceed (member added to DB, they can reset password later)
-        }
         const nm={...form,id:uid("M"),avatar:form.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()};
-        delete nm.password; delete nm.paymentStatus;
+        delete nm.paymentStatus;
         updated=[...members,nm];
         const isPaid=form.paymentStatus==="paid";
         const nd=[...dues,{id:uid("D"),memberId:nm.id,year:yr,amount:nm.memberType==="Full"?150:100,paid:isPaid,paidDate:isPaid?today:null,method:isPaid?"cash":null}];
         setDues(nd); await dbSet(SK.dues,nd);
       } else {
-        const cleanForm={...form}; delete cleanForm.password;
-        updated=members.map(m=>m.id===form.id?{...cleanForm}:m);
+        updated=members.map(m=>m.id===form.id?{...form}:m);
       }
       setMembers(updated); await dbSet(SK.members,updated); setModal(null);
     } catch(e) {
@@ -1678,7 +1655,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
         <Modal title={modal==="add"?"Add Member":"Edit Member"} onClose={()=>setModal(null)}>
           {modal==="add"&&(
             <div style={{background:"#e8f0f8",borderRadius:6,padding:"8px 12px",fontSize:12,color:"var(--blue)",marginBottom:12}}>
-              Member number auto-assigned as <strong>#{nextMemberNumber()}</strong> — edit below if needed.
+              Member number auto-assigned as <strong>#{nextMemberNumber()}</strong> — edit below if needed. To give the member portal access, use <strong>Send Password Reset</strong> from their detail view after saving.
             </div>
           )}
           {formErr&&<div style={{background:"#fff0f0",border:"1px solid #f0a0a0",borderRadius:6,padding:"8px 12px",fontSize:12,color:"#a02020",marginBottom:12}}>{formErr}</div>}
@@ -1691,10 +1668,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
               </Row>
             </Field>
           </Row>
-          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-            <Field label="Email" half><Input type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
-            <Field label={modal==="add"?"Password (for portal login)":"New Password"} half><Input type="password" value={form.password||""} onChange={e=>setForm({...form,password:e.target.value})} placeholder={modal?.edit?"Leave blank to keep":"Min 6 characters"}/></Field>
-          </Row>
+          <Field label="Email"><Input type="email" value={form.email||""} onChange={e=>setForm({...form,email:e.target.value})}/></Field>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Phone" half><Input value={form.phone||""} onChange={e=>setForm({...form,phone:e.target.value})}/></Field>
             <Field label="State" half>
