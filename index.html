@@ -1438,6 +1438,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
   const [showFilters,setShowFilters]=useState(false);
   const [formErr,setFormErr]=useState(""); const [saving,setSaving]=useState(false);
   const [detailMember,setDetailMember]=useState(null);
+  const [pwResetState,setPwResetState]=useState(null);
   const [filters,setFilters]=useState({status:[],memberType:[],state:[],role:[],duesStatus:[],noDigital:false,hasEmail:false,hasPhone:false,joinedFrom:"",joinedTo:""});
 
   const setFilter=(key,val)=>setFilters(f=>({...f,[key]:val}));
@@ -1531,6 +1532,16 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
   }
   async function toggleStatus(m,status){const u=members.map(x=>x.id===m.id?{...x,status}:x);setMembers(u);await dbSet(SK.members,u);setModal(null);}
   async function toggleRole(m){const u=members.map(x=>x.id===m.id?{...x,role:m.role==="admin"?"member":"admin"}:x);setMembers(u);await dbSet(SK.members,u);}
+  async function sendPwReset(email){
+    try {
+      await firebase.auth().sendPasswordResetEmail(email);
+      setPwResetState({ok:true,email});
+      setTimeout(()=>setPwResetState(null),4000);
+    } catch(e) {
+      setPwResetState({ok:false,err:e.message});
+      setTimeout(()=>setPwResetState(null),5000);
+    }
+  }
   return (
     <div className="fade-up">
       <SectionHeader title="Members" subtitle={`${members.filter(m=>m.status==="active").length} active · ${members.length} total registered`}
@@ -1649,7 +1660,7 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
                 <td style={{padding:"9px 12px"}}><Badge status={m.status}/>{m.noDigital&&<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#d0e8fc",color:"#1a3a6a",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>✉ POST</span>}{(()=>{const yrs=m.joined?new Date().getFullYear()-new Date(m.joined).getFullYear():null;const ms=[1,2,5,10,15,20,25,30,50,75];return yrs&&ms.includes(yrs)?<span style={{display:"inline-block",marginLeft:4,fontSize:9,background:"#fff8e0",color:"#7a5010",border:"1px solid #f0c840",borderRadius:8,padding:"1px 6px",fontWeight:700,verticalAlign:"middle"}}>🏅 {yrs}yr{m.vtFlagged&&m.vtFlaggedYear===new Date().getFullYear()?" 📰":""}</span>:null;})()}</td>
                 <td style={{padding:"9px 12px"}}>
                   <Row gap={5} wrap>
-                    <Btn variant="ghost" size="sm" onClick={()=>setDetailMember(m)}>View</Btn>
+                    <Btn variant="ghost" size="sm" onClick={()=>{setDetailMember(m);setPwResetState(null);}}>View</Btn>
                     <Btn variant="ghost" size="sm" onClick={()=>openEdit(m)}>View / Edit</Btn>
                     {m.id!==user.id&&<>
                       {m.status==="active"?<Btn variant="ghost" size="sm" onClick={()=>setModal({confirm:{msg:`Suspend ${m.name}?`,fn:()=>toggleStatus(m,"suspended")}})}>Suspend</Btn>
@@ -1760,7 +1771,13 @@ function MembersSectionInner({ user, members, setMembers, cars, dues, setDues, s
               <div style={{fontSize:10,fontFamily:"var(--font-m)",color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>Bio</div>
               <div style={{fontSize:13,color:"var(--text2)",lineHeight:1.6}}>{dm.bio}</div>
             </div>}
+            {pwResetState&&(
+              <div style={{background:pwResetState.ok?"#e8f5ee":"#fff0f0",border:"1px solid "+(pwResetState.ok?"#b2dfcd":"#f0a0a0"),borderRadius:6,padding:"8px 12px",fontSize:12,color:pwResetState.ok?"#1e6840":"#a02020",marginBottom:12}}>
+                {pwResetState.ok?"✓ Password reset email sent to "+pwResetState.email:"✗ "+(pwResetState.err||"Failed to send reset email")}
+              </div>
+            )}
             <Row gap={8} justify="flex-end">
+              {user.role==="admin"&&dm.email&&<Btn variant="ghost" size="sm" onClick={()=>sendPwReset(dm.email)}>✉ Send Password Reset</Btn>}
               {dm.id!==user.id&&dm.status==="active"&&<Btn variant="ghost" size="sm" onClick={()=>{setDetailMember(null);setModal({confirm:{msg:`Suspend ${dm.name}?`,fn:()=>toggleStatus(dm,"suspended")}});}}>Suspend</Btn>}
               {dm.id!==user.id&&dm.status!=="active"&&<Btn variant="success" size="sm" onClick={()=>{setDetailMember(null);toggleStatus(dm,"active");}}>Reinstate</Btn>}
               <Btn variant="ghost" onClick={()=>setDetailMember(null)}>Close</Btn>
