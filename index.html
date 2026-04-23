@@ -9343,7 +9343,7 @@ function App() {// ════════════════════�
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
             {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
-            {(tab==="finance_income"||tab==="finance_expenses"||tab==="finance_invoices")&&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
+            {(tab==="finance_income"||tab==="finance_expenses"||tab==="finance_invoices")&&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices} initialTab={tab==="finance_income"?"income":tab==="finance_expenses"?"expenses":"invoices"}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
@@ -10079,9 +10079,9 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
 
 const EXPENSE_CATS=getCats(null).expenseCat;
 
-function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems, invoices, setInvoices }) {
+function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems, invoices, setInvoices, initialTab }) {
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
-  const [tab,setTab]=useState("dashboard");
+  const [tab,setTab]=useState(initialTab||"dashboard");
   const [modal,setModal]=useState(null);
   const [expForm,setExpForm]=useState({date:today,amount:"",category:"Hall Hire",description:"",reference:"",receiptData:"",receiptName:"",notes:""});
   const [settForm,setSettForm]=useState(fs);
