@@ -7235,7 +7235,6 @@ function ApplicationsSection({ applications, setApplications, members, setMember
   const [declineNote, setDeclineNote] = useState("");
   const [infoNote, setInfoNote] = useState("");
   const [actionModal, setActionModal] = useState(null);
-  const [markPaid, setMarkPaid] = useState(false);
 
   // Refresh from storage each time this section is opened so submissions
   // made on the public form (after the app loaded) are not missed.
@@ -7247,7 +7246,7 @@ function ApplicationsSection({ applications, setApplications, members, setMember
   const pending   = (applications||[]).filter(a=>a.status==="pending"||a.status==="info_requested");
   const processed = (applications||[]).filter(a=>a.status==="approved"||a.status==="declined");
 
-  async function approve(app, paid) {
+  async function approve(app) {
     const mNum = String(members.length+1).padStart(4,"0");
     // Look up current price from membership types — do not rely on stale app.pricingNew
     const storedTypes = await dbGet(CLUB_CONFIG.clubId + ":membershipTypes") || [];
@@ -7266,7 +7265,7 @@ function ApplicationsSection({ applications, setApplications, members, setMember
     };
     const newDue = {
       id:uid("D"), memberId:newMember.id, year:yr,
-      paid:!!paid, paidDate:paid?today:null,
+      paid:false, paidDate:null,
       amount:price, type:app.memberType, dueDate:`${yr}-12-31`,
     };
     const newCars = (app.vehicles||[]).map(v=>({
@@ -7287,7 +7286,7 @@ function ApplicationsSection({ applications, setApplications, members, setMember
     await dbSet(SK.members, updatedMembers);
     await dbSet(SK.dues, updatedDues);
     if (newCars.length) await dbSet(SK.cars, updatedCars);
-    // Sync invoice total to current price; mark paid status to match dues
+    // Sync invoice total to current price; always unpaid — payment goes through Finance
     const existingInv = await dbGet(SK.invoices) || [];
     const updatedInv = existingInv.map(inv=>{
       if (inv.applicationId!==app.id) return inv;
@@ -7297,13 +7296,13 @@ function ApplicationsSection({ applications, setApplications, members, setMember
         items:[{description:desc, amount:price}],
         total:price,
         memberId:newMember.id,
-        status:paid?"paid":"unpaid",
-        paidDate:paid?today:null,
+        status:"unpaid",
+        paidDate:null,
       };
     });
     await dbSet(SK.invoices, updatedInv);
     if (typeof setInvoices==="function") setInvoices(updatedInv);
-    setView(null); setActionModal(null); setMarkPaid(false);
+    setView(null); setActionModal(null);
   }
 
   async function decline(app) {
@@ -7429,22 +7428,16 @@ function ApplicationsSection({ applications, setApplications, members, setMember
             <Row gap={10} justify="flex-end" style={{borderTop:"1px solid var(--border)",paddingTop:16}}>
               <Btn variant="ghost" onClick={()=>setActionModal("info")}>Request More Info</Btn>
               <Btn variant="danger" onClick={()=>setActionModal("decline")}>✗ Decline</Btn>
-              <Btn onClick={()=>{setMarkPaid(false);setActionModal("approve");}}>✓ Approve & Create Member</Btn>
+              <Btn onClick={()=>setActionModal("approve")}>✓ Approve & Create Member</Btn>
             </Row>
           )}
           {actionModal==="approve"&&(
             <div style={{borderTop:"1px solid var(--border)",paddingTop:16}}>
               <div style={{fontFamily:"var(--font-m)",fontSize:11,color:"var(--text3)",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:10}}>Confirm Approval</div>
-              <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:"var(--text)",cursor:"pointer",marginBottom:14}}>
-                <input type="checkbox" checked={markPaid} onChange={e=>setMarkPaid(e.target.checked)} style={{width:15,height:15,cursor:"pointer"}}/>
-                Mark dues as paid immediately
-              </label>
-              <div style={{fontSize:12,color:"var(--text3)",marginBottom:14}}>
-                {markPaid?"Dues will be recorded as paid. Invoice will be marked paid.":"Dues will be recorded as outstanding. Invoice will remain unpaid."}
-              </div>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:14}}>Member record and invoice will be created. Dues and invoice start as outstanding — record payment via Finance → Invoices.</div>
               <Row gap={10} justify="flex-end">
                 <Btn variant="ghost" onClick={()=>setActionModal(null)}>Cancel</Btn>
-                <Btn onClick={()=>approve(view,markPaid)}>✓ Confirm Approval</Btn>
+                <Btn onClick={()=>approve(view)}>✓ Confirm Approval</Btn>
               </Row>
             </div>
           )}
