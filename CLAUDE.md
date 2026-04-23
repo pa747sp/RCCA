@@ -182,6 +182,14 @@ Netlify picks up the push automatically. No build step. Deployment takes ~30 sec
 
 ---
 
+## Deployment
+
+After every fix, always commit and push changes to the demo branch immediately.
+
+If a fix is not resolved on the first attempt, all follow-up fix prompts will include an explicit instruction to commit and push. Do not wait to be asked — commit and push after every change without exception.
+
+---
+
 ## Demo Credentials
 
 | Role | Email | Password |
