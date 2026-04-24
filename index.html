@@ -8792,6 +8792,8 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
       {myCars.length===0&&<EmptyState icon="car" text="No vehicles registered yet"/>}
       {myCars.map(function(car){
         var carLogs=myLogs.filter(function(t){return t.carId===car.id;}).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+        var firstOdo=(function(){for(var i=carLogs.length-1;i>=0;i--){if(carLogs[i].startOdo)return carLogs[i].startOdo;}return null;})();
+        var lastOdo=(function(){for(var i=0;i<carLogs.length;i++){if(carLogs[i].endOdo)return carLogs[i].endOdo;}return null;})();
         return (
           <Card key={car.id} style={{padding:16,marginBottom:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
@@ -8803,6 +8805,13 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
                 </Row>
                 <div style={{fontSize:12,color:"var(--text3)",marginTop:3}}>{car.colour}{car.reg?" · Rego: "+car.reg:""}</div>
                 {car.notes&&<div style={{fontSize:11,color:"var(--text3)",marginTop:3,fontStyle:"italic"}}>{car.notes}</div>}
+                {(firstOdo||lastOdo)&&(
+                  <div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>
+                    {firstOdo?<span>First recorded odo: <strong>{Number(firstOdo).toLocaleString()} km</strong></span>:""}
+                    {firstOdo&&lastOdo&&<span style={{margin:"0 6px"}}>·</span>}
+                    {lastOdo?<span>Latest odo: <strong>{Number(lastOdo).toLocaleString()} km</strong></span>:""}
+                  </div>
+                )}
               </div>
               <Row gap={6}>
                 <Btn variant="ghost" size="sm" onClick={function(){setCarForm(Object.assign({},car));setCarModal(car);}}>Edit</Btn>
