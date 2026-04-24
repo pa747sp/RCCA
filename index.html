@@ -5096,27 +5096,32 @@ function MembershipOverview({user,members,dues}) {
   );
 }
 
-function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCars }) {
+function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCars, tripLogs, setTripLogs, events }) {
   var fState=useState({...user}); var form=fState[0]; var setForm=fState[1];
   var svState=useState(false); var saved=svState[0]; var setSaved=svState[1];
   var cmState=useState(null); var carModal=cmState[0]; var setCarModal=cmState[1];
   var cfState=useState({}); var carForm=cfState[0]; var setCarForm=cfState[1];
+  var tmState=useState(null); var tripModal=tmState[0]; var setTripModal=tmState[1];
+  var tfState=useState({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""}); var tripForm=tfState[0]; var setTripForm=tfState[1];
+  var tabState=useState("details"); var pTab=tabState[0]; var setPTab=tabState[1];
   var myDues=dues.filter(function(d){return d.memberId===user.id;}).sort(function(a,b){return b.year-a.year;});
   var myCars=cars.filter(function(c){return c.ownerId===user.id;});
+  var myLogs=(tripLogs||[]).filter(function(t){return t.memberId===user.id;});
+  var upcomingEvents=(events||[]).filter(function(e){return e.date>=today;}).sort(function(a,b){return a.date.localeCompare(b.date);});
   var MAX_CARS=100;
   async function handleSave(){
-    if(!form.name||!form.email)return console.log("Name and email required","error");
+    if(!form.name||!form.email)return;
     var final=Object.assign({},form,{password:form.newPassword||form.password});delete final.newPassword;
     var u=members.map(function(m){return m.id===user.id?Object.assign({},final):m;});
     setMembers(u);await dbSet(SK.members,u);setUser(Object.assign({},final));setSaved(true);setTimeout(function(){setSaved(false);},2500);
   }
   function openAddCar(){
-    if(myCars.length>=MAX_CARS)return console.log(`Maximum ${MAX_CARS} vehicles reached`,"error");
+    if(myCars.length>=MAX_CARS)return;
     setCarForm({make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",reg:"",chassis:"",status:"active",notes:""});
     setCarModal("add");
   }
   async function saveCar(){
-    if(!carForm.make||!carForm.model)return console.log("Make and model required","error");
+    if(!carForm.make||!carForm.model)return;
     var isNew=carModal==="add";
     var updated=isNew?cars.concat([Object.assign({},carForm,{id:uid("C"),ownerId:user.id,registered:today,photos:[]})]):cars.map(function(c){return c.id===carForm.id?Object.assign({},carForm):c;});
     setCars(updated);await dbSet(SK.cars,updated);setCarModal(null);
@@ -5125,6 +5130,30 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
     var updated=cars.map(function(c){return c.id===id?Object.assign({},c,{status:"sold"}):c;});
     setCars(updated);await dbSet(SK.cars,updated);
   }
+  async function saveTrip(){
+    var s=Number(tripForm.startOdo),en=Number(tripForm.endOdo);
+    var km=(s&&en&&en>s)?String(en-s):(tripForm.km||"");
+    var trip={
+      id:uid("TL"),memberId:user.id,carId:tripModal,
+      date:tripForm.date,
+      startOdo:tripForm.startOdo?s:null,
+      endOdo:tripForm.endOdo?en:null,
+      km:km?Number(km):null,
+      purpose:tripForm.purpose,
+      eventId:tripForm.eventId||null,
+      destination:"",
+    };
+    var updated=[...(tripLogs||[]),trip];
+    if(typeof setTripLogs==="function") setTripLogs(updated);
+    await dbSet(SK.tripLogs,updated);
+    setTripModal(null);
+    setTripForm({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""});
+  }
+  var ptabs=[
+    {id:"details",label:"My Details"},
+    {id:"vehicles",label:"My Vehicles"},
+    {id:"dues",label:"Dues History"},
+  ];
   return (
     <div className="fade-up" style={{maxWidth:760}}>
       <SectionHeader title="My Profile" subtitle="Manage your account, vehicles and membership details"/>
@@ -5136,60 +5165,85 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
           <div style={{fontSize:11,color:"var(--text3)",fontFamily:"var(--font-m)",marginTop:8}}>Member No. {user.memberNumber||user.id} · Joined {user.joined}</div>
         </div>
       </div>
-      <Card style={{padding:22,marginBottom:16}}>
-        <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,marginBottom:16}}>Personal Details</div>
-        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-          <Field label="Full Name" half><Input value={form.name||""} onChange={function(e){setForm(Object.assign({},form,{name:e.target.value}));}}/></Field>
-          <Field label="Email" half><Input type="email" value={form.email||""} onChange={function(e){setForm(Object.assign({},form,{email:e.target.value}));}}/></Field>
-        </Row>
-        <Row gap={12} wrap style={{justifyContent:"space-between"}}>
-          <Field label="Phone" half><Input value={form.phone||""} onChange={function(e){setForm(Object.assign({},form,{phone:e.target.value}));}}/></Field>
-          <Field label="State" half><Select value={form.state||"VIC"} onChange={function(e){setForm(Object.assign({},form,{state:e.target.value}));}}>{["ACT","NSW","NT","QLD","SA","TAS","VIC","WA"].map(function(s){return <option key={s}>{s}</option>;})}</Select></Field>
-        </Row>
-        <Field label="New Password"><Input type="password" value={form.newPassword||""} onChange={function(e){setForm(Object.assign({},form,{newPassword:e.target.value}));}} placeholder="leave blank to keep current"/></Field>
-        <Field label="Bio"><Textarea value={form.bio||""} onChange={function(e){setForm(Object.assign({},form,{bio:e.target.value}));}} placeholder="Tell us about yourself"/></Field>
-        <Row gap={10}><Btn onClick={handleSave}>Save Changes</Btn>{saved&&<span style={{fontSize:12,color:"var(--green2)"}}>Saved</span>}</Row>
-      </Card>
-      <Card style={{padding:22,marginBottom:16}}>
-        <Row justify="space-between" align="center" style={{marginBottom:14}}>
-          <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600}}>My Vehicles ({myCars.length}/{MAX_CARS})</div>
-          <Btn size="sm" onClick={openAddCar}>+ Add Vehicle</Btn>
-        </Row>
-        {myCars.length===0&&<EmptyState icon="car" text="No vehicles registered yet"/>}
-        {myCars.map(function(car){
-          return (
-            <div key={car.id} style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:14,marginBottom:10,borderLeft:"4px solid "+(car.status==="active"?"var(--green2)":"var(--border2)")}}>
-              <Row justify="space-between">
-                <div>
-                  <Row gap={8} align="center">
-                    <div style={{fontFamily:"var(--font-d)",fontSize:14,fontWeight:700}}>{car.year} {car.make} {car.model}</div>
-                    {(()=>{const age=new Date().getFullYear()-Number(car.year);const vm=[25,50,75,100,125,150];return vm.includes(age)?<span style={{fontSize:9,background:"#e8f4ff",color:"var(--blue)",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700}}>🚗 {age}yr anniversary</span>:null;})()}
+      <SectionTabBar tabs={ptabs} active={pTab} onChange={setPTab}/>
+      <div style={{height:20}}/>
+      {pTab==="details"&&(
+        <Card style={{padding:22}}>
+          <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,marginBottom:16}}>Personal Details</div>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Full Name" half><Input value={form.name||""} onChange={function(e){setForm(Object.assign({},form,{name:e.target.value}));}}/></Field>
+            <Field label="Email" half><Input type="email" value={form.email||""} onChange={function(e){setForm(Object.assign({},form,{email:e.target.value}));}}/></Field>
+          </Row>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Phone" half><Input value={form.phone||""} onChange={function(e){setForm(Object.assign({},form,{phone:e.target.value}));}}/></Field>
+            <Field label="State" half><Select value={form.state||"VIC"} onChange={function(e){setForm(Object.assign({},form,{state:e.target.value}));}}>{["ACT","NSW","NT","QLD","SA","TAS","VIC","WA"].map(function(s){return <option key={s}>{s}</option>;})}</Select></Field>
+          </Row>
+          <Field label="New Password"><Input type="password" value={form.newPassword||""} onChange={function(e){setForm(Object.assign({},form,{newPassword:e.target.value}));}} placeholder="leave blank to keep current"/></Field>
+          <Field label="Bio"><Textarea value={form.bio||""} onChange={function(e){setForm(Object.assign({},form,{bio:e.target.value}));}} placeholder="Tell us about yourself"/></Field>
+          <Row gap={10}><Btn onClick={handleSave}>Save Changes</Btn>{saved&&<span style={{fontSize:12,color:"var(--green2)"}}>Saved</span>}</Row>
+        </Card>
+      )}
+      {pTab==="vehicles"&&(
+        <div>
+          <Row justify="flex-end" style={{marginBottom:12}}>
+            <Btn size="sm" onClick={openAddCar}>+ Add Vehicle</Btn>
+          </Row>
+          {myCars.length===0&&<EmptyState icon="car" text="No vehicles registered yet"/>}
+          {myCars.map(function(car){
+            var carLogs=myLogs.filter(function(t){return t.carId===car.id;}).sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+            return (
+              <Card key={car.id} style={{padding:16,marginBottom:16}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div>
+                    {car.imgData&&<img src={car.imgData} alt="vehicle" style={{width:80,height:56,objectFit:"cover",borderRadius:6,marginBottom:6}}/>}
+                    <Row gap={8} align="center">
+                      <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700}}>{car.year} {car.make} {car.model}</div>
+                      {(()=>{const age=new Date().getFullYear()-Number(car.year);const vm=[25,50,75,100,125,150];return vm.includes(age)?<span style={{fontSize:9,background:"#e8f4ff",color:"var(--blue)",border:"1px solid #90c0f0",borderRadius:8,padding:"1px 6px",fontWeight:700}}>🚗 {age}yr anniversary</span>:null;})()}
+                    </Row>
+                    <div style={{fontSize:12,color:"var(--text3)",marginTop:3}}>{car.colour}{car.reg?" · Rego: "+car.reg:""}</div>
+                  </div>
+                  <Row gap={6}>
+                    <Btn variant="ghost" size="sm" onClick={function(){setCarForm(Object.assign({},car));setCarModal(car);}}>Edit</Btn>
+                    <Btn size="sm" onClick={function(){setTripModal(car.id);setTripForm({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""});}}>+ Add Trip</Btn>
                   </Row>
-                  <div style={{fontSize:12,color:"var(--text3)",marginTop:4}}>{car.colour}{car.reg?" · "+car.reg:""}</div>
-                  {car.notes&&<div style={{fontSize:11,color:"var(--text3)",marginTop:4,fontStyle:"italic"}}>{car.notes}</div>}
                 </div>
-                <Row gap={6}>
-                  <Btn variant="ghost" size="sm" onClick={function(){setCarForm(Object.assign({},car));setCarModal(car);}}>Edit</Btn>
-                  {car.status==="active"&&<Btn variant="ghost" size="sm" onClick={function(){removeCar(car.id);}}>Remove</Btn>}
-                </Row>
+                {carLogs.length>0&&(
+                  <div style={{borderTop:"1px solid var(--border)",paddingTop:10,marginTop:4}}>
+                    <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"var(--text3)",marginBottom:6,letterSpacing:"0.06em"}}>Trip Logs ({carLogs.length})</div>
+                    {carLogs.map(function(t){
+                      var dist=t.km?t.km+" km":(t.startOdo&&t.endOdo?String(Number(t.endOdo)-Number(t.startOdo))+" km":"—");
+                      return (
+                        <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
+                          <div>
+                            <span style={{fontWeight:600,color:"var(--text)"}}>{t.date}</span>
+                            {t.purpose&&<span style={{color:"var(--text2)",marginLeft:8}}>{t.purpose}</span>}
+                          </div>
+                          <span style={{color:"var(--burg)",fontWeight:700,flexShrink:0,marginLeft:12}}>{dist}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      {pTab==="dues"&&(
+        <Card style={{padding:22}}>
+          <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,marginBottom:14}}>Dues History</div>
+          {myDues.length===0?<EmptyState icon="dues" text="No dues records"/>:myDues.map(function(d){
+            return (
+              <Row key={d.id} justify="space-between" style={{padding:"9px 14px",background:"var(--bg3)",borderRadius:6,marginBottom:8}}>
+                <span style={{fontFamily:"var(--font-m)",fontSize:12}}>{d.year}</span>
+                <span style={{fontFamily:"var(--font-m)",fontSize:13,color:"var(--burg)",fontWeight:700}}>A${d.amount}</span>
+                <Badge status={d.paid?"paid":"overdue"} label={d.paid?"PAID":"OUTSTANDING"}/>
+                <span style={{fontSize:11,color:"var(--text3)"}}>{d.paidDate||"unpaid"}</span>
               </Row>
-            </div>
-          );
-        })}
-      </Card>
-      <Card style={{padding:22}}>
-        <div style={{fontFamily:"var(--font-d)",fontSize:16,fontWeight:600,marginBottom:14}}>Dues History</div>
-        {myDues.length===0?<EmptyState icon="dues" text="No dues records"/>:myDues.map(function(d){
-          return (
-            <Row key={d.id} justify="space-between" style={{padding:"9px 14px",background:"var(--bg3)",borderRadius:6,marginBottom:8}}>
-              <span style={{fontFamily:"var(--font-m)",fontSize:12}}>{d.year}</span>
-              <span style={{fontFamily:"var(--font-m)",fontSize:13,color:"var(--burg)",fontWeight:700}}>A${d.amount}</span>
-              <Badge status={d.paid?"paid":"overdue"} label={d.paid?"PAID":"OUTSTANDING"}/>
-              <span style={{fontSize:11,color:"var(--text3)"}}>{d.paidDate||"unpaid"}</span>
-            </Row>
-          );
-        })}
-      </Card>
+            );
+          })}
+        </Card>
+      )}
       {carModal&&(
         <Modal title={carModal==="add"?"Add Vehicle":"Edit Vehicle"} onClose={function(){setCarModal(null);}}>
           {carModal==="add"&&<RegoScanner onResult={function(data){setCarForm(function(f){return Object.assign({},f,data);});}}/>}
@@ -5210,6 +5264,51 @@ function ProfileSection({ user, setUser, members, setMembers, dues, cars, setCar
           <Row gap={10} justify="flex-end">
             <Btn variant="ghost" onClick={function(){setCarModal(null);}}>Cancel</Btn>
             <Btn onClick={saveCar}>{carModal==="add"?"Add":"Save"}</Btn>
+          </Row>
+        </Modal>
+      )}
+      {tripModal&&(
+        <Modal title="Add Trip Log" onClose={function(){setTripModal(null);}}>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Date" half><Input type="date" value={tripForm.date} onChange={function(e){setTripForm(Object.assign({},tripForm,{date:e.target.value}));}}/></Field>
+            <Field label="Link to Event (optional)" half>
+              <Select value={tripForm.eventId||""} onChange={function(e){setTripForm(Object.assign({},tripForm,{eventId:e.target.value}));}}>
+                <option value="">— None —</option>
+                {upcomingEvents.map(function(ev){return <option key={ev.id} value={ev.id}>{ev.date} — {ev.title}</option>;})}
+              </Select>
+            </Field>
+          </Row>
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Start Odometer (km)" half>
+              <Input type="number" value={tripForm.startOdo} onChange={function(e){
+                var f=Object.assign({},tripForm,{startOdo:e.target.value});
+                var s=Number(e.target.value),en=Number(f.endOdo);
+                if(s&&en&&en>s) f.km=String(en-s);
+                setTripForm(f);
+              }}/>
+            </Field>
+            <Field label="End Odometer (km)" half>
+              <Input type="number" value={tripForm.endOdo} onChange={function(e){
+                var f=Object.assign({},tripForm,{endOdo:e.target.value});
+                var s=Number(f.startOdo),en=Number(e.target.value);
+                if(s&&en&&en>s) f.km=String(en-s);
+                setTripForm(f);
+              }}/>
+            </Field>
+          </Row>
+          <Field label={(tripForm.startOdo&&tripForm.endOdo)?"Distance (km) — auto-calculated":"Distance (km)"}>
+            <Input type="number" value={tripForm.km}
+              readOnly={!!(tripForm.startOdo&&tripForm.endOdo)}
+              style={(tripForm.startOdo&&tripForm.endOdo)?{background:"var(--bg3)"}:{}}
+              onChange={function(e){if(!(tripForm.startOdo&&tripForm.endOdo))setTripForm(Object.assign({},tripForm,{km:e.target.value}));}}
+              placeholder="Enter distance, or provide odometer readings above"/>
+          </Field>
+          <Field label="Purpose / Notes">
+            <Textarea value={tripForm.purpose} onChange={function(e){setTripForm(Object.assign({},tripForm,{purpose:e.target.value}));}} placeholder="e.g. Club run to Healesville, Sunday drive"/>
+          </Field>
+          <Row gap={10} justify="flex-end">
+            <Btn variant="ghost" onClick={function(){setTripModal(null);}}>Cancel</Btn>
+            <Btn onClick={saveTrip}>Save Trip</Btn>
           </Row>
         </Modal>
       )}
@@ -9211,7 +9310,7 @@ function App() {// ════════════════════�
             {tab==="archive"    &&user.role!=="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="points"     &&user.role!=="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
             {/* Shared */}
-            {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars}/>}
+            {tab==="profile"    &&<ProfileSection user={user} setUser={setUser} members={members} setMembers={setMembers} dues={dues} cars={cars} setCars={setCars} tripLogs={tripLogs} setTripLogs={setTripLogs} events={events}/>}
             {/* Legacy deep-link fallbacks */}
             {tab==="meetings"   &&<MeetingsSection {...sp}/>}
             {tab==="events"     &&<EventsSection {...sp} cars={cars} cats={categories}/>}
