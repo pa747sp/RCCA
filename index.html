@@ -11404,7 +11404,7 @@ function ClubPermitSection({ user, members, cars, setCars, permits, setPermits, 
       ):(
         <div>
           {myPermitCars.length===0&&<div style={{background:"var(--bg3)",border:"1px solid var(--border)",borderRadius:8,padding:20,fontSize:13,color:"var(--text2)",marginBottom:16}}>
-            You have no vehicles on the Club Permit Scheme. To add a vehicle, go to <strong>My Profile → Vehicles</strong> and enable "Club Permit" on an eligible vehicle (25+ years old).
+            You have no vehicles on the Club Permit Scheme. To add a vehicle, contact the Club Permit Officer.
           </div>}
           {myPermitCars.map(c=>{
             const used=daysUsed(c.id); const allow=allowance(c); const left=daysLeft(c); const pct=pctUsed(c); const s=expiryStatus(c);
