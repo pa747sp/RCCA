@@ -10124,6 +10124,7 @@ function FinanceSection({ members, dues, setDues, orders, rsvps, events, expense
   const [manualIncome,setManualIncome]=useState([]);
   const [incForm,setIncForm]=useState({date:today,amount:"",description:"",reference:"",notes:"",member:""});
   useEffect(()=>{ dbGet(SK.manualIncome).then(d=>{ if(Array.isArray(d)) setManualIncome(d); }); }, []);
+  useEffect(()=>{ dbGet(SK.dues).then(d=>{ if(Array.isArray(d)&&typeof setDues==="function") setDues(d); }); }, []);
 
   const fyStart = ()=>{ const d=new Date(); return d.getMonth()>=6?d.getFullYear():d.getFullYear()-1; };
   const fyLabel = ()=>{ const s=fyStart(); return `${s}–${s+1}`; };
@@ -10150,8 +10151,8 @@ function FinanceSection({ members, dues, setDues, orders, rsvps, events, expense
   ].sort((a,b)=>b.date.localeCompare(a.date));
 
   const expItems = (expenses||[]).filter(e=>inFY(e.date)).sort((a,b)=>b.date.localeCompare(a.date));
-  const totalIncome = incomeItems.reduce((s,i)=>s+Number(i.amount),0);
-  const totalExpenses = expItems.reduce((s,e)=>s+Number(e.amount),0);
+  const totalIncome = incomeItems.reduce((s,i)=>s+Number(i.amount||0),0);
+  const totalExpenses = expItems.reduce((s,e)=>s+Number(e.amount||0),0);
   const surplus = totalIncome - totalExpenses;
 
   async function saveExpense(){
@@ -10384,8 +10385,8 @@ function FinanceSection({ members, dues, setDues, orders, rsvps, events, expense
             <div style={{fontSize:11,fontFamily:"var(--font-m)",textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text3)",marginBottom:12}}>Dues Collection Status</div>
             {(()=>{
               const yr=new Date().getFullYear();
-              const paid=(dues||[]).filter(d=>d.paid&&d.year===yr).length;
-              const unpaid=(dues||[]).filter(d=>!d.paid&&d.year===yr).length;
+              const paid=(dues||[]).filter(d=>d.paid&&Number(d.year)===yr).length;
+              const unpaid=(dues||[]).filter(d=>!d.paid&&Number(d.year)===yr).length;
               const total=paid+unpaid;
               const pct=total>0?Math.round(paid/total*100):0;
               return(
