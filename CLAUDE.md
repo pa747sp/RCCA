@@ -188,6 +188,8 @@ After every fix, always commit and push changes to the demo branch immediately.
 
 If a fix is not resolved on the first attempt, all follow-up fix prompts will include an explicit instruction to commit and push. Do not wait to be asked — commit and push after every change without exception.
 
+After every fix, always provide an accurate summary of what was changed. Do not recycle or repeat summaries from previous fixes. Each summary must describe only the work done in the current session.
+
 ---
 
 ## Demo Credentials
