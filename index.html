@@ -8737,8 +8737,10 @@ function ClubActivitySection(sp) {
   );
 }
 
-// ── MEMBER VEHICLES SECTION — vehicles list with trip log per car ─────────────
-function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPendingCars,tripLogs,setTripLogs,events}) {
+// ── MEMBER VEHICLES SECTION — tabbed: My Vehicles + Club Permits ─────────────
+function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPendingCars,permits,setPermits,tripLogs,setTripLogs,events,initialTab}) {
+  var vtState=useState(initialTab||"vehicles"); var vTab=vtState[0]; var setVTab=vtState[1];
+  var vtabs=[{id:"vehicles",label:"My Vehicles"},{id:"permits",label:"Club Permits"}];
   var myCars=(cars||[]).filter(function(c){return c.ownerId===user.id;});
   var myLogs=(tripLogs||[]).filter(function(t){return t.memberId===user.id;});
   var upcomingEvents=(events||[]).filter(function(e){return e.date>=today;}).sort(function(a,b){return a.date.localeCompare(b.date);});
@@ -8779,7 +8781,11 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
   }
   return (
     <div className="fade-up">
-      <SectionHeader title="My Vehicles" subtitle="Your registered vehicles and trip logs"/>
+      <SectionHeader title="My Vehicles" subtitle="Your registered vehicles and club permits"/>
+      <SectionTabBar tabs={vtabs} active={vTab} onChange={setVTab}/>
+      <div style={{height:20}}/>
+      {vTab==="permits"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+      {vTab==="vehicles"&&<div>
       <Row justify="flex-end" style={{marginBottom:14}}>
         <Btn size="sm" onClick={openAddCar}>+ Add Vehicle</Btn>
       </Row>
@@ -8823,6 +8829,7 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
           </Card>
         );
       })}
+      </div>}
       {carModal&&(
         <Modal title={carModal==="add"?"Add Vehicle":"Edit Vehicle"} onClose={function(){setCarModal(null);}}>
           {carModal==="add"&&<RegoScanner onResult={function(data){setCarForm(function(f){return Object.assign({},f,data);});}}/>}
@@ -9342,8 +9349,7 @@ function App() {// ════════════════════�
             {tab==="contacts"   &&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {/* Member sections */}
             {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
-            {tab==="myvehicles"    &&user.role!=="admin"&&<MemberVehiclesSection user={user} cars={cars} setCars={setCars} members={members} pendingCars={pendingCars} setPendingCars={setPendingCars} tripLogs={tripLogs} setTripLogs={setTripLogs} events={events}/>}
-            {tab==="member_permits"&&user.role!=="admin"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {(tab==="myvehicles"||tab==="member_permits")&&user.role!=="admin"&&<MemberVehiclesSection key={tab} user={user} cars={cars} setCars={setCars} members={members} pendingCars={pendingCars} setPendingCars={setPendingCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs} events={events} initialTab={tab==="member_permits"?"permits":"vehicles"}/>}
             {tab==="mcommerce"  &&user.role!=="admin"&&<MemberCommerceSection {...sp}/>}
             {tab==="archive"    &&user.role!=="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="points"     &&user.role!=="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
