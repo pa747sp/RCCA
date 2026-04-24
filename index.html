@@ -6636,7 +6636,6 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [refNum, setRefNum] = useState("");
-  const [submittedInvoice, setSubmittedInvoice] = useState(null);
   const [submitErr, setSubmitErr] = useState("");
 
   useEffect(() => {
@@ -6756,40 +6755,7 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
     try {
       const existing = await dbGet(SK.applications) || [];
       await dbSet(SK.applications, [...existing, app]);
-
-      // Generate invoice
-      const existingInv = await dbGet(SK.invoices) || [];
-      const invNum = genInvoiceNumber(existingInv);
-      const issueDate = today;
-      const fs = finSettings || DEFAULT_FIN_SETTINGS;
-      const invItems = [];
-      if (sel?.pricingNew) invItems.push({ description: "New Member Fee — " + (sel.label||form.memberTypeId), amount: sel.pricingNew });
-      if (!invItems.length) invItems.push({ description: "Membership Application — " + (sel?.label||""), amount: 0 });
-      const total = invItems.reduce((s,i)=>s+Number(i.amount||0), 0);
-      const invoice = {
-        invoiceNumber: invNum,
-        applicationId: ref,
-        memberId: null,
-        applicantName: `${form.firstName} ${form.lastName}`,
-        applicantEmail: form.email,
-        memberType: sel?.label||"",
-        memberTypeId: form.memberTypeId,
-        items: invItems,
-        total,
-        paymentRef: CLUB_CONFIG.shortName + "-" + invNum,
-        issued: issueDate,
-        due: calcDueDate(issueDate, fs.paymentDays),
-        status: "unpaid",
-        paidDate: null,
-        notes: "",
-        createdAt: new Date().toISOString(),
-      };
-      const updatedInv = [...existingInv, invoice];
-      await dbSet(SK.invoices, updatedInv);
-      if (typeof setInvoices === "function") setInvoices(updatedInv);
-
       setRefNum(ref);
-      setSubmittedInvoice(invoice);
       setSubmitted(true);
     } catch(e) {
       setSubmitErr("Submission failed — " + (e.message || "please try again"));
@@ -6810,9 +6776,6 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
   if (!settings) return <div style={{padding:40,textAlign:"center",color:"var(--text3)"}}>Loading…</div>;
 
   if (submitted) {
-    const inv = submittedInvoice;
-    const fs = finSettings || DEFAULT_FIN_SETTINGS;
-    const pm = fs.paymentMethods || {};
     return (
       <div style={{maxWidth:700,margin:"40px auto",padding:"0 24px"}}>
         <div style={{background:"#ffffff",border:"2px solid var(--green)",borderRadius:12,padding:32,boxShadow:"0 4px 24px rgba(0,0,0,.08)",marginBottom:24}}>
@@ -6828,94 +6791,12 @@ function MembershipApplicationForm({ onBack, initialType, invoices, setInvoices,
             <div style={{fontWeight:700,color:"var(--text)",marginBottom:6}}>What happens next?</div>
             <div style={{display:"flex",flexDirection:"column",gap:4}}>
               <div>1. Committee reviews your application</div>
-              <div>2. Pay the invoice below to confirm your membership</div>
+              <div>2. You will be contacted regarding payment once approved</div>
               <div>3. Membership activated on receipt of payment</div>
               <div>4. Member number and login details issued</div>
             </div>
           </div>
         </div>
-
-        {inv&&(
-          <div style={{background:"white",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden",boxShadow:"0 2px 12px rgba(0,0,0,.07)",marginBottom:24}}>
-            {/* Invoice header */}
-            <div style={{background:"var(--burg)",padding:"18px 24px",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div>
-                <div style={{color:"white",fontFamily:"var(--font-d)",fontSize:18,fontWeight:700}}>{CLUB_CONFIG.name}</div>
-                <div style={{color:"rgba(255,255,255,.75)",fontSize:12,marginTop:3}}>{CLUB_CONFIG.address}</div>
-                <div style={{color:"rgba(255,255,255,.75)",fontSize:12}}>{CLUB_CONFIG.emailMembership||CLUB_CONFIG.emailGeneral}</div>
-              </div>
-              <div style={{textAlign:"right"}}>
-                <div style={{color:"rgba(255,255,255,.7)",fontSize:10,textTransform:"uppercase",letterSpacing:"0.1em"}}>Invoice</div>
-                <div style={{color:"white",fontSize:20,fontWeight:700}}>{inv.invoiceNumber}</div>
-                <div style={{color:"rgba(255,255,255,.75)",fontSize:11}}>Issued: {inv.issued}</div>
-                <div style={{color:"#ffd580",fontSize:11,fontWeight:700}}>Due: {inv.due}</div>
-              </div>
-            </div>
-            <div style={{padding:"20px 24px"}}>
-              {/* Bill to */}
-              <div style={{marginBottom:18}}>
-                <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",color:"var(--text4)",marginBottom:4}}>Bill To</div>
-                <div style={{fontWeight:700,fontSize:15}}>{inv.applicantName}</div>
-                <div style={{color:"var(--text3)",fontSize:13}}>{inv.applicantEmail}</div>
-              </div>
-              {/* Line items */}
-              <table style={{width:"100%",borderCollapse:"collapse",marginBottom:4}}>
-                <thead><tr style={{borderBottom:"2px solid var(--burg)"}}>
-                  <th style={{padding:"8px 0",textAlign:"left",fontSize:11,textTransform:"uppercase",color:"var(--text3)",fontWeight:600}}>Description</th>
-                  <th style={{padding:"8px 0",textAlign:"right",fontSize:11,textTransform:"uppercase",color:"var(--text3)",fontWeight:600}}>Amount</th>
-                </tr></thead>
-                <tbody>{(inv.items||[]).map((it,i)=>(
-                  <tr key={i} style={{borderBottom:"1px solid var(--border)"}}>
-                    <td style={{padding:"10px 0",fontSize:14}}>{it.description}</td>
-                    <td style={{padding:"10px 0",textAlign:"right",fontSize:14}}>A${Number(it.amount||0).toFixed(2)}</td>
-                  </tr>
-                ))}</tbody>
-                <tfoot><tr style={{borderTop:"2px solid var(--burg)"}}>
-                  <td style={{padding:"12px 0",fontWeight:700,fontSize:16}}>Total Due</td>
-                  <td style={{padding:"12px 0",textAlign:"right",fontWeight:700,fontSize:20,color:"var(--burg)"}}>A${Number(inv.total||0).toFixed(2)}</td>
-                </tr></tfoot>
-              </table>
-              {/* Payment reference */}
-              <div style={{background:"#e8f5e9",border:"1px solid #a5d6a7",borderRadius:8,padding:"12px 16px",marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:13,color:"#1e6840",marginBottom:2}}>📌 Payment Reference</div>
-                <div style={{fontFamily:"var(--font-m)",fontSize:16,fontWeight:700,color:"#1e6840",letterSpacing:"0.05em"}}>{inv.paymentRef}</div>
-                <div style={{fontSize:11,color:"#2e7d52",marginTop:2}}>Use this reference with all payment methods</div>
-              </div>
-              {/* Payment methods */}
-              {(pm.bankTransfer?.enabled)&&(
-                <div style={{background:"#f0f8f4",border:"1px solid #b3d9c4",borderRadius:8,padding:"14px 16px",marginBottom:10}}>
-                  <div style={{fontWeight:700,fontSize:13,color:"#1e6840",marginBottom:8}}>💳 Bank Transfer</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13}}>
-                    {pm.bankTransfer.accountName&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Account Name</div><div style={{fontWeight:700}}>{pm.bankTransfer.accountName}</div></div>}
-                    {pm.bankTransfer.bankName&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Bank</div><div style={{fontWeight:700}}>{pm.bankTransfer.bankName}</div></div>}
-                    {pm.bankTransfer.bsb&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>BSB</div><div style={{fontWeight:700}}>{pm.bankTransfer.bsb}</div></div>}
-                    {pm.bankTransfer.accountNumber&&<div><div style={{fontSize:10,textTransform:"uppercase",color:"var(--text4)"}}>Account Number</div><div style={{fontWeight:700}}>{pm.bankTransfer.accountNumber}</div></div>}
-                  </div>
-                </div>
-              )}
-              {pm.cash?.enabled&&pm.cash.instructions&&(
-                <div style={{background:"#fffbe6",border:"1px solid #ffe082",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
-                  <div style={{fontWeight:700,fontSize:13,color:"#7a4010",marginBottom:4}}>💵 Cash</div>
-                  <div style={{fontSize:13,color:"var(--text2)"}}>{pm.cash.instructions}</div>
-                </div>
-              )}
-              {pm.cheque?.enabled&&(
-                <div style={{background:"#e8f0f8",border:"1px solid #b3c8e8",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
-                  <div style={{fontWeight:700,fontSize:13,color:"#1a3a7a",marginBottom:4}}>✉ Cheque</div>
-                  {pm.cheque.payableTo&&<div style={{fontSize:13}}>Payable to: <strong>{pm.cheque.payableTo}</strong></div>}
-                  {pm.cheque.postalAddress&&<div style={{fontSize:13,color:"var(--text2)"}}>Post to: {pm.cheque.postalAddress}</div>}
-                </div>
-              )}
-              {pm.online?.enabled&&pm.online.url&&(
-                <div style={{background:"#f5f0ff",border:"1px solid #c4b5f4",borderRadius:8,padding:"12px 16px",marginBottom:10}}>
-                  <div style={{fontWeight:700,fontSize:13,color:"#5b21b6",marginBottom:6}}>🌐 {pm.online.label||"Pay Online"}</div>
-                  <a href={pm.online.url} target="_blank" rel="noreferrer" style={{color:"#7c3aed",fontWeight:700,fontSize:13}}>{pm.online.url}</a>
-                </div>
-              )}
-              <button onClick={()=>printInvoice(inv, fs)} style={{width:"100%",padding:"11px 0",background:"var(--burg)",color:"white",border:"none",borderRadius:7,fontWeight:700,fontSize:14,cursor:"pointer",marginTop:8}}>🖨 Print / Save Invoice</button>
-            </div>
-          </div>
-        )}
 
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:12,color:"var(--text4)",marginBottom:12}}>Questions? Email <span style={{color:"var(--burg)"}}>{CLUB_CONFIG.emailMembership}</span></div>
@@ -7286,20 +7167,29 @@ function ApplicationsSection({ applications, setApplications, members, setMember
     await dbSet(SK.members, updatedMembers);
     await dbSet(SK.dues, updatedDues);
     if (newCars.length) await dbSet(SK.cars, updatedCars);
-    // Sync invoice total to current price; always unpaid — payment goes through Finance
+    // Create invoice at approval time — submission no longer creates one
     const existingInv = await dbGet(SK.invoices) || [];
-    const updatedInv = existingInv.map(inv=>{
-      if (inv.applicationId!==app.id) return inv;
-      const desc = (inv.items&&inv.items[0]?.description) || ("New Member Fee — "+app.memberType);
-      return {
-        ...inv,
-        items:[{description:desc, amount:price}],
-        total:price,
-        memberId:newMember.id,
-        status:"unpaid",
-        paidDate:null,
-      };
-    });
+    const invNum = genInvoiceNumber(existingInv);
+    const desc = price > 0 ? "New Member Fee — " + app.memberType : "Membership — " + app.memberType;
+    const newInvoice = {
+      invoiceNumber: invNum,
+      applicationId: app.id,
+      memberId: newMember.id,
+      applicantName: app.name,
+      applicantEmail: app.email,
+      memberType: app.memberType,
+      memberTypeId: app.memberTypeId,
+      items: [{description: desc, amount: price}],
+      total: price,
+      paymentRef: CLUB_CONFIG.shortName + "-" + invNum,
+      issued: today,
+      due: calcDueDate(today, DEFAULT_FIN_SETTINGS.paymentDays),
+      status: "unpaid",
+      paidDate: null,
+      notes: "",
+      createdAt: new Date().toISOString(),
+    };
+    const updatedInv = [...existingInv, newInvoice];
     await dbSet(SK.invoices, updatedInv);
     if (typeof setInvoices==="function") setInvoices(updatedInv);
     setView(null); setActionModal(null);
@@ -10067,7 +9957,7 @@ function InvoicesAdminPanel({invoices, setInvoices, members, dues, setDues, finS
         <div style={{padding:"40px 0",textAlign:"center",color:"var(--text3)"}}>
           <div style={{fontSize:32,marginBottom:10}}>🧾</div>
           <div style={{fontWeight:600,fontSize:14,marginBottom:4}}>No invoices{filterStatus!=="all"?" with status "+filterStatus:""}</div>
-          <div style={{fontSize:12}}>Invoices are generated automatically when membership applications are submitted.</div>
+          <div style={{fontSize:12}}>Invoices are generated automatically when membership applications are approved.</div>
         </div>
       ):(
         <div style={{background:"white",borderRadius:8,border:"1px solid var(--border)",overflow:"hidden"}}>
