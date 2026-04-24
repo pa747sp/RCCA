@@ -9880,8 +9880,9 @@ function InvoicesAdminPanel({invoices, setInvoices, members, dues, setDues, finS
   };
 
   const confirmMarkPaid = async () => {
+    const tNum=pendingPaid.invoiceNumber, tId=pendingPaid.id;
     const updated = (invoices||[]).map(i=>
-      (i.id===pendingPaid.id||i.invoiceNumber===pendingPaid.invoiceNumber)
+      (tNum ? i.invoiceNumber===tNum : (tId && i.id===tId))
         ? {...i, status:"paid", paidDate:paidForm.date, paymentMethod:paidForm.method, paymentNotes:paidForm.notes}
         : i
     );
@@ -9903,8 +9904,9 @@ function InvoicesAdminPanel({invoices, setInvoices, members, dues, setDues, finS
     await saveInvoices((invoices||[]).map(i=>i.id===id||i.invoiceNumber===id?{...i,status:"cancelled"}:i));
   };
   const confirmMarkUnpaid = async (inv) => {
+    const tNum=inv.invoiceNumber, tId=inv.id;
     const updatedInvoices = (invoices||[]).map(i=>
-      (i.id===inv.id||i.invoiceNumber===inv.invoiceNumber)
+      (tNum ? i.invoiceNumber===tNum : (tId && i.id===tId))
         ? {...i, status:"unpaid", paidDate:null, paymentMethod:null, paymentNotes:null}
         : i
     );
