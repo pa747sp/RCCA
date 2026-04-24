@@ -6002,7 +6002,7 @@ function AdminHubSection(sp) {
         {tabBtn("permissions","Permissions")}
       </div>
       <div style={{paddingTop:8}}>
-        {tab==="finance"&&<FinanceSection members={sp.members} dues={sp.dues} orders={sp.orders} rsvps={sp.rsvps} events={sp.events} expenses={sp.expenses} setExpenses={sp.setExpenses} finSettings={sp.finSettings} setFinSettings={sp.setFinSettings} cars={sp.cars} contacts={sp.contacts} setContacts={sp.setContacts} partsInventory={sp.partsInventory} shopItems={sp.shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
+        {tab==="finance"&&<FinanceSection members={sp.members} dues={sp.dues} setDues={sp.setDues} orders={sp.orders} rsvps={sp.rsvps} events={sp.events} expenses={sp.expenses} setExpenses={sp.setExpenses} finSettings={sp.finSettings} setFinSettings={sp.setFinSettings} cars={sp.cars} contacts={sp.contacts} setContacts={sp.setContacts} partsInventory={sp.partsInventory} shopItems={sp.shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
         {tab==="categories"&&<CategoriesSection categories={sp.categories} setCategories={sp.setCategories}/>}
         {tab==="import"&&<BulkImportSection members={sp.members} setMembers={sp.setMembers} cars={sp.cars} setCars={sp.setCars} dues={sp.dues} setDues={sp.setDues}/>}
         {tab==="permissions"&&<PermissionsSection user={sp.user} members={sp.members} setMembers={sp.setMembers}/>}
@@ -9342,8 +9342,8 @@ function App() {// ════════════════════�
             {tab==="gallery"    &&<GallerySection gallery={gallery} setGallery={setGallery} user={user}/>}
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
-            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
-            {(tab==="finance_income"||tab==="finance_expenses"||tab==="finance_invoices")&&user.role==="admin"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices} initialTab={tab==="finance_income"?"income":tab==="finance_expenses"?"expenses":"invoices"}/>}
+            {tab==="finance"    &&user.role==="admin"&&<FinanceSection members={members} dues={dues} setDues={setDues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices}/>}
+            {(tab==="finance_income"||tab==="finance_expenses"||tab==="finance_invoices")&&user.role==="admin"&&<FinanceSection members={members} dues={dues} setDues={setDues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={invoices} setInvoices={setInvoices} initialTab={tab==="finance_income"?"income":tab==="finance_expenses"?"expenses":"invoices"}/>}
             {tab==="categories" &&user.role==="admin"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
             {tab==="import"     &&user.role==="admin"&&<BulkImportSection members={members} setMembers={setMembers} cars={cars} setCars={setCars} dues={dues} setDues={setDues}/>}
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
@@ -9968,9 +9968,11 @@ const DEFAULT_FIN_SETTINGS = {
 };
 
 // ── Invoices admin panel (used inside FinanceSection) ─────────────────────────
-function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
+function InvoicesAdminPanel({invoices, setInvoices, members, dues, setDues, finSettings}) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [viewInv, setViewInv] = useState(null);
+  const [pendingUnpaid, setPendingUnpaid] = useState(null);
+  const [unpaidMsg, setUnpaidMsg] = useState(false);
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
 
   // Refresh from storage on mount so invoices created via the public form
@@ -9993,6 +9995,23 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
   const markCancelled = async (id) => {
     await saveInvoices((invoices||[]).map(i=>i.id===id||i.invoiceNumber===id?{...i,status:"cancelled"}:i));
   };
+  const confirmMarkUnpaid = async (inv) => {
+    const updatedInvoices = (invoices||[]).map(i=>
+      (i.id===inv.id||i.invoiceNumber===inv.invoiceNumber)
+        ? {...i, status:"unpaid", paidDate:null, paymentMethod:null, paymentNotes:null}
+        : i
+    );
+    await saveInvoices(updatedInvoices);
+    if (inv.memberId) {
+      const currentDues = await dbGet(SK.dues) || [];
+      const updatedDues = currentDues.map(d=>d.memberId===inv.memberId?{...d,paid:false,paidDate:null}:d);
+      await dbSet(SK.dues, updatedDues);
+      if (typeof setDues==="function") setDues(updatedDues);
+    }
+    setPendingUnpaid(null);
+    setUnpaidMsg(true);
+    setTimeout(()=>setUnpaidMsg(false), 3000);
+  };
 
   const all = invoices || [];
   const filtered = filterStatus === "all" ? all : all.filter(i => i.status === filterStatus);
@@ -10010,6 +10029,19 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
 
   return (
     <div>
+      {unpaidMsg&&(
+        <div style={{background:"#e8f5ee",border:"1px solid #b2dfcd",borderRadius:6,padding:"8px 14px",fontSize:13,color:"#1e6840",marginBottom:12}}>✓ Invoice marked as unpaid</div>
+      )}
+      {pendingUnpaid&&(
+        <div style={{background:"#fff8e0",border:"1px solid #f0c840",borderRadius:8,padding:"14px 16px",marginBottom:16}}>
+          <div style={{fontWeight:700,fontSize:13,color:"var(--text)",marginBottom:6}}>Mark invoice as unpaid?</div>
+          <div style={{fontSize:12,color:"var(--text2)",marginBottom:12}}>This will also reset the member's dues to outstanding.</div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>confirmMarkUnpaid(pendingUnpaid)} style={{padding:"6px 16px",background:"#c05010",color:"white",border:"none",borderRadius:5,cursor:"pointer",fontWeight:700,fontSize:12}}>Confirm</button>
+            <button onClick={()=>setPendingUnpaid(null)} style={{padding:"6px 14px",background:"transparent",border:"1px solid var(--border)",borderRadius:5,cursor:"pointer",fontSize:12}}>Cancel</button>
+          </div>
+        </div>
+      )}
       {/* Stats */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:12,marginBottom:20}}>
         {[["Total",all.length,"var(--burg)"],["Unpaid",totals.unpaid,"#c05010"],["Paid",totals.paid,"var(--green)"],["Waived / Cancelled",totals.waived+totals.cancelled,"#666"]].map(([l,n,c])=>(
@@ -10063,6 +10095,7 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                       <button onClick={()=>printInvoice(inv, fs)} style={{padding:"3px 8px",background:"white",border:"1px solid var(--border)",borderRadius:4,cursor:"pointer",fontSize:11}}>🖨 Print</button>
                       {inv.status==="unpaid"&&<button onClick={()=>markPaid(key)} style={{padding:"3px 8px",background:"var(--green)",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:700}}>✓ Paid</button>}
+                      {inv.status==="paid"&&<button onClick={()=>setPendingUnpaid(inv)} style={{padding:"3px 8px",background:"transparent",border:"1px solid #aaa",borderRadius:4,cursor:"pointer",fontSize:11,color:"var(--text2)"}}>Mark Unpaid</button>}
                       {inv.status==="unpaid"&&<button onClick={()=>markWaived(key)} style={{padding:"3px 8px",background:"#3730a3",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11}}>Waive</button>}
                       {(inv.status==="unpaid"||inv.status==="waived")&&<button onClick={()=>markCancelled(key)} style={{padding:"3px 8px",background:"#9ca3af",color:"white",border:"none",borderRadius:4,cursor:"pointer",fontSize:11}}>Cancel</button>}
                     </div>
@@ -10079,7 +10112,7 @@ function InvoicesAdminPanel({invoices, setInvoices, members, finSettings}) {
 
 const EXPENSE_CATS=getCats(null).expenseCat;
 
-function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems, invoices, setInvoices, initialTab }) {
+function FinanceSection({ members, dues, setDues, orders, rsvps, events, expenses, setExpenses, finSettings, setFinSettings, cars, contacts, setContacts, partsInventory, shopItems, invoices, setInvoices, initialTab }) {
   const fs = finSettings || DEFAULT_FIN_SETTINGS;
   const [tab,setTab]=useState(initialTab||"dashboard");
   const [modal,setModal]=useState(null);
@@ -10426,7 +10459,7 @@ function FinanceSection({ members, dues, orders, rsvps, events, expenses, setExp
       )}
 
       {tab==="invoices"&&(
-        <InvoicesAdminPanel invoices={allInvoices} setInvoices={setInvoices} members={members} finSettings={fs}/>
+        <InvoicesAdminPanel invoices={allInvoices} setInvoices={setInvoices} members={members} dues={dues} setDues={setDues} finSettings={fs}/>
       )}
 
       {tab==="expenses"&&(
@@ -13366,7 +13399,7 @@ function AdministrationSection(sp) {
     <div>
       <SectionTabBar tabs={tabs} active={tab} onChange={setTab}/>
       <div style={{height:20}}/>
-      {tab==="finance"&&<FinanceSection members={members} dues={dues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={sp.cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
+      {tab==="finance"&&<FinanceSection members={members} dues={dues} setDues={setDues} orders={orders} rsvps={rsvps} events={events} expenses={expenses} setExpenses={setExpenses} finSettings={finSettings} setFinSettings={setFinSettings} cars={sp.cars} contacts={contacts} setContacts={setContacts} partsInventory={partsInventory} shopItems={shopItems} invoices={sp.invoices} setInvoices={sp.setInvoices}/>}
       {tab==="permissions"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
       {tab==="categories"&&<CategoriesSection categories={categories} setCategories={setCategories}/>}
       {tab==="import"&&<BulkImportSection members={members} setMembers={setMembers} cars={sp.cars} setCars={sp.setCars} dues={dues} setDues={setDues}/>}
