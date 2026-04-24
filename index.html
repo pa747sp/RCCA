@@ -8748,6 +8748,7 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
   var cfState=useState({}); var carForm=cfState[0]; var setCarForm=cfState[1];
   var tmState=useState(null); var tripModal=tmState[0]; var setTripModal=tmState[1];
   var tfState=useState({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""}); var tripForm=tfState[0]; var setTripForm=tfState[1];
+  var etState=useState(null); var editTripId=etState[0]; var setEditTripId=etState[1];
   var MAX_CARS=100;
   function openAddCar(){
     if(myCars.length>=MAX_CARS)return;
@@ -8763,8 +8764,7 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
   async function saveTrip(){
     var s=Number(tripForm.startOdo),en=Number(tripForm.endOdo);
     var km=(s&&en&&en>s)?String(en-s):(tripForm.km||"");
-    var trip={
-      id:uid("TL"),memberId:user.id,carId:tripModal,
+    var fields={
       date:tripForm.date,
       startOdo:tripForm.startOdo?s:null,
       endOdo:tripForm.endOdo?en:null,
@@ -8773,10 +8773,16 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
       eventId:tripForm.eventId||null,
       destination:"",
     };
-    var updated=[...(tripLogs||[]),trip];
+    var updated;
+    if(editTripId){
+      updated=(tripLogs||[]).map(function(t){return t.id===editTripId?Object.assign({},t,fields):t;});
+    } else {
+      updated=[...(tripLogs||[]),Object.assign({id:uid("TL"),memberId:user.id,carId:tripModal},fields)];
+    }
     if(typeof setTripLogs==="function") setTripLogs(updated);
     await dbSet(SK.tripLogs,updated);
     setTripModal(null);
+    setEditTripId(null);
     setTripForm({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""});
   }
   return (
@@ -8830,7 +8836,10 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
                           <span style={{fontWeight:600,color:"var(--text)"}}>{t.date}</span>
                           {t.purpose&&<span style={{color:"var(--text2)",marginLeft:8}}>{t.purpose}</span>}
                         </div>
-                        <span style={{color:"var(--burg)",fontWeight:700,flexShrink:0,marginLeft:12}}>{dist}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:12}}>
+                          <span style={{color:"var(--burg)",fontWeight:700}}>{dist}</span>
+                          <button onClick={function(){setEditTripId(t.id);setTripModal(t.carId);setTripForm({date:t.date||today,startOdo:t.startOdo!=null?String(t.startOdo):"",endOdo:t.endOdo!=null?String(t.endOdo):"",km:t.km!=null?String(t.km):"",purpose:t.purpose||"",eventId:t.eventId||""});}} style={{fontSize:11,padding:"2px 8px",background:"transparent",border:"1px solid var(--border2)",borderRadius:4,cursor:"pointer",color:"var(--text3)"}}>Edit</button>
+                        </div>
                       </div>
                       {(t.startOdo||t.endOdo)&&(
                         <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
@@ -8870,7 +8879,7 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
         </Modal>
       )}
       {tripModal&&(
-        <Modal title="Add Trip Log" onClose={function(){setTripModal(null);}}>
+        <Modal title={editTripId?"Edit Trip Log":"Add Trip Log"} onClose={function(){setTripModal(null);setEditTripId(null);}}>
           <Row gap={12} wrap style={{justifyContent:"space-between"}}>
             <Field label="Date" half><Input type="date" value={tripForm.date} onChange={function(e){setTripForm(Object.assign({},tripForm,{date:e.target.value}));}}/></Field>
             <Field label="Link to Event (optional)" half>
