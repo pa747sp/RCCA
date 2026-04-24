@@ -8813,14 +8813,21 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
               <div style={{borderTop:"1px solid var(--border)",paddingTop:10,marginTop:4}}>
                 <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",color:"var(--text3)",marginBottom:6,letterSpacing:"0.06em"}}>Trip Logs ({carLogs.length})</div>
                 {carLogs.map(function(t){
-                  var dist=t.km?t.km+" km":(t.startOdo&&t.endOdo?String(Number(t.endOdo)-Number(t.startOdo))+" km":"—");
+                  var dist=t.km?Number(t.km)+" km":(t.startOdo&&t.endOdo?String(Number(t.endOdo)-Number(t.startOdo))+" km":"—");
                   return (
-                    <div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
-                      <div>
-                        <span style={{fontWeight:600,color:"var(--text)"}}>{t.date}</span>
-                        {t.purpose&&<span style={{color:"var(--text2)",marginLeft:8}}>{t.purpose}</span>}
+                    <div key={t.id} style={{padding:"8px 0",borderBottom:"1px solid var(--border)",fontSize:12}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div>
+                          <span style={{fontWeight:600,color:"var(--text)"}}>{t.date}</span>
+                          {t.purpose&&<span style={{color:"var(--text2)",marginLeft:8}}>{t.purpose}</span>}
+                        </div>
+                        <span style={{color:"var(--burg)",fontWeight:700,flexShrink:0,marginLeft:12}}>{dist}</span>
                       </div>
-                      <span style={{color:"var(--burg)",fontWeight:700,flexShrink:0,marginLeft:12}}>{dist}</span>
+                      {(t.startOdo||t.endOdo)&&(
+                        <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                          {t.startOdo?"Start: "+t.startOdo+" km":""}{t.startOdo&&t.endOdo?" → ":""}{t.endOdo?"End: "+t.endOdo+" km":""}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
