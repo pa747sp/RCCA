@@ -9370,7 +9370,7 @@ function App() {// ════════════════════�
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
             {tab==="account"    &&user.role==="admin"&&<AccountSection {...sp}/>}
             {(tab==="account_contact"||tab==="account_emails"||tab==="account_venues"||tab==="account_storage")&&user.role==="admin"&&<AccountSection {...sp}/>}
-            {tab==="triplogsadmin"&&user.role==="admin"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="triplogsadmin"&&user.role==="admin"&&<AdminTripLogsSection members={members} cars={cars} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="contacts"   &&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {/* Member sections */}
             {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
@@ -11206,6 +11206,82 @@ function VehiclesSection(sp) {
       {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
       {vTab==="pending"&&isAdmin&&<PendingVehiclesSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} messages={sp.messages} setMessages={sp.setMessages}/>}
       </div>
+    </div>
+  );
+}
+
+// ── ADMIN TRIP LOGS SECTION ───────────────────────────────────────────────────
+function AdminTripLogsSection({ members, cars, tripLogs, setTripLogs }) {
+  const [expandedCar, setExpandedCar] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const allLogs = (tripLogs||[]).slice().sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+
+  // Group logs by carId
+  const carIds = [...new Set(allLogs.map(t=>t.carId).filter(Boolean))];
+
+  const carById = id => (cars||[]).find(c=>c.id===id)||{};
+  const memberById = id => (members||[]).find(m=>m.id===id)||{};
+
+  const filtered = carIds.filter(carId=>{
+    if(!search) return true;
+    const car=carById(carId);
+    const logs=allLogs.filter(t=>t.carId===carId);
+    const memberName=memberById(logs[0]?.memberId)?.name||"";
+    const q=search.toLowerCase();
+    return (car.make||"").toLowerCase().includes(q)||(car.model||"").toLowerCase().includes(q)||(car.reg||"").toLowerCase().includes(q)||memberName.toLowerCase().includes(q);
+  });
+
+  const totalKm = logs => logs.reduce((s,t)=>s+Number(t.km||0),0);
+
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Trip Logs" subtitle={`${allLogs.length} trip${allLogs.length!==1?"s":""} across ${carIds.length} vehicle${carIds.length!==1?"s":""}`}/>
+      <div style={{marginBottom:16}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search member, make, model or rego…" style={{width:"100%",padding:"8px 12px",border:"1px solid var(--border)",borderRadius:6,fontSize:13,fontFamily:"var(--font-b)",boxSizing:"border-box"}}/>
+      </div>
+      {filtered.length===0&&<EmptyState icon="◎" text="No trip logs found"/>}
+      {filtered.map(carId=>{
+        const car=carById(carId);
+        const logs=allLogs.filter(t=>t.carId===carId);
+        const owner=memberById(logs[0]?.memberId);
+        const expanded=expandedCar===carId;
+        const km=totalKm(logs);
+        const lastOdo=(()=>{for(let i=0;i<logs.length;i++){if(logs[i].endOdo!=null)return logs[i].endOdo;}return null;})();
+        return (
+          <div key={carId} style={{border:"1px solid var(--border)",borderRadius:8,marginBottom:10,overflow:"hidden"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:"var(--bg2)",cursor:"pointer"}} onClick={()=>setExpandedCar(expanded?null:carId)}>
+              <div>
+                <div style={{fontFamily:"var(--font-d)",fontSize:14,fontWeight:700}}>{car.year||""} {car.make||"Unknown"} {car.model||""}{car.reg?" · "+car.reg:""}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{owner?.name||"Unknown member"} · {logs.length} trip{logs.length!==1?"s":""}{km>0?" · "+km+" km total":""}{lastOdo!=null?" · Latest odo: "+Number(lastOdo).toLocaleString()+" km":""}</div>
+              </div>
+              <span style={{fontSize:18,color:"var(--text3)",userSelect:"none"}}>{expanded?"▲":"▼"}</span>
+            </div>
+            {expanded&&(
+              <div style={{padding:"0 16px 12px"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,marginTop:8}}>
+                  <thead><tr style={{borderBottom:"2px solid var(--burg)"}}>
+                    {["Date","Purpose","Distance","Odometer",""].map(h=><th key={h} style={{padding:"6px 8px",textAlign:"left",fontSize:11,textTransform:"uppercase",color:"var(--text3)",fontWeight:600}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>{logs.map(t=>{
+                    const dist=t.km?Number(t.km)+" km":(t.startOdo&&t.endOdo?String(Number(t.endOdo)-Number(t.startOdo))+" km":"—");
+                    const odo=(t.startOdo!=null||t.endOdo!=null)?[(t.startOdo!=null?t.startOdo+" km":"?"),"→",(t.endOdo!=null?t.endOdo+" km":"?")].join(" "):("—");
+                    return (
+                      <tr key={t.id} style={{borderBottom:"1px solid var(--border)"}}>
+                        <td style={{padding:"8px"}}>{t.date||"—"}</td>
+                        <td style={{padding:"8px",color:"var(--text2)"}}>{t.purpose||"—"}</td>
+                        <td style={{padding:"8px",fontWeight:700,color:"var(--burg)"}}>{dist}</td>
+                        <td style={{padding:"8px",color:"var(--text3)",fontFamily:"var(--font-m)",fontSize:11}}>{odo}</td>
+                        <td style={{padding:"8px"}}><span style={{fontSize:11,color:"var(--text3)"}}>{memberById(t.memberId)?.name||""}</span></td>
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
