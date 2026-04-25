@@ -1996,28 +1996,32 @@ function CarsSection({ user, cars, setCars, members, pendingCars, setPendingCars
     setModal({edit:c});
   }
   async function handleSave(){
-    if(!form.reg||!form.make||!form.model)return;
-    var isEdit=!!modal?.edit;
-    var basecar=isEdit?Object.assign({},form):Object.assign({},form,{id:uid("C"),photos:[]});
-    if(isEdit){
-      var isSoldOrTx=form.status==="transferred"||form.status==="sold";
-      var resolvedOwnerName=isSoldOrTx?(hForm.ownerType==="member"?ownerName(hForm.ownerId):hForm.ownerName)||"":"";
-      var entry={
-        id:uid("H"),status:form.status,date:hForm.date||today,
-        odometer:hForm.odo?Number(hForm.odo):null,
-        colour:hForm.colour||null,modifications:hForm.mods||null,
-        newOwnerType:isSoldOrTx?hForm.ownerType:null,
-        newOwnerId:isSoldOrTx&&hForm.ownerType==="member"?hForm.ownerId||null:null,
-        newOwnerName:isSoldOrTx?resolvedOwnerName||null:null,
-        newOwnerEmail:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerEmail||null:null,
-        newOwnerPhone:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerPhone||null:null,
-        notes:hForm.notes||null,recordedBy:user.name||user.email,createdAt:new Date().toISOString()
-      };
-      basecar=Object.assign({},basecar,{history:[...(form.history||[]),entry]});
-      if(form.status==="transferred"&&hForm.ownerType==="member"&&hForm.ownerId) basecar.ownerId=hForm.ownerId;
+    if(modal==="add"){
+      if(!form.reg||!form.make||!form.model)return;
+      var newCar=Object.assign({},form,{id:uid("C"),photos:[],history:[]});
+      var addedCars=cars.concat([newCar]);
+      setCars(addedCars);await dbSet(SK.cars,addedCars);setModal(null);
+      return;
     }
-    var updated=isEdit?cars.map(function(c){return c.id===basecar.id?basecar:c;}):cars.concat([basecar]);
-    setCars(updated);await dbSet(SK.cars,updated);setModal(null);
+    // Edit path
+    if(!form.make||!form.model)return;
+    var isSoldOrTx=form.status==="transferred"||form.status==="sold";
+    var resolvedOwnerName=isSoldOrTx?(hForm.ownerType==="member"?ownerName(hForm.ownerId):hForm.ownerName)||"":"";
+    var histEntry={
+      id:uid("H"),status:form.status,date:hForm.date||today,
+      odometer:hForm.odo?Number(hForm.odo):null,
+      colour:hForm.colour||null,modifications:hForm.mods||null,
+      newOwnerType:isSoldOrTx?hForm.ownerType:null,
+      newOwnerId:isSoldOrTx&&hForm.ownerType==="member"?hForm.ownerId||null:null,
+      newOwnerName:isSoldOrTx?resolvedOwnerName||null:null,
+      newOwnerEmail:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerEmail||null:null,
+      newOwnerPhone:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerPhone||null:null,
+      notes:hForm.notes||null,recordedBy:user.name||user.email,createdAt:new Date().toISOString()
+    };
+    var updatedCar=Object.assign({},form,{history:[...(form.history||[]),histEntry]});
+    if(isSoldOrTx&&hForm.ownerType==="member"&&hForm.ownerId) updatedCar.ownerId=hForm.ownerId;
+    var editedCars=cars.map(function(c){return c.id===form.id?updatedCar:c;});
+    setCars(editedCars);await dbSet(SK.cars,editedCars);setModal(null);
   }
   return (
     <div className="fade-up">
