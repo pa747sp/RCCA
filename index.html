@@ -9190,6 +9190,7 @@ function App() {// ════════════════════�
   const [emailTemplates,setEmailTemplates]=useState({templates:[],groups:[]});
   const [scheduledEmails,setScheduledEmails]=useState([]);
   const [contactGroups,setContactGroups]=useState([]);
+  const [pendingVehicleHistory,setPendingVehicleHistory]=useState([]);
   const [openSection,setOpenSection]=useState(null);
   const [drawerOpen,setDrawerOpen]=useState(false);
   const [isMobile,setIsMobile]=useState(window.innerWidth<768);
@@ -10396,7 +10397,6 @@ function FinanceSection({ members, dues, setDues, orders, rsvps, events, expense
   const [settSaved,setSettSaved]=useState(false);
   const [period,setPeriod]=useState("fy");
   const [manualIncome,setManualIncome]=useState([]);
-  const [pendingVehicleHistory,setPendingVehicleHistory]=useState([]);
   const [incForm,setIncForm]=useState({date:today,amount:"",description:"",reference:"",notes:"",member:""});
   useEffect(()=>{ dbGet(SK.manualIncome).then(d=>{ if(Array.isArray(d)) setManualIncome(d); }); }, []);
   useEffect(()=>{ dbGet(SK.dues).then(d=>{ if(Array.isArray(d)&&typeof setDues==="function") setDues(d); }); }, []);
