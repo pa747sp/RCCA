@@ -11283,9 +11283,71 @@ function PendingVehiclesSection({user,members,cars,setCars,pendingCars,setPendin
   );
 }
 
+function PendingTransfersSection({transfers,setTransfers,cars,setCars,members}) {
+  const pending=(transfers||[]).filter(t=>t.status==="pending").sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  const memberById=id=>(members||[]).find(m=>m.id===id)||{};
+  const carById=id=>(cars||[]).find(c=>c.id===id)||{};
+
+  const approve=async(tx)=>{
+    // Update car ownership
+    const isMember=tx.newOwnerType!=="nonmember";
+    const carUpdate=isMember
+      ?{ownerId:tx.toId,ownerName:null,ownerEmail:null,ownerPhone:null}
+      :{ownerId:null,ownerName:tx.toName,ownerEmail:tx.newOwnerEmail||"",ownerPhone:tx.newOwnerPhone||""};
+    const updatedCars=(cars||[]).map(c=>c.id===tx.carId?Object.assign({},c,carUpdate):c);
+    setCars(updatedCars);
+    await dbSet(SK.cars,updatedCars);
+    // Mark transfer completed
+    const updatedTx=(transfers||[]).map(t=>t.id===tx.id?Object.assign({},t,{status:"completed",approvedDate:today}):t);
+    setTransfers(updatedTx);
+    await dbSet(SK.transfers,updatedTx);
+  };
+
+  const reject=async(tx)=>{
+    const updatedTx=(transfers||[]).map(t=>t.id===tx.id?Object.assign({},t,{status:"rejected",rejectedDate:today}):t);
+    setTransfers(updatedTx);
+    await dbSet(SK.transfers,updatedTx);
+  };
+
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Pending Transfer Requests" subtitle={pending.length+" request"+( pending.length!==1?"s":"")}/>
+      {pending.length===0&&<EmptyState icon="→" text="No pending transfer requests"/>}
+      {pending.map(tx=>{
+        const car=carById(tx.carId);
+        const requester=memberById(tx.requestedByMemberId||tx.fromId);
+        return (
+          <Card key={tx.id} style={{padding:18,marginBottom:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:12}}>
+              <div>
+                <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,marginBottom:4}}>{tx.carDesc||(car.year+" "+car.make+" "+car.model)}</div>
+                <div style={{fontSize:12,color:"var(--text2)",marginBottom:2}}>
+                  <strong>From:</strong> {tx.fromName||requester?.name||"—"}
+                </div>
+                <div style={{fontSize:12,color:"var(--text2)",marginBottom:2}}>
+                  <strong>To:</strong> {tx.toName||"—"}{tx.newOwnerType==="nonmember"?<span style={{fontSize:11,color:"var(--text3)",marginLeft:6}}>(non-member)</span>:null}
+                  {tx.newOwnerEmail&&<span style={{color:"var(--text3)",marginLeft:6}}>{tx.newOwnerEmail}</span>}
+                  {tx.newOwnerPhone&&<span style={{color:"var(--text3)",marginLeft:6}}>{tx.newOwnerPhone}</span>}
+                </div>
+                <div style={{fontSize:12,color:"var(--text3)"}}>Date: {tx.date||"—"}{tx.notes?<span style={{marginLeft:8,fontStyle:"italic"}}>"{tx.notes}"</span>:""}</div>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>Submitted: {tx.createdAt?new Date(tx.createdAt).toLocaleDateString("en-AU"):"—"}</div>
+              </div>
+              <Row gap={8}>
+                <Btn variant="success" size="sm" onClick={()=>approve(tx)}>✓ Approve</Btn>
+                <Btn variant="ghost" size="sm" onClick={()=>reject(tx)}>✗ Reject</Btn>
+              </Row>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
 function VehiclesSection(sp) {
   const isAdmin=sp.user&&sp.user.role==="admin";
   const pendingCount=(sp.pendingCars||[]).filter(p=>p.status==="pending").length;
+  const pendingTxCount=(sp.transfers||[]).filter(t=>t.status==="pending").length;
   const [vTab,setVTab]=React.useState("register");
   const tabBtn=(id,label,badge)=>(
     <button onClick={()=>setVTab(id)} style={{
@@ -11306,12 +11368,14 @@ function VehiclesSection(sp) {
         {tabBtn("register","Vehicle Register")}
         {tabBtn("permits","Club Permits")}
         {tabBtn("transfers","Transfer History")}
+        {isAdmin&&tabBtn("pendingtx","Pending Transfers",pendingTxCount)}
         {isAdmin&&tabBtn("pending","Pending Submissions",pendingCount)}
       </div>
       <div style={{paddingTop:8}}>
       {vTab==="register"&&<CarsSection {...sp}/>}
       {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
-      {vTab==="transfers"&&<TransfersSection transfers={sp.transfers}/>}
+      {vTab==="transfers"&&<TransfersSection transfers={(sp.transfers||[]).filter(t=>t.status!=="pending")}/>}
+      {vTab==="pendingtx"&&isAdmin&&<PendingTransfersSection transfers={sp.transfers} setTransfers={sp.setTransfers} cars={sp.cars} setCars={sp.setCars} members={sp.members}/>}
       {vTab==="pending"&&isAdmin&&<PendingVehiclesSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} messages={sp.messages} setMessages={sp.setMessages}/>}
       </div>
     </div>
