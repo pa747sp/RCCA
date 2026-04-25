@@ -1967,7 +1967,6 @@ function CarsSection({ user, cars, setCars, members, pendingCars, setPendingCars
   var [showSubmit,setShowSubmit]=useState(false);
   var [showHistory,setShowHistory]=useState({});
   var [hForm,setHForm]=useState({date:today,odo:"",colour:"",mods:"",notes:"",ownerType:"member",ownerId:"",ownerName:"",ownerEmail:"",ownerPhone:""});
-  var editingCarId=React.useRef(null);
   var setVFilter=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=v;return n;});};
   var toggleVArr=function(k,v){setVFilters(function(f){var n=Object.assign({},f);n[k]=f[k].includes(v)?f[k].filter(function(x){return x!==v;}):[...f[k],v];return n;});};
   var allMakes=[...new Set(vis.map(function(c){return c.make;}).filter(Boolean))].sort();
@@ -1992,7 +1991,6 @@ function CarsSection({ user, cars, setCars, members, pendingCars, setPendingCars
     setForm({reg:"",make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:members[0]?.id,status:"active",registered:today,notes:""});setModal("add");
   }
   function openEdit(c){
-    editingCarId.current=c.id;
     setForm(Object.assign({},c));
     setHForm({date:today,odo:"",colour:c.colour||"",mods:"",notes:"",ownerType:"member",ownerId:"",ownerName:"",ownerEmail:"",ownerPhone:""});
     setModal({edit:c});
@@ -2005,25 +2003,30 @@ function CarsSection({ user, cars, setCars, members, pendingCars, setPendingCars
       setCars(addedCars);await dbSet(SK.cars,addedCars);setModal(null);
       return;
     }
-    // Edit path — use ref for the car id so it can't be stale
-    var carId=editingCarId.current;
-    if(!carId||!form.make||!form.model)return;
+    // Edit path — form.id is always set via openEdit(c) → setForm(Object.assign({},c))
+    if(!form.id)return;
     var isSoldOrTx=form.status==="transferred"||form.status==="sold";
-    var resolvedOwnerName=isSoldOrTx?(hForm.ownerType==="member"?ownerName(hForm.ownerId):hForm.ownerName)||"":"";
-    var histEntry={
-      id:uid("H"),status:form.status||"active",date:hForm.date||today,
-      odometer:hForm.odo?Number(hForm.odo):null,
-      colour:hForm.colour||null,modifications:hForm.mods||null,
-      newOwnerType:isSoldOrTx?hForm.ownerType:null,
-      newOwnerId:isSoldOrTx&&hForm.ownerType==="member"?hForm.ownerId||null:null,
-      newOwnerName:isSoldOrTx?resolvedOwnerName||null:null,
-      newOwnerEmail:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerEmail||null:null,
-      newOwnerPhone:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerPhone||null:null,
-      notes:hForm.notes||null,recordedBy:(user.name||user.email||"admin"),createdAt:new Date().toISOString()
-    };
-    var updatedCar=Object.assign({},form,{id:carId,history:[...(form.history||[]),histEntry]});
+    // Only append history entry if user explicitly filled in history fields
+    var histFilled=hForm.odo||hForm.mods||hForm.notes||(isSoldOrTx&&(hForm.ownerId||hForm.ownerName));
+    var updatedHistory=form.history||[];
+    if(histFilled){
+      var resolvedOwnerName=isSoldOrTx?(hForm.ownerType==="member"?ownerName(hForm.ownerId):hForm.ownerName)||"":"";
+      var histEntry={
+        id:uid("H"),status:form.status||"active",date:hForm.date||today,
+        odometer:hForm.odo?Number(hForm.odo):null,
+        colour:hForm.colour||null,modifications:hForm.mods||null,
+        newOwnerType:isSoldOrTx?hForm.ownerType:null,
+        newOwnerId:isSoldOrTx&&hForm.ownerType==="member"?hForm.ownerId||null:null,
+        newOwnerName:isSoldOrTx?resolvedOwnerName||null:null,
+        newOwnerEmail:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerEmail||null:null,
+        newOwnerPhone:isSoldOrTx&&hForm.ownerType!=="member"?hForm.ownerPhone||null:null,
+        notes:hForm.notes||null,recordedBy:(user.name||user.email||"admin"),createdAt:new Date().toISOString()
+      };
+      updatedHistory=[...updatedHistory,histEntry];
+    }
+    var updatedCar=Object.assign({},form,{history:updatedHistory});
     if(isSoldOrTx&&hForm.ownerType==="member"&&hForm.ownerId) updatedCar.ownerId=hForm.ownerId;
-    var editedCars=cars.map(function(c){return c.id===carId?updatedCar:c;});
+    var editedCars=cars.map(function(c){return c.id===form.id?updatedCar:c;});
     setCars(editedCars);setModal(null);
     try{await dbSet(SK.cars,editedCars);}catch(e){console.error("Vehicle save failed:",e);}
   }
