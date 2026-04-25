@@ -1953,7 +1953,7 @@ function CarsSection({ user, cars, setCars, members, setTransfers, pendingCars, 
     setForm({reg:"",make:CLUB_CONFIG.vehicleMake,model:"",year:new Date().getFullYear(),colour:"",chassis:"",ownerId:members[0]?.id,status:"active",registered:today,notes:""});setModal("add");
   }
   function openEdit(c){setForm(Object.assign({},c));setModal({edit:c});}
-  function openTransfer(c){setForm({carId:c.id,toMemberId:""});setModal({transfer:c});}
+  function openTransfer(c){setForm({carId:c.id,toMemberId:"",newOwnerType:"member",nmName:"",nmEmail:"",nmPhone:"",transferDate:today,notes:""});setModal({transfer:c});}
   async function handleSave(){
     if(!form.reg||!form.make||!form.model)return console.log("Reg, Make and Model required","error");
     var updated=modal==="add"?cars.concat([Object.assign({},form,{id:uid("C"),photos:[]})]):cars.map(function(c){return c.id===form.id?Object.assign({},form):c;});
@@ -1961,11 +1961,25 @@ function CarsSection({ user, cars, setCars, members, setTransfers, pendingCars, 
   }
   async function sc(id,st){var u=cars.map(function(c){return c.id===id?Object.assign({},c,{status:st}):c;});setCars(u);await dbSet(SK.cars,u);setModal(null);}
   async function handleTransfer(){
-    if(!form.toMemberId)return console.log("Select recipient","error");
     var car=cars.find(function(c){return c.id===form.carId;});
-    if(car.ownerId===form.toMemberId)return console.log("Same member selected","error");
-    var t={id:uid("T"),carId:car.id,carDesc:car.year+" "+car.make+" "+car.model,fromId:car.ownerId,fromName:ownerName(car.ownerId),toId:form.toMemberId,toName:ownerName(form.toMemberId),date:today};
-    var uc=cars.map(function(c){return c.id===car.id?Object.assign({},c,{ownerId:form.toMemberId}):c;});
+    var isMember=form.newOwnerType!=="nonmember";
+    if(isMember){
+      if(!form.toMemberId)return console.log("Select recipient","error");
+      if(car.ownerId===form.toMemberId)return console.log("Same member selected","error");
+    } else {
+      if(!form.nmName)return console.log("Non-member name required","error");
+    }
+    var toId=isMember?form.toMemberId:null;
+    var toName=isMember?ownerName(form.toMemberId):form.nmName;
+    var t={id:uid("T"),carId:car.id,carDesc:car.year+" "+car.make+" "+car.model,
+      fromId:car.ownerId,fromName:ownerName(car.ownerId),
+      toId:toId,toName:toName,
+      newOwnerType:form.newOwnerType,newOwnerEmail:form.nmEmail||"",newOwnerPhone:form.nmPhone||"",
+      date:form.transferDate||today,notes:form.notes||"",status:"completed"};
+    var carUpdate=isMember
+      ?{ownerId:form.toMemberId,ownerName:null,ownerEmail:null,ownerPhone:null}
+      :{ownerId:null,ownerName:form.nmName,ownerEmail:form.nmEmail||"",ownerPhone:form.nmPhone||""};
+    var uc=cars.map(function(c){return c.id===car.id?Object.assign({},c,carUpdate):c;});
     setCars(uc);await dbSet(SK.cars,uc);
     setTransfers(function(p){var tr=p.concat([t]);dbSet(SK.transfers,tr);return tr;});
     setModal(null);
@@ -2250,13 +2264,37 @@ function CarsSection({ user, cars, setCars, members, setTransfers, pendingCars, 
       )}
       {modal?.transfer&&(
         <Modal title="Transfer Vehicle" onClose={function(){setModal(null);}}>
-          <div style={{marginBottom:16}}>{modal.transfer.year} {modal.transfer.make} {modal.transfer.model}</div>
-          <Field label="Transfer To">
-            <Select value={form.toMemberId||""} onChange={function(e){setForm(Object.assign({},form,{toMemberId:e.target.value}));}}>
-              <option value="">Select member</option>
-              {members.filter(function(m){return m.status==="active"&&m.id!==modal.transfer.ownerId;}).map(function(m){return <option key={m.id} value={m.id}>{m.name}</option>;})}
-            </Select>
+          <div style={{marginBottom:14,fontWeight:600}}>{modal.transfer.year} {modal.transfer.make} {modal.transfer.model}</div>
+          <Field label="New Owner Type">
+            <Row gap={16}>
+              {[["member","Member"],["nonmember","Non-Member"]].map(function(opt){return(
+                <label key={opt[0]} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13}}>
+                  <input type="radio" name="newOwnerType" value={opt[0]} checked={form.newOwnerType===opt[0]} onChange={function(){setForm(Object.assign({},form,{newOwnerType:opt[0]}));}} style={{accentColor:"var(--burg)"}}/>
+                  {opt[1]}
+                </label>
+              );})}
+            </Row>
           </Field>
+          {form.newOwnerType==="member"?(
+            <Field label="Transfer To">
+              <Select value={form.toMemberId||""} onChange={function(e){setForm(Object.assign({},form,{toMemberId:e.target.value}));}}>
+                <option value="">Select member</option>
+                {members.filter(function(m){return m.status==="active"&&m.id!==modal.transfer.ownerId;}).map(function(m){return <option key={m.id} value={m.id}>{m.name}</option>;})}
+              </Select>
+            </Field>
+          ):(
+            <div>
+              <Field label="Name (required)"><Input value={form.nmName||""} onChange={function(e){setForm(Object.assign({},form,{nmName:e.target.value}));}}/></Field>
+              <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                <Field label="Email" half><Input type="email" value={form.nmEmail||""} onChange={function(e){setForm(Object.assign({},form,{nmEmail:e.target.value}));}}/></Field>
+                <Field label="Phone" half><Input value={form.nmPhone||""} onChange={function(e){setForm(Object.assign({},form,{nmPhone:e.target.value}));}}/></Field>
+              </Row>
+            </div>
+          )}
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Transfer Date" half><Input type="date" value={form.transferDate||today} onChange={function(e){setForm(Object.assign({},form,{transferDate:e.target.value}));}}/></Field>
+            <Field label="Notes" half><Input value={form.notes||""} onChange={function(e){setForm(Object.assign({},form,{notes:e.target.value}));}}/></Field>
+          </Row>
           <Row gap={8} justify="flex-end">
             <Btn variant="ghost" onClick={function(){setModal(null);}}>Cancel</Btn>
             <Btn onClick={handleTransfer}>Transfer</Btn>
@@ -8738,7 +8776,7 @@ function ClubActivitySection(sp) {
 }
 
 // ── MEMBER VEHICLES SECTION — tabbed: My Vehicles + Club Permits ─────────────
-function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPendingCars,permits,setPermits,tripLogs,setTripLogs,events,initialTab}) {
+function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPendingCars,permits,setPermits,tripLogs,setTripLogs,events,transfers,setTransfers,initialTab}) {
   var vtState=useState(initialTab||"vehicles"); var vTab=vtState[0]; var setVTab=vtState[1];
   var vtabs=[{id:"vehicles",label:"My Vehicles"},{id:"permits",label:"Club Permits"}];
   var myCars=(cars||[]).filter(function(c){return c.ownerId===user.id;});
@@ -8749,6 +8787,9 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
   var tmState=useState(null); var tripModal=tmState[0]; var setTripModal=tmState[1];
   var tfState=useState({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""}); var tripForm=tfState[0]; var setTripForm=tfState[1];
   var etState=useState(null); var editTripId=etState[0]; var setEditTripId=etState[1];
+  var txState=useState(null); var txModal=txState[0]; var setTxModal=txState[1];
+  var txfState=useState({newOwnerType:"member",toMemberId:"",nmName:"",nmEmail:"",nmPhone:"",transferDate:today,notes:""}); var txForm=txfState[0]; var setTxForm=txfState[1];
+  var txDone=useState(false); var txConfirmed=txDone[0]; var setTxConfirmed=txDone[1];
   var MAX_CARS=100;
   function openAddCar(){
     if(myCars.length>=MAX_CARS)return;
@@ -8784,6 +8825,32 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
     setTripModal(null);
     setEditTripId(null);
     setTripForm({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""});
+  }
+  async function handleMemberTransfer(){
+    var car=(cars||[]).find(function(c){return c.id===txModal;});
+    if(!car) return;
+    var isMember=txForm.newOwnerType==="member";
+    if(isMember&&!txForm.toMemberId)return;
+    if(!isMember&&!txForm.nmName)return;
+    var toMember=isMember?(members||[]).find(function(m){return m.id===txForm.toMemberId;}):null;
+    var t={
+      id:uid("T"),carId:car.id,carDesc:car.year+" "+car.make+" "+car.model,
+      fromId:user.id,fromName:user.name,
+      toId:isMember?txForm.toMemberId:null,
+      toName:isMember?(toMember?.name||""):txForm.nmName,
+      newOwnerType:txForm.newOwnerType,
+      newOwnerEmail:txForm.nmEmail||"",newOwnerPhone:txForm.nmPhone||"",
+      date:txForm.transferDate||today,notes:txForm.notes||"",
+      requestedByMemberId:user.id,requestedByMemberName:user.name,
+      status:"pending",createdAt:new Date().toISOString(),
+    };
+    var existing=await dbGet(SK.transfers)||[];
+    var updated=existing.concat([t]);
+    if(typeof setTransfers==="function") setTransfers(updated);
+    await dbSet(SK.transfers,updated);
+    setTxModal(null);
+    setTxConfirmed(true);
+    setTimeout(function(){setTxConfirmed(false);},5000);
   }
   return (
     <div className="fade-up">
@@ -8821,6 +8888,7 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
               </div>
               <Row gap={6}>
                 <Btn variant="ghost" size="sm" onClick={function(){setCarForm(Object.assign({},car));setCarModal(car);}}>Edit</Btn>
+                <Btn variant="ghost" size="sm" onClick={function(){setTxModal(car.id);setTxForm({newOwnerType:"member",toMemberId:"",nmName:"",nmEmail:"",nmPhone:"",transferDate:today,notes:""});}}>Transfer</Btn>
                 <Btn size="sm" onClick={function(){setTripModal(car.id);setTripForm({date:today,startOdo:"",endOdo:"",km:"",purpose:"",eventId:""});}}>+ Add Trip Log</Btn>
               </Row>
             </div>
@@ -8855,6 +8923,46 @@ function MemberVehiclesSection({user,cars,setCars,members,pendingCars,setPending
         );
       })}
       </div>}
+      {txConfirmed&&<div style={{background:"#e8f5ee",border:"1px solid #b2dfcd",borderRadius:6,padding:"10px 16px",fontSize:13,color:"#1e6840",marginBottom:12}}>✓ Transfer request submitted — awaiting admin approval</div>}
+      {txModal&&(
+        <Modal title="Request Vehicle Transfer" onClose={function(){setTxModal(null);}}>
+          <div style={{marginBottom:12,fontWeight:600}}>{(cars||[]).find(function(c){return c.id===txModal;})?.year} {(cars||[]).find(function(c){return c.id===txModal;})?.make} {(cars||[]).find(function(c){return c.id===txModal;})?.model}</div>
+          <Field label="New Owner Type">
+            <Row gap={16}>
+              {[["member","Member"],["nonmember","Non-Member"]].map(function(opt){return(
+                <label key={opt[0]} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13}}>
+                  <input type="radio" name="txOwnerType" value={opt[0]} checked={txForm.newOwnerType===opt[0]} onChange={function(){setTxForm(Object.assign({},txForm,{newOwnerType:opt[0]}));}} style={{accentColor:"var(--burg)"}}/>
+                  {opt[1]}
+                </label>
+              );})}
+            </Row>
+          </Field>
+          {txForm.newOwnerType==="member"?(
+            <Field label="Transfer To">
+              <Select value={txForm.toMemberId||""} onChange={function(e){setTxForm(Object.assign({},txForm,{toMemberId:e.target.value}));}}>
+                <option value="">Select member</option>
+                {(members||[]).filter(function(m){return m.status==="active"&&m.id!==user.id;}).map(function(m){return <option key={m.id} value={m.id}>{m.name}</option>;})}
+              </Select>
+            </Field>
+          ):(
+            <div>
+              <Field label="Name (required)"><Input value={txForm.nmName||""} onChange={function(e){setTxForm(Object.assign({},txForm,{nmName:e.target.value}));}}/></Field>
+              <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+                <Field label="Email" half><Input type="email" value={txForm.nmEmail||""} onChange={function(e){setTxForm(Object.assign({},txForm,{nmEmail:e.target.value}));}}/></Field>
+                <Field label="Phone" half><Input value={txForm.nmPhone||""} onChange={function(e){setTxForm(Object.assign({},txForm,{nmPhone:e.target.value}));}}/></Field>
+              </Row>
+            </div>
+          )}
+          <Row gap={12} wrap style={{justifyContent:"space-between"}}>
+            <Field label="Transfer Date" half><Input type="date" value={txForm.transferDate||today} onChange={function(e){setTxForm(Object.assign({},txForm,{transferDate:e.target.value}));}}/></Field>
+            <Field label="Notes" half><Input value={txForm.notes||""} onChange={function(e){setTxForm(Object.assign({},txForm,{notes:e.target.value}));}}/></Field>
+          </Row>
+          <Row gap={8} justify="flex-end">
+            <Btn variant="ghost" onClick={function(){setTxModal(null);}}>Cancel</Btn>
+            <Btn onClick={handleMemberTransfer}>Submit Request</Btn>
+          </Row>
+        </Modal>
+      )}
       {carModal&&(
         <Modal title={carModal==="add"?"Add Vehicle":"Edit Vehicle"} onClose={function(){setCarModal(null);}}>
           {carModal==="add"&&<RegoScanner onResult={function(data){setCarForm(function(f){return Object.assign({},f,data);});}}/>}
@@ -9374,7 +9482,7 @@ function App() {// ════════════════════�
             {tab==="contacts"   &&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {/* Member sections */}
             {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
-            {(tab==="myvehicles"||tab==="member_permits")&&user.role!=="admin"&&<MemberVehiclesSection key={tab} user={user} cars={cars} setCars={setCars} members={members} pendingCars={pendingCars} setPendingCars={setPendingCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs} events={events} initialTab={tab==="member_permits"?"permits":"vehicles"}/>}
+            {(tab==="myvehicles"||tab==="member_permits")&&user.role!=="admin"&&<MemberVehiclesSection key={tab} user={user} cars={cars} setCars={setCars} members={members} pendingCars={pendingCars} setPendingCars={setPendingCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs} events={events} transfers={transfers} setTransfers={setTransfers} initialTab={tab==="member_permits"?"permits":"vehicles"}/>}
             {tab==="mcommerce"  &&user.role!=="admin"&&<MemberCommerceSection {...sp}/>}
             {tab==="archive"    &&user.role!=="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="points"     &&user.role!=="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
