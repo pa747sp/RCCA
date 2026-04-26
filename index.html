@@ -9544,9 +9544,10 @@ function App() {// ════════════════════�
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {/* Admin sections */}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
-            {tab==="vehicles"          &&user.role==="admin"&&<CarsSection {...sp}/>}
-            {tab==="vehicles_pendingvh"&&user.role==="admin"&&<PendingVehicleHistorySection pendingVehicleHistory={pendingVehicleHistory} setPendingVehicleHistory={setPendingVehicleHistory} cars={cars} setCars={setCars} members={members}/>}
-            {tab==="vehicles_pending"  &&user.role==="admin"&&<PendingVehiclesSection user={user} members={members} cars={cars} setCars={setCars} pendingCars={pendingCars} setPendingCars={setPendingCars} messages={messages} setMessages={setMessages}/>}
+            {tab==="vehicles"          &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="register"/>}
+            {tab==="triplogsadmin"     &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="triplogsadmin"/>}
+            {tab==="vehicles_pendingvh"&&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="pendingvh"/>}
+            {tab==="vehicles_pending"  &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="pending"/>}
             {tab==="clubactivity"&&<ClubActivitySection {...sp}/>}
             {tab==="commerce"   &&user.role==="admin"&&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
@@ -9555,7 +9556,7 @@ function App() {// ════════════════════�
             {tab==="administration"&&user.role==="admin"&&<AdministrationSection {...sp}/>}
             {tab==="account"    &&user.role==="admin"&&<AccountSection {...sp}/>}
             {(tab==="account_contact"||tab==="account_emails"||tab==="account_venues"||tab==="account_storage")&&user.role==="admin"&&<AccountSection {...sp}/>}
-            {tab==="triplogsadmin"&&user.role==="admin"&&<AdminTripLogsSection members={members} cars={cars} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="permits"       &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="permits"/>}
             {tab==="contacts"   &&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
             {/* Member sections */}
             {tab==="membership" &&user.role!=="admin"&&<MembershipSection user={user} members={members} dues={dues}/>}
@@ -9576,7 +9577,7 @@ function App() {// ════════════════════�
             {tab==="committee"  &&<CommitteeSection members={members} user={user}/>}
             {tab==="dues"       &&user.role==="admin"&&<DuesSection {...sp}/>}
             {tab==="cars"       &&<CarsSection {...sp}/>}
-            {tab==="permits"    &&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
+            {tab==="permits"    &&user.role!=="admin"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
             {tab==="shop"       &&<ShopSection {...sp} cats={categories}/>}
             {tab==="marketplace"&&<MarketplaceSection {...sp} cats={categories}/>}
             {tab==="library"    &&<LibrarySection {...sp}/>}
@@ -11445,9 +11446,15 @@ function VehiclesSection(sp) {
   const isAdmin=sp.user&&sp.user.role==="admin";
   const pendingCount=(sp.pendingCars||[]).filter(p=>p.status==="pending").length;
   const pendingVHCount=(sp.pendingVehicleHistory||[]).filter(e=>e.pendingStatus==="pending").length;
-  const [vTab,setVTab]=React.useState("register");
+  const [vTab,setVTab]=React.useState(sp.initialTab||"register");
+  // Map internal tab id → left nav tab id so both stay in sync
+  const TAB_TO_NAV={register:"vehicles",triplogsadmin:"triplogsadmin",permits:"permits",pendingvh:"vehicles_pendingvh",pending:"vehicles_pending"};
+  function switchTab(id){
+    setVTab(id);
+    if(sp.setTab)sp.setTab(TAB_TO_NAV[id]||"vehicles");
+  }
   const tabBtn=(id,label,badge)=>(
-    <button onClick={()=>setVTab(id)} style={{
+    <button onClick={()=>switchTab(id)} style={{
       padding:"10px 24px",background:vTab===id?"white":"transparent",border:"none",
       borderBottom:vTab===id?"3px solid var(--burg)":"3px solid transparent",
       color:vTab===id?"var(--burg)":"var(--text3)",
@@ -11463,12 +11470,14 @@ function VehiclesSection(sp) {
     <div>
       <div style={{background:"var(--bg2)",borderBottom:"3px solid var(--burg)",padding:"4px 24px 0",display:"flex",gap:0,boxShadow:"0 2px 8px rgba(0,0,0,.08)"}}>
         {tabBtn("register","Vehicle Register")}
+        {tabBtn("triplogsadmin","Trip Logs")}
         {tabBtn("permits","Club Permits")}
         {isAdmin&&tabBtn("pendingvh","Pending Vehicle Updates",pendingVHCount)}
         {isAdmin&&tabBtn("pending","Pending Submissions",pendingCount)}
       </div>
       <div style={{paddingTop:8}}>
       {vTab==="register"&&<CarsSection {...sp}/>}
+      {vTab==="triplogsadmin"&&<AdminTripLogsSection members={sp.members} cars={sp.cars} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
       {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
       {vTab==="pendingvh"&&isAdmin&&<PendingVehicleHistorySection pendingVehicleHistory={sp.pendingVehicleHistory} setPendingVehicleHistory={sp.setPendingVehicleHistory} cars={sp.cars} setCars={sp.setCars} members={sp.members}/>}
       {vTab==="pending"&&isAdmin&&<PendingVehiclesSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} messages={sp.messages} setMessages={sp.setMessages}/>}
