@@ -9574,8 +9574,6 @@ function App() {// ════════════════════�
             {tab==="permissions"&&user.role==="admin"&&<PermissionsSection user={user} members={members} setMembers={setMembers}/>}
             {tab==="transfers"  &&user.role==="admin"&&<TransfersSection transfers={transfers}/>}
             {tab==="suppliers"  &&<SuppliersSection user={user} suppliers={suppliers} setSuppliers={setSuppliers} members={members}/>}
-            {tab==="qualitysystem"&&user.role==="admin"&&<QualitySystemSection qualityDocs={qualityDocs} setQualityDocs={setQualityDocs} user={user}/>}
-            {tab==="archive"    &&user.role==="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="points"     &&user.role==="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
           </div>
