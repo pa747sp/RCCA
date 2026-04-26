@@ -919,7 +919,6 @@ const NAV = {
     { id:"tasks",      label:"Tasks",           icon:"☑" },
     { id:"marketplace",label:"Marketplace",    icon:"⟳" },
     { id:"shop",       label:"Club Shop",       icon:"⊕" },
-    { id:"myplan",     label:"My Plan",         icon:"◈" },
     { id:"profile",    label:"My Profile",      icon:"◑" },
   ],
 };
@@ -5047,7 +5046,6 @@ function MembershipSection({user,members,dues}) {
   const [mTab,setMTab]=useState("overview");
   const tabs=[
     {id:"overview",label:"My Membership"},
-    {id:"myplan",label:"My Plan"},
     {id:"committee",label:"Committee"},
   ];
   return(
@@ -5055,7 +5053,6 @@ function MembershipSection({user,members,dues}) {
       <SectionTabBar tabs={tabs} active={mTab} onChange={setMTab}/>
       <div style={{height:20}}/>
       {mTab==="overview"&&<MembershipOverview user={user} members={members} dues={dues}/>}
-      {mTab==="myplan"&&<MyPlanSection user={user}/>}
       {mTab==="committee"&&<CommitteeSection members={members} user={user}/>}
     </div>
   );
@@ -9564,7 +9561,7 @@ function App() {// ════════════════════�
             {tab==="archive"    &&user.role!=="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="cars"       &&<CarsSection {...sp}/>}
             {tab==="permits"    &&user.role!=="admin"&&<ClubPermitSection user={user} members={members} cars={cars} setCars={setCars} permits={permits} setPermits={setPermits} tripLogs={tripLogs} setTripLogs={setTripLogs}/>}
-            {tab==="myplan"     &&<MyPlanSection user={user}/>}
+            {tab==="myplan"     &&user.role==="admin"&&<MyPlanSection user={user}/>}
             {tab==="news"       &&user.role==="admin"&&<NewsAdminSection {...sp}/>}
             {tab==="pages"      &&user.role==="admin"&&<CustomPagesSection pages={pages} setPages={setPages} user={user}/>}
             {tab==="site"       &&user.role==="admin"&&<SiteContentSection siteContent={siteContent} setSiteContent={setSiteContent}/>}
