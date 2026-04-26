@@ -9304,7 +9304,7 @@ function App() {// ════════════════════�
   useEffect(()=>{
     const adminMap={
       members:"grp_members",applications:"grp_members",dues:"grp_members",membershipTypes:"grp_members",committee:"grp_members",
-      vehicles:"grp_vehicles",triplogsadmin:"grp_vehicles",permits:"grp_vehicles",vehicles_pendingvh:"grp_vehicles",vehicles_pending:"grp_vehicles",
+      vehicles:"grp_vehicles",triplogsadmin:"grp_vehicles",permits:"grp_vehicles",pendingapprovals:"grp_vehicles",
       events:"grp_activity",meetings:"grp_activity",
       communications:"grp_comms",contacts:"grp_comms",polls:"grp_comms",
       finance:"grp_finance",finance_income:"grp_finance",finance_expenses:"grp_finance",finance_invoices:"grp_finance",
@@ -9356,8 +9356,7 @@ function App() {// ════════════════════�
       {id:"vehicles",          label:"Vehicle Register"},
       {id:"triplogsadmin",     label:"Trip Logs"},
       {id:"permits",           label:"Club Permits"},
-      {id:"vehicles_pendingvh",label:"Pending Vehicle Updates"},
-      {id:"vehicles_pending",  label:"Pending Submissions"},
+      {id:"pendingapprovals",  label:"Pending Approvals"},
     ]},
     { id:"grp_activity", label:"Club Activity", icon:"◆", items:[
       {id:"events",   label:"Events"},
@@ -9546,8 +9545,7 @@ function App() {// ════════════════════�
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
             {tab==="vehicles"          &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="register"/>}
             {tab==="triplogsadmin"     &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="triplogsadmin"/>}
-            {tab==="vehicles_pendingvh"&&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="pendingvh"/>}
-            {tab==="vehicles_pending"  &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="pending"/>}
+            {tab==="pendingapprovals"  &&user.role==="admin"&&<VehiclesSection {...sp} setTab={setTab} initialTab="pendingapprovals"/>}
             {tab==="clubactivity"&&<ClubActivitySection {...sp}/>}
             {tab==="commerce"   &&user.role==="admin"&&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
@@ -11200,7 +11198,142 @@ function VehicleSubmitModal({user,members,pendingCars,setPendingCars,onClose}) {
   );
 }
 
-// ── PENDING VEHICLES SECTION (admin review) ───────────────────────────────────
+// ── PENDING APPROVALS SECTION — unified queue (new submissions + status changes) ─
+function PendingApprovalsSection({user,members,cars,setCars,pendingCars,setPendingCars,pendingVehicleHistory,setPendingVehicleHistory,messages,setMessages}) {
+  const [rejectModal,setRejectModal]=React.useState(null);
+  const [rejectNote,setRejectNote]=React.useState("");
+  const carById=id=>(cars||[]).find(c=>c.id===id)||{};
+  const memberById=id=>(members||[]).find(m=>m.id===id)||{};
+  const pendingSubs=((pendingCars||[]).filter(p=>p.status==="pending")).map(p=>({...p,_type:"submission"}));
+  const pendingVH=((pendingVehicleHistory||[]).filter(e=>e.pendingStatus==="pending")).map(e=>({...e,_type:"statuschange"}));
+  const allPending=[...pendingSubs,...pendingVH].sort((a,b)=>(b.submittedAt||"").localeCompare(a.submittedAt||""));
+
+  async function approveSubmission(sub){
+    const newCar={id:uid("C"),reg:sub.reg,make:sub.make,model:sub.model,year:sub.year,colour:sub.colour,chassis:sub.chassis,ownerId:sub.ownerId,status:"active",registered:new Date().toISOString().slice(0,10),notes:sub.notes||"",photos:[],onPermit:false};
+    const updatedCars=[...cars,newCar];
+    setCars(updatedCars);await dbSet(SK.cars,updatedCars);
+    const updPending=(pendingCars||[]).map(p=>p.id===sub.id?{...p,status:"approved",reviewedAt:new Date().toISOString(),reviewedBy:user.name}:p);
+    setPendingCars(updPending);await dbSet(SK.pendingCars,updPending);
+    const msg={id:uid("M"),fromId:user.id,fromName:user.name,toMemberId:sub.ownerId,subject:"Vehicle Registration Approved",body:`Your ${sub.year} ${sub.make} ${sub.model} has been approved and added to the vehicle register.`,read:false,createdAt:new Date().toISOString()};
+    const updMsgs=[...(messages||[]),msg];setMessages(updMsgs);await dbSet(SK.messages,updMsgs);
+    toast(`${sub.make} ${sub.model} approved`,"success");
+  }
+  async function rejectSubmission(sub,note){
+    if(!note.trim())return toast("Please add a rejection note","error");
+    const updPending=(pendingCars||[]).map(p=>p.id===sub.id?{...p,status:"rejected",rejectNote:note,reviewedAt:new Date().toISOString(),reviewedBy:user.name}:p);
+    setPendingCars(updPending);await dbSet(SK.pendingCars,updPending);
+    const msg={id:uid("M"),fromId:user.id,fromName:user.name,toMemberId:sub.ownerId,subject:"Vehicle Registration Update",body:`Your ${sub.year} ${sub.make} ${sub.model} submission could not be approved.\n\nReason: ${note}\n\nPlease contact the committee if you have any questions.`,read:false,createdAt:new Date().toISOString()};
+    const updMsgs=[...(messages||[]),msg];setMessages(updMsgs);await dbSet(SK.messages,updMsgs);
+    toast("Submission rejected — member notified","info");
+    setRejectModal(null);setRejectNote("");
+  }
+  async function approveStatusChange(entry){
+    const car=carById(entry.vehicleId);
+    const histEntry={id:uid("H"),status:entry.status,date:entry.date,odometer:entry.odometer,colour:entry.colour,modifications:entry.modifications,newOwnerType:entry.newOwnerType,newOwnerId:entry.newOwnerId,newOwnerName:entry.newOwnerName,newOwnerEmail:entry.newOwnerEmail,newOwnerPhone:entry.newOwnerPhone,notes:entry.notes,recordedBy:entry.memberName,createdAt:new Date().toISOString()};
+    var updatedCar=Object.assign({},car,{status:entry.status,history:[...(car.history||[]),histEntry]});
+    if(entry.status==="transferred"&&entry.newOwnerType==="member"&&entry.newOwnerId) updatedCar.ownerId=entry.newOwnerId;
+    const updatedCars=(cars||[]).map(c=>c.id===entry.vehicleId?updatedCar:c);
+    setCars(updatedCars);await dbSet(SK.cars,updatedCars);
+    const updPvh=(pendingVehicleHistory||[]).filter(e=>e.id!==entry.id);
+    setPendingVehicleHistory(updPvh);await dbSet(SK.pendingVehicleHistory,updPvh);
+    toast("Status change approved","success");
+  }
+  async function rejectStatusChange(entry){
+    const updPvh=(pendingVehicleHistory||[]).filter(e=>e.id!==entry.id);
+    setPendingVehicleHistory(updPvh);await dbSet(SK.pendingVehicleHistory,updPvh);
+    setRejectModal(null);setRejectNote("");
+    toast("Update rejected","info");
+  }
+  function approve(item){
+    if(item._type==="submission") approveSubmission(item);
+    else approveStatusChange(item);
+  }
+  function openReject(item){setRejectModal(item);setRejectNote("");}
+  async function confirmReject(){
+    if(!rejectModal)return;
+    if(rejectModal._type==="submission") await rejectSubmission(rejectModal,rejectNote);
+    else await rejectStatusChange(rejectModal);
+  }
+  const statusLabel=s=>(s||"").replace(/_/g," ").replace(/\b\w/g,l=>l.toUpperCase());
+  return (
+    <div className="fade-up">
+      <SectionHeader title="Pending Approvals" subtitle={allPending.length+" awaiting review"}/>
+      {allPending.length===0&&<EmptyState icon="✓" text="No pending approvals"/>}
+      {allPending.map(item=>{
+        if(item._type==="submission"){
+          const owner=memberById(item.ownerId);
+          return(
+            <Card key={item.id} style={{padding:18,marginBottom:12}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",color:"white",background:"var(--blue2)",borderRadius:4,padding:"2px 7px"}}>New Vehicle</span>
+              </div>
+              <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,marginBottom:4}}>
+                {item.year} {item.make} {item.model}
+                {item.reg&&<span style={{marginLeft:8,fontSize:12,background:"var(--bg3)",padding:"2px 8px",borderRadius:4,fontFamily:"var(--font-m)",color:"var(--text2)"}}>{item.reg}</span>}
+              </div>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>
+                Submitted by <strong>{item.ownerName||owner.name||"—"}</strong> · {item.submittedAt?new Date(item.submittedAt).toLocaleDateString("en-AU"):"—"}
+              </div>
+              <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:12,color:"var(--text2)",marginBottom:10}}>
+                {item.colour&&<span>Colour: {item.colour}</span>}
+                {item.chassis&&<span>Chassis: {item.chassis}</span>}
+              </div>
+              {item.notes&&<div style={{fontSize:12,color:"var(--text3)",fontStyle:"italic",marginBottom:10}}>"{item.notes}"</div>}
+              <Row gap={8}><Btn size="sm" onClick={()=>approve(item)}>✓ Approve</Btn><Btn variant="ghost" size="sm" onClick={()=>openReject(item)}>✗ Reject</Btn></Row>
+            </Card>
+          );
+        }
+        const car=carById(item.vehicleId);
+        const owner=memberById(item.memberId);
+        const isSoldOrTx=item.status==="transferred"||item.status==="sold";
+        return(
+          <Card key={item.id} style={{padding:18,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+              <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",color:"white",background:"var(--burg)",borderRadius:4,padding:"2px 7px"}}>Status Change</span>
+              <Badge status={item.status} label={statusLabel(item.status)}/>
+            </div>
+            <div style={{fontFamily:"var(--font-d)",fontSize:15,fontWeight:700,marginBottom:4}}>
+              {item.vehicleDesc||(car.year+" "+car.make+" "+car.model)||"Unknown vehicle"}
+            </div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>
+              Current owner: <strong>{owner.name||"—"}</strong> · Submitted by <strong>{item.memberName||"—"}</strong> · {item.submittedAt?new Date(item.submittedAt).toLocaleDateString("en-AU"):"—"}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"3px 12px",fontSize:11,color:"var(--text2)",marginBottom:8}}>
+              {item.date&&<span>Date: {item.date}</span>}
+              {item.odometer&&<span>Odo: {Number(item.odometer).toLocaleString()} km</span>}
+              {item.colour&&<span>Colour: {item.colour}</span>}
+              {item.modifications&&<span>Mods: {item.modifications}</span>}
+              {isSoldOrTx&&item.newOwnerName&&<span>New owner: {item.newOwnerName}</span>}
+              {isSoldOrTx&&item.newOwnerEmail&&<span>Email: {item.newOwnerEmail}</span>}
+              {isSoldOrTx&&item.newOwnerPhone&&<span>Phone: {item.newOwnerPhone}</span>}
+            </div>
+            {item.notes&&<div style={{fontSize:11,color:"var(--text3)",fontStyle:"italic",marginBottom:10}}>{item.notes}</div>}
+            <Row gap={8}><Btn size="sm" onClick={()=>approve(item)}>✓ Approve</Btn><Btn variant="ghost" size="sm" onClick={()=>openReject(item)}>✗ Reject</Btn></Row>
+          </Card>
+        );
+      })}
+      {rejectModal&&(
+        <Modal title="Reject" onClose={()=>{setRejectModal(null);setRejectNote("");}}>
+          <div style={{marginBottom:12,fontSize:14}}>
+            {rejectModal._type==="submission"
+              ?<span>Rejecting new vehicle: <strong>{rejectModal.year} {rejectModal.make} {rejectModal.model}</strong></span>
+              :<span>Rejecting status change for <strong>{rejectModal.vehicleDesc}</strong></span>
+            }
+          </div>
+          <Field label={rejectModal._type==="submission"?"Reason for rejection *":"Reason (optional)"}>
+            <Textarea value={rejectNote} onChange={e=>setRejectNote(e.target.value)} rows={3} placeholder={rejectModal._type==="submission"?"This note will be sent to the member…":"Reason for rejection…"}/>
+          </Field>
+          <Row gap={8} justify="flex-end">
+            <Btn variant="ghost" onClick={()=>{setRejectModal(null);setRejectNote("");}}>Cancel</Btn>
+            <Btn variant="danger" onClick={confirmReject}>Reject</Btn>
+          </Row>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── PENDING VEHICLES SECTION (admin review) — kept for reference only ─────────
 function PendingVehiclesSection({user,members,cars,setCars,pendingCars,setPendingCars,messages,setMessages}) {
   const [selected,setSelected]=React.useState(null);
   const [rejectNote,setRejectNote]=React.useState("");
@@ -11444,11 +11577,9 @@ function PendingVehicleHistorySection({pendingVehicleHistory,setPendingVehicleHi
 
 function VehiclesSection(sp) {
   const isAdmin=sp.user&&sp.user.role==="admin";
-  const pendingCount=(sp.pendingCars||[]).filter(p=>p.status==="pending").length;
-  const pendingVHCount=(sp.pendingVehicleHistory||[]).filter(e=>e.pendingStatus==="pending").length;
+  const pendingCount=((sp.pendingCars||[]).filter(p=>p.status==="pending").length)+((sp.pendingVehicleHistory||[]).filter(e=>e.pendingStatus==="pending").length);
   const [vTab,setVTab]=React.useState(sp.initialTab||"register");
-  // Map internal tab id → left nav tab id so both stay in sync
-  const TAB_TO_NAV={register:"vehicles",triplogsadmin:"triplogsadmin",permits:"permits",pendingvh:"vehicles_pendingvh",pending:"vehicles_pending"};
+  const TAB_TO_NAV={register:"vehicles",triplogsadmin:"triplogsadmin",permits:"permits",pendingapprovals:"pendingapprovals"};
   function switchTab(id){
     setVTab(id);
     if(sp.setTab)sp.setTab(TAB_TO_NAV[id]||"vehicles");
@@ -11472,15 +11603,13 @@ function VehiclesSection(sp) {
         {tabBtn("register","Vehicle Register")}
         {tabBtn("triplogsadmin","Trip Logs")}
         {tabBtn("permits","Club Permits")}
-        {isAdmin&&tabBtn("pendingvh","Pending Vehicle Updates",pendingVHCount)}
-        {isAdmin&&tabBtn("pending","Pending Submissions",pendingCount)}
+        {isAdmin&&tabBtn("pendingapprovals","Pending Approvals",pendingCount)}
       </div>
       <div style={{paddingTop:8}}>
       {vTab==="register"&&<CarsSection {...sp}/>}
       {vTab==="triplogsadmin"&&<AdminTripLogsSection members={sp.members} cars={sp.cars} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
       {vTab==="permits"&&<ClubPermitSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} permits={sp.permits} setPermits={sp.setPermits} tripLogs={sp.tripLogs} setTripLogs={sp.setTripLogs}/>}
-      {vTab==="pendingvh"&&isAdmin&&<PendingVehicleHistorySection pendingVehicleHistory={sp.pendingVehicleHistory} setPendingVehicleHistory={sp.setPendingVehicleHistory} cars={sp.cars} setCars={sp.setCars} members={sp.members}/>}
-      {vTab==="pending"&&isAdmin&&<PendingVehiclesSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} messages={sp.messages} setMessages={sp.setMessages}/>}
+      {vTab==="pendingapprovals"&&isAdmin&&<PendingApprovalsSection user={sp.user} members={sp.members} cars={sp.cars} setCars={sp.setCars} pendingCars={sp.pendingCars} setPendingCars={sp.setPendingCars} pendingVehicleHistory={sp.pendingVehicleHistory} setPendingVehicleHistory={sp.setPendingVehicleHistory} messages={sp.messages} setMessages={sp.setMessages}/>}
       </div>
     </div>
   );
