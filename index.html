@@ -9578,7 +9578,6 @@ function App() {// ════════════════════�
             {tab==="archive"    &&user.role==="admin"&&<ClubArchiveSection user={user} archiveDocs={archiveDocs} setArchiveDocs={setArchiveDocs} points={points} setPoints={setPoints} books={books} setBooks={setBooks}/>}
             {tab==="competitions"&&<CompetitionsSection user={user} competitions={competitions} setCompetitions={setCompetitions} members={members} cars={cars} events={events} points={points} setPoints={setPoints}/>}
             {tab==="points"     &&user.role==="admin"&&<PointsAwardsSection user={user} members={members} points={points} setPoints={setPoints}/>}
-            {tab==="parts"      &&user.role==="admin"&&<PartsInventorySection user={user} parts={parts} setParts={setParts} partsInventory={partsInventory} setPartsInventory={setPartsInventory} shopItems={shopItems} setShopItems={setShopItems} accountSettings={accountSettings}/>}
           </div>
         </main>
       </div>
