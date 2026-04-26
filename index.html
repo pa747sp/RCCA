@@ -9304,7 +9304,7 @@ function App() {// ════════════════════�
   useEffect(()=>{
     const adminMap={
       members:"grp_members",applications:"grp_members",dues:"grp_members",membershipTypes:"grp_members",committee:"grp_members",
-      vehicles:"grp_vehicles",triplogsadmin:"grp_vehicles",permits:"grp_vehicles",
+      vehicles:"grp_vehicles",triplogsadmin:"grp_vehicles",permits:"grp_vehicles",vehicles_pendingvh:"grp_vehicles",vehicles_pending:"grp_vehicles",
       events:"grp_activity",meetings:"grp_activity",
       communications:"grp_comms",contacts:"grp_comms",polls:"grp_comms",
       finance:"grp_finance",finance_income:"grp_finance",finance_expenses:"grp_finance",finance_invoices:"grp_finance",
@@ -9353,9 +9353,11 @@ function App() {// ════════════════════�
       {id:"committee",       label:"Committee"},
     ]},
     { id:"grp_vehicles", label:"Vehicles", icon:"◎", items:[
-      {id:"vehicles",      label:"All Vehicles"},
-      {id:"triplogsadmin", label:"Trip Logs"},
-      {id:"permits",       label:"Permits"},
+      {id:"vehicles",          label:"Vehicle Register"},
+      {id:"triplogsadmin",     label:"Trip Logs"},
+      {id:"permits",           label:"Club Permits"},
+      {id:"vehicles_pendingvh",label:"Pending Vehicle Updates"},
+      {id:"vehicles_pending",  label:"Pending Submissions"},
     ]},
     { id:"grp_activity", label:"Club Activity", icon:"◆", items:[
       {id:"events",   label:"Events"},
@@ -9542,7 +9544,9 @@ function App() {// ════════════════════�
             {tab==="dashboard"  &&<Dashboard {...sp} setTab={setTab}/>}
             {/* Admin sections */}
             {tab==="members"    &&user.role==="admin"&&<MembersSection {...sp} setTab={setTab}/>}
-            {tab==="vehicles"   &&user.role==="admin"&&<VehiclesSection {...sp}/>}
+            {tab==="vehicles"          &&user.role==="admin"&&<CarsSection {...sp}/>}
+            {tab==="vehicles_pendingvh"&&user.role==="admin"&&<PendingVehicleHistorySection pendingVehicleHistory={pendingVehicleHistory} setPendingVehicleHistory={setPendingVehicleHistory} cars={cars} setCars={setCars} members={members}/>}
+            {tab==="vehicles_pending"  &&user.role==="admin"&&<PendingVehiclesSection user={user} members={members} cars={cars} setCars={setCars} pendingCars={pendingCars} setPendingCars={setPendingCars} messages={messages} setMessages={setMessages}/>}
             {tab==="clubactivity"&&<ClubActivitySection {...sp}/>}
             {tab==="commerce"   &&user.role==="admin"&&<CommerceSection {...sp} setTab={setTab}/>}
             {tab==="communications"&&user.role==="admin"&&<CommunicationsSection {...sp} setTab={setTab}/>}
